@@ -1,4 +1,4 @@
-# MonoGameP2P
+# MonoGameP2P (Simple-Approach: Client-Server Communication)
 
 1. Build the project (ctrl-shift-b)
 2. Launch Server instance (right click Server -> Debug -> Start new instance)
