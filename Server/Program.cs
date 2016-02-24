@@ -36,20 +36,28 @@ namespace Server
             listener = new TcpListener(IPAddress.Any, 8001);
         }
 
-        void EstablishConnection(object s, int id)
+        void EstablishConnection(Socket s, int id)
         {
             StringBuilder sb = new StringBuilder();
-            Socket socket = (Socket)s;
-            sockets.Add(socket);
-            Console.WriteLine("Connection accepted from " + socket.RemoteEndPoint);
+            sockets.Add(s);
+            Console.WriteLine("Connection accepted from " + s.RemoteEndPoint);
 
             byte[] buffer = new byte[2048];
-            int bytesRead = socket.Receive(buffer);
+            int bytesRead = s.Receive(buffer);
 
             sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
 
             string requestMessage = sb.ToString().Trim().ToLower();
-            string requestType = requestMessage.Substring(0, requestMessage.IndexOf(" ")).Trim();
+            string requestType = "";
+            if (requestMessage.IndexOf(" ") == -1)
+            {
+                requestType = requestMessage;
+            }
+            else
+            {
+                requestType = requestMessage.Substring(0, requestMessage.IndexOf(" ")).Trim();
+            }
+            
             requestMessage = requestMessage.Substring(requestType.Length).Trim();
             //Console.WriteLine("Recieved...");
 
@@ -60,19 +68,19 @@ namespace Server
             {
                 // All the data has been read from the 
                 // client. Display it on the console.
-                string pName = requestMessage.Substring(0, requestMessage.IndexOf(" "));
-                string thisClient = socket.LocalEndPoint.ToString() + " " + pName;
-               
+                string pName = requestMessage.Substring(0);
+                string thisClient = s.LocalEndPoint.ToString() + " " + pName;
+
                 playerQueue.Add(thisClient);
-               
+
                 if (playerQueue.Count < 2)
-                {         
+                {
                     matchingMRE.Reset();
-                    
+
                 }
                 else
                 {
-                    
+
                     matchingMRE.Set();
                 }
                 // Hangs until at least two players are in queue
@@ -81,9 +89,9 @@ namespace Server
 
                 string players = "";
 
-                for(int i = 1; i <= 2; i ++)
+                for (int i = 1; i <= 2; i++)
                 {
-                    players +=  playerQueue[i] + i + ",";
+                    players += playerQueue[i - 1] + " " + i + ",";
                 }
                 //pNameplayers.Substring(0,players.Length-1); ELEMINATE LAST COMMA?
                 responseMessage = RESP_SUCCESS + " " + REQ_GAME + " " + players;
@@ -103,7 +111,14 @@ namespace Server
 
                 Thread.Sleep(1000);
                 //Remove this player from this queue
-                playerQueue.Remove(thisClient);
+
+                if(playerQueue.Exists(player => (player == thisClient)))
+                {
+                    Console.WriteLine("Yo this exists");
+                    playerQueue.Remove(thisClient);
+                }
+
+
             }
             else if (requestType == REQ_PLAYERS)
             {
@@ -121,16 +136,22 @@ namespace Server
 
             }
 
+            Console.WriteLine("DEBUG: Response sent: " + responseMessage);
+
             ASCIIEncoding asen = new ASCIIEncoding();
 
             byte[] b = asen.GetBytes(responseMessage + "\n\n");
 
             Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
 
-            socket.Send(b);
+            s.Send(b);
 
             Console.WriteLine("\nSent Acknowledgement");
-            sockets.Remove(socket);
+            if(sockets.Exists(soc => soc == s))
+            {
+                sockets.Remove(s);
+            }
+            
 
         }
 

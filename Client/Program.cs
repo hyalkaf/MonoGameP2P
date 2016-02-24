@@ -20,6 +20,7 @@ namespace Client
         public const string REQ_CANCEL = "cancel";
         public const string SERVER_IP = "127.0.0.1";
         const string RESP_SUCCESS = "success";
+        
 
         // Fileds for Peers
         private List<TcpClient> _peerSender;
@@ -29,6 +30,7 @@ namespace Client
         private int portListener;
         const string TURN = "turn";
         const string QUIT = "quit";
+        List<Tuple<string, string, int>> peersInfo;
 
         public ClientProgram(int portSender, int portListener, string player = "NewPlayer")
         {
@@ -54,6 +56,8 @@ namespace Client
         private void inializePeers()
         {
             _peerSender = new List<TcpClient>();
+            _peerSender.Add(null);
+
             _peerListener = new TcpListener(IPAddress.Any, portListener);
             peersIDToPosition = new Dictionary<int, int>();
         }
@@ -72,6 +76,7 @@ namespace Client
             }
 
             reqMessage += "\n\n";
+
             Stream stm = client.GetStream();
 
             ASCIIEncoding asen = new ASCIIEncoding();
@@ -102,6 +107,59 @@ namespace Client
             if (!inGame) {
                 connectToServer();
             }
+        }
+
+        private int processResponse(string responseMessage)
+        {
+
+            responseMessage = responseMessage.Trim();
+
+            if (responseMessage.StartsWith(RESP_SUCCESS) /*&& responseMessage.EndsWith("\n\n")*/)
+            {
+                responseMessage = responseMessage.Substring(RESP_SUCCESS.Length).Trim();
+
+                string requestType = responseMessage.Substring(0, responseMessage.IndexOf(" ")).Trim();
+                responseMessage = responseMessage.Substring(requestType.Length);
+
+                Console.WriteLine("\nDEBUG: " + requestType + "\n");
+                if (requestType == REQ_GAME)
+                {
+                    peersInfo = new List<Tuple<string, string, int>>();
+                    IEnumerable<string> temp = responseMessage.Split(',');
+                    peersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
+                    {
+                        string[] peerInfo = info.Trim().Split(' ');
+                        Tuple<string, string, int> t = null;
+                        if (!string.IsNullOrEmpty(info))
+                        {
+                            t =  new Tuple<string, string, int>(peerInfo[0], peerInfo[1], int.Parse(peerInfo[2])); 
+                        }
+
+                        return t;
+                       
+                    }).ToList();
+                    
+                    inGame = true;
+                    return 0;
+                }
+                else if (requestType == REQ_PLAYERS)
+                {
+                    // DISPLAY playernum ON GUI
+                    string playernum = responseMessage;
+                    Console.WriteLine("\nNum of Players on server now: " + playernum);
+                    return 0;
+                }
+                else if (requestType == REQ_CANCEL)
+                {
+                    // INDICATES THAT THE USER HAVE CANCELED 
+                    Console.WriteLine("\nYou have CANCELED your match making.");
+                    return 0;
+                }
+
+            }
+
+            return -1;
+
         }
 
         public void SendRequestPeers(string msg = "")
@@ -136,9 +194,6 @@ namespace Client
                 //Console.WriteLine("Waiting");
                 //int k = stm.Read(bb, 0, 2048);
 
-
-
-
                 ps.Close();
             });
 
@@ -149,7 +204,7 @@ namespace Client
             /* Start Listeneting at the specified port */
             _peerListener.Start();
 
-            Console.WriteLine("The peer is running at port 8001...");
+            Console.WriteLine("The peer is running at port {0}...", portListener);
             Console.WriteLine("The local End point is  :" +
                               _peerListener.LocalEndpoint);
             int counter = 0;
@@ -192,7 +247,7 @@ namespace Client
 
             String requestMessage = sb.ToString().Trim().ToLower();
 
-            //Console.WriteLine("Recieved...");
+            Console.WriteLine("DEBUG: Response: " + requestMessage);
 
             Console.WriteLine(requestMessage);
             string responseMessage = "I DO NOT UNDERSTAND THIS REQUEST";
@@ -223,7 +278,7 @@ namespace Client
 
 
                 // Keep track of peers with their position
-                peersIDToPosition[numberOne] += numberTwo;
+                // peersIDToPosition[numberOne] += numberTwo;
 
             }
             else if (requestMessage.StartsWith(QUIT))
@@ -251,7 +306,7 @@ namespace Client
 
 
                 // Keep track of peers with their position
-                peersIDToPosition[numberOne] += numberTwo;
+                // peersIDToPosition[numberOne] += numberTwo;
             }
 
 
@@ -263,77 +318,54 @@ namespace Client
 
             s.Send(b);
 
-            Console.WriteLine("\nSent Acknowledgement");
-
         }
 
-        private int processResponse(string responseMessage)
-        {
-
-            responseMessage = responseMessage.Trim();
-   
-            if (responseMessage.StartsWith(RESP_SUCCESS) /*&& responseMessage.EndsWith("\n\n")*/)
-            {
-                responseMessage = responseMessage.Substring(RESP_SUCCESS.Length).Trim();
-
-                string requestType = responseMessage.Substring(0, responseMessage.IndexOf(" ")).Trim();
-                responseMessage = responseMessage.Substring(requestType.Length);
-
-                Console.WriteLine("\nDEBUG: " + requestType+"\n");
-                if (requestType == REQ_GAME)
-                {
-                    string[] addressList = responseMessage.Split(',');
-                    new Thread(() => {
-                        //PROCESS p2p CONNECTION USING THE ADDRESS LIST ABOVE
-                        inializePeers();
-                        new Thread(() => {
-                            Console.WriteLine("Connected Peers");
-                            StartListenPeers();
-                            
-                        });   
-                    });
-
-                    inGame = true;
-                    return 0;
-                }
-                else if(requestType == REQ_PLAYERS)
-                {
-                    // DISPLAY playernum ON GUI
-                    string playernum = responseMessage;
-                    return 0;
-                }
-                else if (requestType == REQ_CANCEL)
-                {
-                    // INDICATES THAT THE USER HAVE CANCELED 
-                    return 0;
-                }
-                
-            }
-           
-            return -1;
-            
-        }
 
         public void startClient()
         {
-            try { 
+            try {
+                while (true) { 
+                    if(!inGame) {
 
-                while (!inGame) {
+                        Console.Write("Send request (game, players, cancel): ");
+                        var request = Console.ReadLine().Trim().ToLower();
 
-                    Console.Write("Send request (game, players, cancel): ");
-                    var request = Console.ReadLine().Trim().ToLower();
-
-                    Thread t = new Thread(() => {
-                        Console.WriteLine("Sending request \" {0} \"", request);
-                        SendRequest(request);
+                        //Thread t = new Thread(() => {
+                            Console.WriteLine("Sending request \"{0}\"", request);
+                            SendRequest(request);
         
-                    });
+                       // });
 
-                    t.Start();
+                       // t.Start();
+                    }
+
+                    else
+                    {
+                        break;
+
+                    }
                 }
+
+                inializePeers();
+                new Thread(() => {
+                    Console.WriteLine("\nDEBUG: Peer listen start");
+                    StartListenPeers();
+                }).Start();
+
+
+                while (true)
+                {
+                    Console.Write("Enter request (turn, quit): ");
+                    string req = Console.ReadLine();
+                    req += " " + peersInfo.Where(elem => elem.Item2 == playerName).First().Item3 + " " + 0;
+                   
+                    SendRequestPeers(req);
+                }
+
             } catch (Exception e) {
                 Console.WriteLine("Something Wrong");
                 client.Close();
+                Console.Error.WriteLine(e.StackTrace);
             };
         }
 
@@ -341,7 +373,7 @@ namespace Client
         {
             try
             {
-                Console.Write("Enter IGN: ");
+                Console.Write("Enter Your Player Name: ");
                 string pName = Console.ReadLine();
                 Console.Write("Enter the port of the sender: ");
                 int portSender = int.Parse(Console.ReadLine());
