@@ -12,6 +12,13 @@ namespace Server
 {
     public class ServerProgram
     {
+        const string REQ_GAME = "game";
+        const string REQ_PLAYERS = "players";
+        const string REQ_CANCEL = "cancel";
+    
+        const string RESP_SUCCESS = "success";
+       
+
         private ArrayList playerQueue;
         private ArrayList sockets;
         private TcpListener listener;
@@ -41,21 +48,22 @@ namespace Server
 
             sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
 
-            String request = sb.ToString().Trim().ToLower();
+            String requestMessage = sb.ToString().Trim().ToLower();
 
-            Console.WriteLine("Recieved...");
+            //Console.WriteLine("Recieved...");
 
-            Console.WriteLine(request);
-            string response = "I DO NOT UNDERSTAND THIS REQUEST";
-            if (request.StartsWith("game"))
+            Console.WriteLine(requestMessage);
+            string responseMessage = "I DO NOT UNDERSTAND THIS REQUEST";
+
+            if (requestMessage.StartsWith(REQ_GAME))
             {
                 // All the data has been read from the 
                 // client. Display it on the console.
  
                 string thisClient = "[" + socket.LocalEndPoint.ToString() + " ID:" + id + "]";
-
+               
                 playerQueue.Add(thisClient);
-
+               
                 if (playerQueue.Count < 2)
                 {         
                     matchingMRE.Reset();
@@ -76,7 +84,7 @@ namespace Server
                     players += i + " " + playerQueue[i] + ",";
                 }
 
-                response = "You are matched with:\n" + players;
+                responseMessage = RESP_SUCCESS + " " + REQ_GAME + " You are matched with:\n" + players;
 
                 if (++matchingCounter < 2)
                 {
@@ -88,36 +96,36 @@ namespace Server
                     matchingCounter = 0;
                 }
 
+                //Hangs until response messages are formed complete for every matched player
                 matchedMRE.WaitOne();
-                foreach (var p in playerQueue)
-                    Console.Write("{0}", p);
 
-                Console.WriteLine("DEBUG: ");
-
-                Thread.Sleep(799);
-               // playerQueue.Remove(thisClient);
+                Thread.Sleep(1000);
+                //Remove this player from this queue
+                playerQueue.Remove(thisClient);
             }
-            else if (request.StartsWith("players"))
+            else if (requestMessage.StartsWith(REQ_PLAYERS))
+            {
+                responseMessage = RESP_SUCCESS + " " + REQ_PLAYERS + "  " + sockets.Count;
+
+
+            }
+            else if (requestMessage.StartsWith(REQ_CANCEL))
             {
                 // All the data has been read from the 
                 // client. Display it on the console.
-                response = "All players: " + sockets.ToString();
-
-                // Echo the data back to the client.
-
-            }
-            else if (request == "cancel")
-            {
-                // All the data has been read from the 
-                // client. Display it on the console.
-                response = "YOU CANCELED your match request.";
+                responseMessage = RESP_SUCCESS + " " + REQ_CANCEL + " YOU CANCELED your match request.";
 
                 // Echo the data back to the client.
 
             }
 
             ASCIIEncoding asen = new ASCIIEncoding();
-            socket.Send(asen.GetBytes("The string was recieved by the server.\n\n" + response + "\n\n"));
+
+            byte[] b = asen.GetBytes(responseMessage + "\n\n");
+
+            Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
+
+            socket.Send(b);
 
             Console.WriteLine("\nSent Acknowledgement");
             sockets.Remove(socket);
@@ -129,12 +137,9 @@ namespace Server
             /* Start Listeneting at the specified port */
             listener.Start();
 
-
             Console.WriteLine("The server is running at port 8001...");
             Console.WriteLine("The local End point is  :" +
                               listener.LocalEndpoint);
-
-
             int counter = 0;
             do
             {
