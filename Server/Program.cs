@@ -19,8 +19,8 @@ namespace Server
         const string RESP_SUCCESS = "success";
        
 
-        private ArrayList playerQueue;
-        private ArrayList sockets;
+        private List<string> playerQueue;
+        private List<Socket> sockets;
         private TcpListener listener;
         private ManualResetEvent matchingMRE;
         private ManualResetEvent matchedMRE;
@@ -28,8 +28,8 @@ namespace Server
         private int matchingCounter = 0;
         public ServerProgram()
         {
-            sockets = new ArrayList();
-            playerQueue = new ArrayList();
+            sockets = new List<Socket>();
+            playerQueue = new List<string>();
             matchingMRE = new ManualResetEvent(false);
             matchedMRE = new ManualResetEvent(false);
             /* Initializes the Listener */
@@ -48,19 +48,20 @@ namespace Server
 
             sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
 
-            String requestMessage = sb.ToString().Trim().ToLower();
-
+            string requestMessage = sb.ToString().Trim().ToLower();
+            string requestType = requestMessage.Substring(0, requestMessage.IndexOf(" ")).Trim();
+            requestMessage = requestMessage.Substring(requestType.Length).Trim();
             //Console.WriteLine("Recieved...");
 
             Console.WriteLine(requestMessage);
             string responseMessage = "I DO NOT UNDERSTAND THIS REQUEST";
 
-            if (requestMessage.StartsWith(REQ_GAME))
+            if (requestType == REQ_GAME)
             {
                 // All the data has been read from the 
                 // client. Display it on the console.
- 
-                string thisClient = "[" + socket.LocalEndPoint.ToString() + " ID:" + id + "]";
+                string pName = requestMessage.Substring(0, requestMessage.IndexOf(" "));
+                string thisClient = socket.LocalEndPoint.ToString() + " " + pName;
                
                 playerQueue.Add(thisClient);
                
@@ -71,6 +72,7 @@ namespace Server
                 }
                 else
                 {
+                    
                     matchingMRE.Set();
                 }
                 // Hangs until at least two players are in queue
@@ -79,12 +81,12 @@ namespace Server
 
                 string players = "";
 
-                for(int i = 0; i < 2; i ++)
+                for(int i = 1; i <= 2; i ++)
                 {
-                    players += i + " " + playerQueue[i] + ",";
+                    players +=  playerQueue[i] + i + ",";
                 }
-
-                responseMessage = RESP_SUCCESS + " " + REQ_GAME + " You are matched with:\n" + players;
+                //pNameplayers.Substring(0,players.Length-1); ELEMINATE LAST COMMA?
+                responseMessage = RESP_SUCCESS + " " + REQ_GAME + " " + players;
 
                 if (++matchingCounter < 2)
                 {
@@ -103,13 +105,13 @@ namespace Server
                 //Remove this player from this queue
                 playerQueue.Remove(thisClient);
             }
-            else if (requestMessage.StartsWith(REQ_PLAYERS))
+            else if (requestType == REQ_PLAYERS)
             {
                 responseMessage = RESP_SUCCESS + " " + REQ_PLAYERS + "  " + sockets.Count;
 
 
             }
-            else if (requestMessage.StartsWith(REQ_CANCEL))
+            else if (requestType == REQ_CANCEL)
             {
                 // All the data has been read from the 
                 // client. Display it on the console.
