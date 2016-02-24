@@ -13,14 +13,17 @@ namespace Client
     {
         TcpClient client;
         private string playerName;
+        private bool inGame = false;
         public const string REQ_GAME = "game";
         public const string REQ_PLAYERS = "players";
         public const string REQ_CANCEL = "cancel";
+        public const string SERVER_IP = "127.0.0.1";
+        const string RESP_SUCCESS = "success";
 
         public ClientProgram(string player = "NewPlayer")
         {
+            connectToServer();
             playerName = player;
-            
         }
 
         private void connectToServer()
@@ -30,7 +33,7 @@ namespace Client
 
             // use the ipaddress as in the server program
           
-            client.Connect("127.0.0.1", 8001);
+            client.Connect(SERVER_IP, 8001);
             
             Console.WriteLine("Connected");
             
@@ -38,21 +41,23 @@ namespace Client
 
         public void SendRequest(string msg = "")
         {
-            connectToServer();
-            String reqMessage = msg;
-            if (msg == "")
-            {
-                Console.Write("Request message was empty, please re-enter: ");
 
-                reqMessage = Console.ReadLine();
+            string reqMessage = msg;
+
+
+            if(reqMessage == REQ_GAME || reqMessage == REQ_CANCEL)
+            {
+                reqMessage += " " + playerName;
+
             }
 
+            reqMessage += "\n\n";
             Stream stm = client.GetStream();
 
             ASCIIEncoding asen = new ASCIIEncoding();
             byte[] ba = asen.GetBytes(reqMessage);
-            Console.WriteLine("Transmitting your request to the server.....\n");
 
+            Console.WriteLine("Transmitting your request to the server.....\n");
             stm.Write(ba, 0, ba.Length);
 
             byte[] bb = new byte[2048];
@@ -67,27 +72,24 @@ namespace Client
                 responseMessage += c;
             }
 
-            string result = parseResponse(responseMessage);
-            if (result != null) {
-                Console.WriteLine("\nDEBUG: RESPONSE:\n" + result);
-            }
-            else
-            {
+           ;
+
+            if (processResponse(responseMessage) == -1) {
                 Console.WriteLine("\nDEBUG: INVALID REQUEST/RESPONSE\n");
             }
-           
 
             client.Close();
+            connectToServer();
         }
 
-        private string parseResponse(string responseMessage)
+        private int processResponse(string responseMessage)
         {
 
             responseMessage = responseMessage.Trim();
    
-            if (responseMessage.StartsWith("success"))
+            if (responseMessage.StartsWith(RESP_SUCCESS) /*&& responseMessage.EndsWith("\n\n")*/)
             {
-                responseMessage = responseMessage.Substring("success".Length).Trim();
+                responseMessage = responseMessage.Substring(RESP_SUCCESS.Length).Trim();
 
                 string requestType = responseMessage.Substring(0, responseMessage.IndexOf(" ")).Trim();
                 responseMessage = responseMessage.Substring(requestType.Length);
@@ -95,34 +97,43 @@ namespace Client
                 Console.WriteLine("\nDEBUG: " + requestType+"\n");
                 if (requestType == REQ_GAME)
                 {
-                    return responseMessage;
+                    string[] addressList = responseMessage.Split(',');
+                    new Thread(() => {
+                        //PROCESS p2p CONNECTION USING THE ADDRESS LIST ABOVE
+                    }) ;
+
+                    inGame = true;
+                    return 0;
                 }
                 else if(requestType == REQ_PLAYERS)
                 {
-                    return responseMessage;
+                    // DISPLAY playernum ON GUI
+                    string playernum = responseMessage;
+                    return 0;
                 }
                 else if (requestType == REQ_CANCEL)
                 {
-                    return responseMessage;
+                    // INDICATES THAT THE USER HAVE CANCELED 
+                    return 0;
                 }
-
                 
             }
            
-            return null;
+            return -1;
             
         }
 
         public void startClient()
         {
             try { 
-                while (true) {
-                   
+
+                while (!inGame) {
+
                     Console.Write("Send request (game, players, cancel): ");
                     var request = Console.ReadLine().Trim().ToLower();
 
                     Thread t = new Thread(() => {
-                        Console.WriteLine("Sending requestion \" {0} \"", request);
+                        Console.WriteLine("Sending request \" {0} \"", request);
                         SendRequest(request);
         
                     });
