@@ -131,6 +131,44 @@ namespace Client
 
         }
 
+        public void SendRequest(string msg = "")
+        {
+            Parallel.ForEach(_peerSender, ps =>
+            {
+                ps = new TcpClient();
+                Console.WriteLine("Connecting.....");
+
+                // use the ipaddress as in the server program
+                ps.Connect("127.0.0.1", portSender);
+
+                Console.WriteLine("Connected");
+
+                String reqMessage = msg;
+                if (msg == "")
+                {
+                    Console.Write("Request message was empty, please re-enter: ");
+
+                    reqMessage = Console.ReadLine();
+                }
+
+                Stream stm = ps.GetStream();
+
+                ASCIIEncoding asen = new ASCIIEncoding();
+                byte[] ba = asen.GetBytes(reqMessage);
+                Console.WriteLine("Transmitting your request to the server.....\n");
+
+                stm.Write(ba, 0, ba.Length);
+
+                //byte[] bb = new byte[2048];
+                //Console.WriteLine("Waiting");
+                //int k = stm.Read(bb, 0, 2048);
+
+
+
+
+                ps.Close();
+            });
+        }
 
         public void StartListen()
         {
@@ -172,87 +210,49 @@ namespace Client
         /// 
         /// </summary>
         /// <param name="msg"></param>
-        public void SendRequest(string msg = "")
-        {
-            Parallel.ForEach(_peerSender, ps =>
-            { 
-                ps = new TcpClient();
-                Console.WriteLine("Connecting.....");
+        
 
-                // use the ipaddress as in the server program
-                ps.Connect("127.0.0.1", portSender);
+        //static void Main(string[] args)
+        //{
+        //    try
+        //    {
+        //        Console.Write("Enter IGN: ");
+        //        string pName = Console.ReadLine();
+        //        List<string> test = new List<string>();
+        //        test.Add("127.0.0.1");
+        //        test.Add("127.0.0.1");
 
-                Console.WriteLine("Connected");
+        //        Peer client1 = new Peer(test, 8000, 9000);
+        //        Peer client2 = new Peer(test, 9000, 8000);
+        //        new Thread(() =>
+        //        {
+        //            client1.StartListen();
+        //        }).Start();
 
-                String reqMessage = msg;
-                if (msg == "")
-                {
-                    Console.Write("Request message was empty, please re-enter: ");
+        //        new Thread(() =>
+        //        {
+        //            client2.StartListen();
+        //        }).Start();
 
-                    reqMessage = Console.ReadLine();
-                }
+        //        new Thread(() =>
+        //        {
+        //            client2.SendRequest("quit 2 1 \n \n");
+        //        }).Start();
 
-                Stream stm = ps.GetStream();
+        //        new Thread(() =>
+        //        {
+        //            client1.SendRequest("turn 2 1 \n \n");
+        //        }).Start();
 
-                ASCIIEncoding asen = new ASCIIEncoding();
-                byte[] ba = asen.GetBytes(reqMessage);
-                Console.WriteLine("Transmitting your request to the server.....\n");
+        //        Console.Write("--See you next time--");
+        //        Console.Read();
+        //    }
 
-                stm.Write(ba, 0, ba.Length);
-
-                //byte[] bb = new byte[2048];
-                //Console.WriteLine("Waiting");
-                //int k = stm.Read(bb, 0, 2048);
-
-                
-
-
-                ps.Close();
-            });
-            
-        }
-
-        static void Main(string[] args)
-        {
-            try
-            {
-                Console.Write("Enter IGN: ");
-                string pName = Console.ReadLine();
-                List<string> test = new List<string>();
-                test.Add("127.0.0.1");
-                test.Add("127.0.0.1");
-
-                Peer client1 = new Peer(test, 8000, 9000);
-                Peer client2 = new Peer(test, 9000, 8000);
-                new Thread(() =>
-                {
-                    client1.StartListen();
-                }).Start();
-
-                new Thread(() =>
-                {
-                    client2.StartListen();
-                }).Start();
-
-                new Thread(() =>
-                {
-                    client2.SendRequest("quit 2 1 \n \n");
-                }).Start();
-
-                new Thread(() =>
-                {
-                    client1.SendRequest("turn 2 1 \n \n");
-                }).Start();
-
-                Console.Write("--See you next time--");
-                Console.Read();
-            }
-
-            catch (Exception e)
-            {
-                Console.WriteLine("Error..... " + e.StackTrace);
-            }
-        }
+        //    catch (Exception e)
+        //    {
+        //        Console.WriteLine("Error..... " + e.StackTrace);
+        //    }
+        //}
 
     }
 }

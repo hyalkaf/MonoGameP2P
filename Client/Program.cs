@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -20,10 +21,21 @@ namespace Client
         public const string SERVER_IP = "127.0.0.1";
         const string RESP_SUCCESS = "success";
 
-        public ClientProgram(string player = "NewPlayer")
+        // Fileds for Peers
+        private List<TcpClient> _peerSender;
+        private TcpListener _peerListener;
+        private Dictionary<int, int> peersIDToPosition;
+        private int portSender;
+        private int portListener;
+        const string TURN = "turn";
+        const string QUIT = "quit";
+
+        public ClientProgram(int portSender, int portListener, string player = "NewPlayer")
         {
             connectToServer();
             playerName = player;
+            this.portListener = portListener;
+            this.portSender = portSender;
         }
 
         private void connectToServer()
@@ -38,6 +50,14 @@ namespace Client
             Console.WriteLine("Connected");
             
         }
+
+        private void inializePeers()
+        {
+            _peerSender = new List<TcpClient>();
+            _peerListener = new TcpListener(IPAddress.Any, portListener);
+            peersIDToPosition = new Dictionary<int, int>();
+        }
+
 
         public void SendRequest(string msg = "")
         {
@@ -79,7 +99,172 @@ namespace Client
             }
 
             client.Close();
-            connectToServer();
+            if (!inGame) {
+                connectToServer();
+            }
+        }
+
+        public void SendRequestPeers(string msg = "")
+        {
+            Parallel.ForEach(_peerSender, ps =>
+            {
+                ps = new TcpClient();
+                Console.WriteLine("Connecting.....");
+
+                // use the ipaddress as in the server program
+                ps.Connect("127.0.0.1", portSender);
+
+                Console.WriteLine("Connected");
+
+                String reqMessage = msg;
+                if (msg == "")
+                {
+                    Console.Write("Request message was empty, please re-enter: ");
+
+                    reqMessage = Console.ReadLine();
+                }
+
+                Stream stm = ps.GetStream();
+
+                ASCIIEncoding asen = new ASCIIEncoding();
+                byte[] ba = asen.GetBytes(reqMessage);
+                Console.WriteLine("Transmitting your request to the server.....\n");
+
+                stm.Write(ba, 0, ba.Length);
+
+                //byte[] bb = new byte[2048];
+                //Console.WriteLine("Waiting");
+                //int k = stm.Read(bb, 0, 2048);
+
+
+
+
+                ps.Close();
+            });
+
+        }
+
+        public void StartListenPeers()
+        {
+            /* Start Listeneting at the specified port */
+            _peerListener.Start();
+
+            Console.WriteLine("The peer is running at port 8001...");
+            Console.WriteLine("The local End point is  :" +
+                              _peerListener.LocalEndpoint);
+            int counter = 0;
+            do
+            {
+                counter++;
+                try
+                {
+                    Console.WriteLine("Waiting for a connection {0} .....", counter);
+                    Socket s = _peerListener.AcceptSocket();
+
+                    new Thread(() => {
+                        EstablishConnectionPeers(s, counter);
+                    }).Start();
+
+
+
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Something went wrong!");
+                    _peerListener.Stop();
+                    Console.WriteLine(e.StackTrace);
+                }
+            } while (true);
+            /* clean up */
+
+
+        }
+
+        void EstablishConnectionPeers(Socket s, int id)
+        {
+            StringBuilder sb = new StringBuilder();
+            Console.WriteLine("Connection accepted from " + s.RemoteEndPoint);
+
+            byte[] buffer = new byte[2048];
+            int bytesRead = s.Receive(buffer);
+
+            sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
+
+            String requestMessage = sb.ToString().Trim().ToLower();
+
+            //Console.WriteLine("Recieved...");
+
+            Console.WriteLine(requestMessage);
+            string responseMessage = "I DO NOT UNDERSTAND THIS REQUEST";
+
+            // When a peer is broadcasting its turn
+            if (requestMessage.StartsWith(TURN))
+            {
+
+                if (!peersIDToPosition.ContainsKey(id))
+                {
+                    peersIDToPosition.Add(id, 0);
+                }
+
+                responseMessage = "TURN";
+
+                // Parse the request message
+                string trimmedMessage = requestMessage.Trim();
+                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(4).ToList();
+
+                // Get the first number in the turn message
+                int numberOne = (int)Char.GetNumericValue(restOfMessageAfterTurn.SkipWhile(ch =>
+                    char.IsWhiteSpace(ch)).TakeWhile(ch => !char.IsWhiteSpace(ch)).First());
+
+                // Get the second the number in the turn message
+                int numberTwo = (int)Char.GetNumericValue(restOfMessageAfterTurn.SkipWhile(ch =>
+                    char.IsWhiteSpace(ch)).SkipWhile(ch => !char.IsWhiteSpace(ch)).SkipWhile(ch =>
+                    char.IsWhiteSpace(ch)).TakeWhile(ch => !char.IsWhiteSpace(ch)).First());
+
+
+                // Keep track of peers with their position
+                peersIDToPosition[numberOne] += numberTwo;
+
+            }
+            else if (requestMessage.StartsWith(QUIT))
+            {
+                if (!peersIDToPosition.ContainsKey(id))
+                {
+                    peersIDToPosition.Add(id, 0);
+                }
+
+                responseMessage = "QUIT";
+
+                // Parse the request message
+                string trimmedMessage = requestMessage.Trim();
+                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(4).ToList();
+
+                // Get the first number in the turn message
+                int numberOne = (int)Char.GetNumericValue(restOfMessageAfterTurn.SkipWhile(ch =>
+                    char.IsWhiteSpace(ch)).TakeWhile(ch => !char.IsWhiteSpace(ch)).First());
+
+                // Get the second the number in the turn message
+                int numberTwo = (int)Char.GetNumericValue(restOfMessageAfterTurn.SkipWhile(ch =>
+                    char.IsWhiteSpace(ch)).SkipWhile(ch => !char.IsWhiteSpace(ch)).SkipWhile(ch =>
+                    char.IsWhiteSpace(ch)).TakeWhile(ch => !char.IsWhiteSpace(ch)).First());
+
+
+
+                // Keep track of peers with their position
+                peersIDToPosition[numberOne] += numberTwo;
+            }
+
+
+            ASCIIEncoding asen = new ASCIIEncoding();
+
+            byte[] b = asen.GetBytes(responseMessage + "\n\n");
+
+            Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
+
+            s.Send(b);
+
+            Console.WriteLine("\nSent Acknowledgement");
+
         }
 
         private int processResponse(string responseMessage)
@@ -100,7 +285,13 @@ namespace Client
                     string[] addressList = responseMessage.Split(',');
                     new Thread(() => {
                         //PROCESS p2p CONNECTION USING THE ADDRESS LIST ABOVE
-                    }) ;
+                        inializePeers();
+                        new Thread(() => {
+                            Console.WriteLine("Connected Peers");
+                            StartListenPeers();
+                            
+                        });   
+                    });
 
                     inGame = true;
                     return 0;
@@ -152,7 +343,11 @@ namespace Client
             {
                 Console.Write("Enter IGN: ");
                 string pName = Console.ReadLine();
-                ClientProgram aClient = new ClientProgram(pName);
+                Console.Write("Enter the port of the sender: ");
+                int portSender = int.Parse(Console.ReadLine());
+                Console.Write("Enter the port to listen to: ");
+                int portListener = int.Parse(Console.ReadLine());
+                ClientProgram aClient = new ClientProgram(portSender, portListener, pName);
                 aClient.startClient();
 
 
