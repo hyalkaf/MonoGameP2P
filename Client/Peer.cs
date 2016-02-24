@@ -19,10 +19,11 @@ namespace Client
         // Initalize variables for peer(client) connecting to other peers(clients)
         private TcpListener _peerListener;
         private List<TcpClient> _peerSender;
+        private List<string> _peersIPAddresses;
         private List<string> _peers;
         private Dictionary<int, int> peersIDToPosition;
-        private List<Socket> _peersSockets;
-        private ManualResetEvent _matchingMRE;
+        private int portSender;
+        private int portListener;
         const string TURN = "turn";
         const string QUIT = "quit";
 
@@ -30,18 +31,22 @@ namespace Client
         /// 
         /// </summary>
         /// <param name="port"></param>
-        public Peer(List<string> peersIPAddress)
+        public Peer(List<string> peersIPAddress, int portSender, int portListener)
         {
             /* Initializes the Listener */
-            _peerListener = new TcpListener(IPAddress.Any, 8001);
 
-
+            _peerSender = new List<TcpClient>();
+            TcpClient temp = null;
+            _peerSender.Add(temp);
+            this.portListener = portListener;
+            this.portSender = portSender;
+            peersIDToPosition = new Dictionary<int, int>();
+            _peerListener = new TcpListener(IPAddress.Any, portListener);
         }
 
         void EstablishConnection(Socket s, int id)
         {
             StringBuilder sb = new StringBuilder();
-            _peersSockets.Add(s);
             Console.WriteLine("Connection accepted from " + s.RemoteEndPoint);
 
             byte[] buffer = new byte[2048];
@@ -69,32 +74,17 @@ namespace Client
 
                 // Parse the request message
                 string trimmedMessage = requestMessage.Trim();
-                string restOfMessageAfterTurn = trimmedMessage.Substring(4);
+                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(4).ToList();
 
                 // Get the first number in the turn message
-                string peerID = restOfMessageAfterTurn.SkipWhile(ch =>
-                    Char.IsWhiteSpace(ch)).TakeWhile(ch => !Char.IsWhiteSpace(ch)).ToString();
+                int numberOne = (int)Char.GetNumericValue(restOfMessageAfterTurn.SkipWhile(ch =>
+                    char.IsWhiteSpace(ch)).TakeWhile(ch => !char.IsWhiteSpace(ch)).First());
 
                 // Get the second the number in the turn message
-                string peerNumberOfMoves = restOfMessageAfterTurn.SkipWhile(ch =>
-                    Char.IsWhiteSpace(ch)).SkipWhile(ch => !Char.IsWhiteSpace(ch)).SkipWhile(ch =>
-                    Char.IsWhiteSpace(ch)).TakeWhile(ch => !Char.IsWhiteSpace(ch)).ToString();
+                int numberTwo = (int)Char.GetNumericValue(restOfMessageAfterTurn.SkipWhile(ch =>
+                    char.IsWhiteSpace(ch)).SkipWhile(ch => !char.IsWhiteSpace(ch)).SkipWhile(ch =>
+                    char.IsWhiteSpace(ch)).TakeWhile(ch => !char.IsWhiteSpace(ch)).First());
 
-                // Parse the both numbers to an integer
-                int numberOne = -1;
-                int numberTwo = 0;
-
-                Int32.TryParse(peerID, out numberOne);
-                if(numberOne == -1)
-                {
-                    Console.WriteLine("Problem Happend with parsing turn number one");
-                }
-
-                Int32.TryParse(peerNumberOfMoves, out numberTwo);
-                if (numberTwo == 0)
-                {
-                    Console.WriteLine("Problem Happend with parsing turnn number two");
-                }
 
                 // Keep track of peers with their position
                 peersIDToPosition[numberOne] += numberTwo;
@@ -102,35 +92,27 @@ namespace Client
             }
             else if (requestMessage.StartsWith(QUIT))
             {
-                
+                if (!peersIDToPosition.ContainsKey(id))
+                {
+                    peersIDToPosition.Add(id, 0);
+                }
+
+                responseMessage = "QUIT";
+
                 // Parse the request message
                 string trimmedMessage = requestMessage.Trim();
-                string restOfMessageAfterTurn = trimmedMessage.Substring(4);
+                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(4).ToList();
 
                 // Get the first number in the turn message
-                string peerID = restOfMessageAfterTurn.SkipWhile(ch =>
-                    Char.IsWhiteSpace(ch)).TakeWhile(ch => !Char.IsWhiteSpace(ch)).ToString();
+                int numberOne = (int)Char.GetNumericValue(restOfMessageAfterTurn.SkipWhile(ch =>
+                    char.IsWhiteSpace(ch)).TakeWhile(ch => !char.IsWhiteSpace(ch)).First());
 
                 // Get the second the number in the turn message
-                string peerNumberOfMoves = restOfMessageAfterTurn.SkipWhile(ch =>
-                    Char.IsWhiteSpace(ch)).SkipWhile(ch => !Char.IsWhiteSpace(ch)).SkipWhile(ch =>
-                    Char.IsWhiteSpace(ch)).TakeWhile(ch => !Char.IsWhiteSpace(ch)).ToString();
+                int numberTwo = (int)Char.GetNumericValue(restOfMessageAfterTurn.SkipWhile(ch =>
+                    char.IsWhiteSpace(ch)).SkipWhile(ch => !char.IsWhiteSpace(ch)).SkipWhile(ch =>
+                    char.IsWhiteSpace(ch)).TakeWhile(ch => !char.IsWhiteSpace(ch)).First());
 
-                // Parse the both numbers to an integer
-                int numberOne = -1;
-                int numberTwo = 0;
 
-                Int32.TryParse(peerID, out numberOne);
-                if (numberOne == -1)
-                {
-                    Console.WriteLine("Problem Happend with parsing turn number one");
-                }
-
-                Int32.TryParse(peerNumberOfMoves, out numberTwo);
-                if (numberTwo == 0)
-                {
-                    Console.WriteLine("Problem Happend with parsing turnn number two");
-                }
 
                 // Keep track of peers with their position
                 peersIDToPosition[numberOne] += numberTwo;
@@ -198,7 +180,7 @@ namespace Client
                 Console.WriteLine("Connecting.....");
 
                 // use the ipaddress as in the server program
-                ps.Connect("127.0.0.1", 8001);
+                ps.Connect("127.0.0.1", portSender);
 
                 Console.WriteLine("Connected");
 
@@ -228,6 +210,48 @@ namespace Client
                 ps.Close();
             });
             
+        }
+
+        static void Main(string[] args)
+        {
+            try
+            {
+                Console.Write("Enter IGN: ");
+                string pName = Console.ReadLine();
+                List<string> test = new List<string>();
+                test.Add("127.0.0.1");
+                test.Add("127.0.0.1");
+
+                Peer client1 = new Peer(test, 8000, 9000);
+                Peer client2 = new Peer(test, 9000, 8000);
+                new Thread(() =>
+                {
+                    client1.StartListen();
+                }).Start();
+
+                new Thread(() =>
+                {
+                    client2.StartListen();
+                }).Start();
+
+                new Thread(() =>
+                {
+                    client2.SendRequest("quit 2 1 \n \n");
+                }).Start();
+
+                new Thread(() =>
+                {
+                    client1.SendRequest("turn 2 1 \n \n");
+                }).Start();
+
+                Console.Write("--See you next time--");
+                Console.Read();
+            }
+
+            catch (Exception e)
+            {
+                Console.WriteLine("Error..... " + e.StackTrace);
+            }
         }
 
     }
