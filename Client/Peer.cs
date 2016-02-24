@@ -33,9 +33,10 @@ namespace Client
         public Peer(List<string> peersIPAddress)
         {
             /* Initializes the Listener */
-            _peerListener = new TcpListener(IPAddress.Any, 8001);
+            _peerListener = new TcpListener(IPAddress.Any, 9999);
 
-
+            _peerSender = new List<TcpClient>();
+            _peerSender.Add(null);
         }
 
         void EstablishConnection(Socket s, int id)
@@ -65,7 +66,7 @@ namespace Client
                     peersIDToPosition.Add(id, 0); 
                 }
 
-                responseMessage = "TURN";
+                responseMessage = "turn 0 1 \n\n";
 
                 // Parse the request message
                 string trimmedMessage = requestMessage.Trim();
@@ -155,7 +156,7 @@ namespace Client
             /* Start Listeneting at the specified port */
             _peerListener.Start();
 
-            Console.WriteLine("The peer is running at port 8001...");
+            Console.WriteLine("The peer is running at port 9999...");
             Console.WriteLine("The local End point is  :" +
                               _peerListener.LocalEndpoint);
             int counter = 0;
@@ -192,28 +193,21 @@ namespace Client
         /// <param name="msg"></param>
         public void SendRequest(string msg = "")
         {
+
             Parallel.ForEach(_peerSender, ps =>
             { 
-                ps = new TcpClient();
+                 ps = new TcpClient();
                 Console.WriteLine("Connecting.....");
 
                 // use the ipaddress as in the server program
-                ps.Connect("127.0.0.1", 8001);
+                ps.Connect("10.13.84.92", 9999);
 
                 Console.WriteLine("Connected");
-
-                String reqMessage = msg;
-                if (msg == "")
-                {
-                    Console.Write("Request message was empty, please re-enter: ");
-
-                    reqMessage = Console.ReadLine();
-                }
 
                 Stream stm = ps.GetStream();
 
                 ASCIIEncoding asen = new ASCIIEncoding();
-                byte[] ba = asen.GetBytes(reqMessage);
+                byte[] ba = asen.GetBytes("turn");
                 Console.WriteLine("Transmitting your request to the server.....\n");
 
                 stm.Write(ba, 0, ba.Length);
@@ -222,13 +216,33 @@ namespace Client
                 //Console.WriteLine("Waiting");
                 //int k = stm.Read(bb, 0, 2048);
 
-                
-
-
                 ps.Close();
             });
-            
         }
+
+        //static void Main(string[] args)
+        //{
+        //    try
+        //    {
+        //        Console.Write("Enter IGN: ");
+        //        string pName = Console.ReadLine();
+        //        List<string> test = new List<string>( );
+        //        test.Add("127.0.0.1");
+        //        test.Add("10.13.84.92");
+        //        Peer peer = new Peer(test);
+
+        //        peer.SendRequest();
+
+
+        //        Console.Write("--See you next time--");
+        //        Console.Read();
+        //    }
+
+        //    catch (Exception e)
+        //    {
+        //        Console.WriteLine("Error..... " + e.StackTrace);
+        //    }
+        //}
 
     }
 }
