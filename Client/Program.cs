@@ -10,51 +10,68 @@ using System.Threading.Tasks;
 
 namespace Client
 {
+    /// <summary>
+    /// Client class where it creates a client to server and peer for the peer-to-peer network.
+    /// </summary>
     public class ClientProgram
     {
         TcpClient client;
         private string playerName;
+        private int numberOfPeers;
         private bool inGame = false;
         public const string REQ_GAME = "game";
         public const string REQ_PLAYERS = "players";
         public const string REQ_CANCEL = "cancel";
         public const string SERVER_IP = "127.0.0.1";
         const string RESP_SUCCESS = "success";
-        
 
         // Fileds for Peers
-        private List<TcpClient> _peerSender;
-        private TcpListener _peerListener;
+        private Dictionary<int, IPAddress> portsToIPAddresses;
         private Dictionary<int, int> peersIDToPosition;
-        private int portSender;
-        private int portListener;
         const string TURN = "turn";
         const string QUIT = "quit";
         List<Tuple<string, string, int>> peersInfo;
 
-        public ClientProgram(int portSender, int portListener, string player = "NewPlayer")
+        /// <summary>
+        /// Constructor for creating a client, it will connect to the server and it will have a unique name.
+        /// TODO: Change defualt name to something else
+        /// </summary>
+        /// <param name="player"></param>
+        public ClientProgram(int numberOfPeers, string player = "NewPlayer")
         {
             connectToServer();
             playerName = player;
-            this.portListener = portListener;
-            this.portSender = portSender;
+            this.numberOfPeers = numberOfPeers;
+
+            // Generate two ports for sending and listening (8002 - 9999)
+            
         }
 
+        /// <summary>
+        /// This method connects to the server for estiblishing a game.
+        /// TODO: Should we have a specific IP and port or we should change it.
+        /// </summary>
         private void connectToServer()
         {
             client = new TcpClient();
-            Console.WriteLine("Connecting.....");
+            Console.WriteLine("Connecting to Server.....");
 
-            // use the ipaddress as in the server program
-          
+            // Connect to the server
             client.Connect(SERVER_IP, 8001);
             
-            Console.WriteLine("Connected");
+            // 
+            Console.WriteLine("Connected to Server at IP {0} and port {1}", SERVER_IP, 8001);
             
         }
 
+        /// <summary>
+        /// This method gets called when each client becomes a peer
+        /// and connects to other peers. 
+        /// </summary>
         private void inializePeers()
         {
+            // TODO: Initialize variables to hold other IP Addresses and ports for other peers.
+            // TODO:  
             _peerSender = new List<TcpClient>();
             _peerSender.Add(null);
 
@@ -62,17 +79,19 @@ namespace Client
             peersIDToPosition = new Dictionary<int, int>();
         }
 
-
-        public void SendRequest(string msg = "")
+        /// <summary>
+        /// Communication between server and client method to send requests from clients to the server.
+        /// TODO: Why is msg have a defualt string? If client presses enter the empty string should be parsed as request too?
+        /// </summary>
+        /// <param name="msg"></param>
+        public void SendRequest(string msg = "", int numberOfPeers = 2)
         {
-
+            
             string reqMessage = msg;
-
 
             if(reqMessage == REQ_GAME || reqMessage == REQ_CANCEL)
             {
-                reqMessage += " " + playerName;
-
+                reqMessage += " " + playerName + " " + numberOfPeers;
             }
 
             reqMessage += "\n\n";
@@ -97,7 +116,7 @@ namespace Client
                 responseMessage += c;
             }
 
-           ;
+           
 
             if (processResponse(responseMessage) == -1) {
                 Console.WriteLine("\nDEBUG: INVALID REQUEST/RESPONSE\n");
@@ -332,7 +351,7 @@ namespace Client
 
                         //Thread t = new Thread(() => {
                             Console.WriteLine("Sending request \"{0}\"", request);
-                            SendRequest(request);
+                            SendRequest(request, numberOfPeers);
         
                        // });
 
@@ -375,11 +394,11 @@ namespace Client
             {
                 Console.Write("Enter Your Player Name: ");
                 string pName = Console.ReadLine();
-                Console.Write("Enter the port of the sender: ");
-                int portSender = int.Parse(Console.ReadLine());
-                Console.Write("Enter the port to listen to: ");
-                int portListener = int.Parse(Console.ReadLine());
-                ClientProgram aClient = new ClientProgram(portSender, portListener, pName);
+
+                Console.Write("Enter How many people you want to play with: ");
+                // TODO: Add code to deal with cases when user enter something other than a int
+                string numberOfPeers = Console.ReadLine();
+                ClientProgram aClient = new ClientProgram(int.Parse(numberOfPeers), pName);
                 aClient.startClient();
 
 

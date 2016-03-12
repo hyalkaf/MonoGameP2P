@@ -15,23 +15,32 @@ namespace Server
         const string REQ_GAME = "game";
         const string REQ_PLAYERS = "players";
         const string REQ_CANCEL = "cancel";
-    
+        const string REQ_IP = "ip";
         const string RESP_SUCCESS = "success";
-       
-
+        
         private List<string> playerQueue;
+        private Object thisLock = new Object();
         private List<Socket> sockets;
+        
+        // Will use index as number of clients who want to be matched with this amount of other clients
+        // then once that index has fullfilled its number we will match those in that index to a game.
+        private List<List<Socket>> socketsForGameRequests;
+
+        private Dictionary<int, IPAddress> portToIPAddresses;
         private TcpListener listener;
         private ManualResetEvent matchingMRE;
         private ManualResetEvent matchedMRE;
         private AutoResetEvent are = new AutoResetEvent(true);
         private int matchingCounter = 0;
+
         public ServerProgram()
         {
             sockets = new List<Socket>();
+            socketsForGameRequests = new List<List<Socket>>();
             playerQueue = new List<string>();
             matchingMRE = new ManualResetEvent(false);
             matchedMRE = new ManualResetEvent(false);
+
             /* Initializes the Listener */
             listener = new TcpListener(IPAddress.Any, 8001);
         }
@@ -40,7 +49,16 @@ namespace Server
         {
             StringBuilder sb = new StringBuilder();
             sockets.Add(s);
-            Console.WriteLine("Connection accepted from " + s.RemoteEndPoint);
+
+            //CH : Get endpoint 
+            IPEndPoint remoteIpEndPoint = s.RemoteEndPoint as IPEndPoint;
+            
+            //CH : Get ip address and port from the endpoint
+            IPAddress ipaddr = remoteIpEndPoint.Address;
+            int port = remoteIpEndPoint.Port;
+            portToIPAddresses.Add(port, ipaddr); 
+
+            Console.WriteLine("Connection accepted from " + ipaddr + " : " + port);
 
             byte[] buffer = new byte[2048];
             int bytesRead = s.Receive(buffer);
@@ -62,14 +80,22 @@ namespace Server
             //Console.WriteLine("Recieved...");
 
             Console.WriteLine(requestMessage);
-            string responseMessage = "I DO NOT UNDERSTAND THIS REQUEST";
+            string responseMessage = "error I DO NOT UNDERSTAND THIS REQUEST";
 
             if (requestType == REQ_GAME)
             {
                 // All the data has been read from the 
                 // client. Display it on the console.
-                string pName = requestMessage.Substring(0);
-                string thisClient = s.LocalEndPoint.ToString() + " " + pName;
+                string pName = requestMessage.Substring(0, requestMessage.IndexOf(" "));
+
+                // TODO: Deal with cases where parsing doesn't work
+                int numberOfPeers = int.Parse(requestMessage.Substring(pName.Length));
+
+                // Add this socket to the match making list of list of sockets
+                socketsForGameRequests[numberOfPeers].Add(s);
+
+                /*//IF PNAME NOT IN QUEUE, THEN PNAME+"2"
+                string thisClient = s.RemoteEndPoint.ToString() + " " + pName;
 
                 playerQueue.Add(thisClient);
 
@@ -93,6 +119,7 @@ namespace Server
                 {
                     players += playerQueue[i - 1] + " " + i + ",";
                 }
+
                 //pNameplayers.Substring(0,players.Length-1); ELEMINATE LAST COMMA?
                 responseMessage = RESP_SUCCESS + " " + REQ_GAME + " " + players;
 
@@ -110,20 +137,34 @@ namespace Server
                 matchedMRE.WaitOne();
 
                 Thread.Sleep(1000);
-                //Remove this player from this queue
 
+                // Remove this player from this queue
                 if(playerQueue.Exists(player => (player == thisClient)))
                 {
                     Console.WriteLine("Yo this exists");
                     playerQueue.Remove(thisClient);
-                }
+                }*/
 
 
             }
             else if (requestType == REQ_PLAYERS)
             {
                 responseMessage = RESP_SUCCESS + " " + REQ_PLAYERS + "  " + sockets.Count;
+                Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
+                ASCIIEncoding asen = new ASCIIEncoding();
+
+                byte[] b = asen.GetBytes(responseMessage + "\n\n");
+
+                Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
+
+                s.Send(b);
+
+                Console.WriteLine("\nSent Acknowledgement");
+                if (sockets.Exists(soc => soc == s))
+                {
+                    sockets.Remove(s);
+                }
 
             }
             else if (requestType == REQ_CANCEL)
@@ -133,25 +174,24 @@ namespace Server
                 responseMessage = RESP_SUCCESS + " " + REQ_CANCEL + " YOU CANCELED your match request.";
 
                 // Echo the data back to the client.
+                Console.WriteLine("DEBUG: Response sent: " + responseMessage);
+
+                ASCIIEncoding asen = new ASCIIEncoding();
+
+                byte[] b = asen.GetBytes(responseMessage + "\n\n");
+
+                Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
+
+                s.Send(b);
+
+                Console.WriteLine("\nSent Acknowledgement");
+                if (sockets.Exists(soc => soc == s))
+                {
+                    sockets.Remove(s);
+                }
 
             }
 
-            Console.WriteLine("DEBUG: Response sent: " + responseMessage);
-
-            ASCIIEncoding asen = new ASCIIEncoding();
-
-            byte[] b = asen.GetBytes(responseMessage + "\n\n");
-
-            Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
-
-            s.Send(b);
-
-            Console.WriteLine("\nSent Acknowledgement");
-            if(sockets.Exists(soc => soc == s))
-            {
-                sockets.Remove(s);
-            }
-            
 
         }
 
