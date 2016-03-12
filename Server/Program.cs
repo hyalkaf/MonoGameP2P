@@ -32,8 +32,23 @@ namespace Server
             playerQueue = new List<string>();
             matchingMRE = new ManualResetEvent(false);
             matchedMRE = new ManualResetEvent(false);
-            /* Initializes the Listener */
-            listener = new TcpListener(IPAddress.Any, 8001);
+            /* Initializes the Listener */            
+
+            IPHostEntry host;
+            string localIP = "";
+            host = Dns.GetHostEntry(Dns.GetHostName());
+            foreach (IPAddress ip in host.AddressList)
+            {
+                if (ip.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    localIP = ip.ToString();
+                    
+                }
+            }
+
+            Console.WriteLine(localIP);
+
+            listener = new TcpListener(IPAddress.Parse(localIP), 8001);
         }
 
         void EstablishConnection(Socket s, int id)
@@ -158,11 +173,13 @@ namespace Server
         public void StartListen()
         {
             /* Start Listeneting at the specified port */
+
             listener.Start();
 
             Console.WriteLine("The server is running at port 8001...");
-            Console.WriteLine("The local End point is  :" +
-                              listener.LocalEndpoint);
+            Console.WriteLine("The local End point is  :" + listener.LocalEndpoint);
+            
+
             int counter = 0;
             do
             {
