@@ -62,12 +62,19 @@ namespace Client
                 Console.Write("Enter request (turn, quit): ");
                 string req = Console.ReadLine();
                 req = req.Trim().ToLower();
-                //if(req.StartsWith(REQ_TURN) || req.StartsWith(REQ_QUIT)) { 
-                req += " " + peersInfo.Where(elem => elem.Item3 == playerName).First().Item3 + " " + 0 + " " + 0;
+
+               
 
                 try
                 {
-                    SendRequestPeers(req);
+                    if (req.StartsWith(REQ_TURN) || req.StartsWith(REQ_QUIT))
+                    {
+                        SendRequestPeers(req);
+                    }
+                    else
+                    {
+                        Console.WriteLine("INVALID INPUT (turn or quit)");
+                    }
                 }
                 catch (Exception e)
                 {
@@ -174,6 +181,19 @@ namespace Client
         /// <param name="msg"></param>
         public void SendRequestPeers(string msg = "")
         {
+
+            int playerID = peersInfo.Where(elem => elem.Item3 == playerName).First().Item4;
+
+            if (msg.StartsWith(REQ_TURN)) {
+                Random rnd = new Random();
+                int dice = rnd.Next(1,7);
+                msg += " " + peersInfo.Where(elem => elem.Item3 == playerName).First().Item3 + " " +
+                   playerID + " " + dice;
+            }
+            else
+            {
+                msg += " " + playerID + " " + 0;
+            }
 
             for (int i = 0; i < _peerSender.Count(); i++)
             {
