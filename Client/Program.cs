@@ -72,7 +72,7 @@ namespace Client
         private void inializePeers()
         {
             // TODO: Initialize variables to hold other IP Addresses and ports for other peers.
-            // TODO:  
+            // Check if 
             _peerSender = new List<TcpClient>();
             _peerSender.Add(null);
 

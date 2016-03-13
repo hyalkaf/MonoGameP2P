@@ -104,10 +104,10 @@ namespace Server
                                     // Do match between peers
                                     foreach (Socket peer in socketsForGameRequests[i])
                                     {
-                                        //CH : Get endpoint 
+                                        // CH : Get endpoint 
                                         IPEndPoint remoteIpEndPoint = peer.RemoteEndPoint as IPEndPoint;
 
-                                        //CH : Get ip address from the endpoint
+                                        // CH : Get ip address from the endpoint
                                         IPAddress ipaddr = remoteIpEndPoint.Address;
 
                                         // Assign the ip address to a port
@@ -116,7 +116,6 @@ namespace Server
 
                                         playerQueue.Add(thisClient);
                                     }
-
 
                                     string playersToBeSent = "";
 
@@ -144,9 +143,8 @@ namespace Server
                                         peer.Send(b);
 
                                         Console.WriteLine("\nSent Acknowledgement");
-
-
                                     }
+
                                     playerQueue.Clear();
                                 }
 
