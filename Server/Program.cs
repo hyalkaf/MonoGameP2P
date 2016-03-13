@@ -25,7 +25,7 @@ namespace Server
         
         // Will use index as number of clients who want to be matched with this amount of other clients
         // then once that index has fullfilled its number we will match those in that index to a game.
-        private List<List<Socket>> socketsForGameRequests;
+        private List<Dictionary<string, Socket>> socketsForGameRequests;
 
         private Dictionary<int, IPAddress> portToIPAddresses;
         private TcpListener listener;
@@ -37,7 +37,7 @@ namespace Server
         public ServerProgram()
         {
             sockets = new List<Socket>();
-            socketsForGameRequests = new List<List<Socket>>();
+            socketsForGameRequests = new List<Dictionary<string, Socket>>();
             playerQueue = new List<string>();
             matchingMRE = new ManualResetEvent(false);
             matchedMRE = new ManualResetEvent(false);
@@ -87,8 +87,15 @@ namespace Server
                 int numberOfPeers = int.Parse(requestMessage.Substring(pName.Length));
 
                 // Add this socket to the match making list of list of sockets
-                socketsForGameRequests[numberOfPeers].Add(s);
+                if (numberOfPeers >= socketsForGameRequests.Count)
+                {
+                    for (int i = 0; i <= numberOfPeers; i++)
+                    {
+                        socketsForGameRequests.Add(new Dictionary<string, Socket>());
+                    }                    
+                }
 
+                socketsForGameRequests[numberOfPeers][pName] = s;
                 // Run a thread for checking if a match should occur
                 // A match occurs when an index in the list has number of peers(players) equal to its index.
                 new Thread(() => {
@@ -102,17 +109,17 @@ namespace Server
                                 if (i == socketsForGameRequests[i].Count)
                                 {
                                     // Do match between peers
-                                    foreach (Socket peer in socketsForGameRequests[i])
+                                    foreach (KeyValuePair<string, Socket> dicNameToSocket in socketsForGameRequests[i]) 
                                     {
                                         // CH : Get endpoint 
-                                        IPEndPoint remoteIpEndPoint = peer.RemoteEndPoint as IPEndPoint;
+                                        IPEndPoint remoteIpEndPoint = dicNameToSocket.Value.RemoteEndPoint as IPEndPoint;
 
                                         // CH : Get ip address from the endpoint
                                         IPAddress ipaddr = remoteIpEndPoint.Address;
 
                                         // Assign the ip address to a port
                                         //TODO: remove this? // portToIPAddresses.Add(portNumber, ipaddr);
-                                        string thisClient = ipaddr + " " + portNumber++ + " " + pName;
+                                        string thisClient = ipaddr + " " + portNumber++ + " " + dicNameToSocket.Key;
 
                                         playerQueue.Add(thisClient);
                                     }
@@ -130,7 +137,7 @@ namespace Server
 
                                     responseMessage = RESP_SUCCESS + " " + REQ_GAME + " " + playersToBeSent;
 
-                                    foreach (Socket peer in socketsForGameRequests[i])
+                                    foreach (KeyValuePair<string, Socket> dicNameToSocket in socketsForGameRequests[i])
                                     {
                                         Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
@@ -140,7 +147,7 @@ namespace Server
 
                                         Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
 
-                                        peer.Send(b);
+                                        dicNameToSocket.Value.Send(b);
 
                                         Console.WriteLine("\nSent Acknowledgement");
                                     }

@@ -26,6 +26,8 @@ namespace Client
         const string RESP_SUCCESS = "success";
 
         // Fileds for Peers
+        private TcpClient[] _peerSender;
+        private TcpListener _peerListener;
         private Dictionary<int, IPAddress> portsToIPAddresses;
         private Dictionary<int, int> peersIDToPosition;
         const string TURN = "turn";
@@ -72,11 +74,16 @@ namespace Client
         private void inializePeers()
         {
             // TODO: Initialize variables to hold other IP Addresses and ports for other peers.
-            // Check if 
-            _peerSender = new List<TcpClient>();
-            _peerSender.Add(null);
+            // Check if peersInfo is populated
+            if (peersInfo.Count > 0)
+            {
+                _peerSender = new TcpClient[peersInfo.Count];
 
-            _peerListener = new TcpListener(IPAddress.Any, portListener);
+                // Get this peerInfo
+                // TODO: deal with empty or not existent peer
+                Tuple<string, int, string, int> tempPeer = peersInfo.Where(peer => peer.Item3 == playerName).First();
+                _peerListener = new TcpListener(IPAddress.Parse(tempPeer.Item1), tempPeer.Item2);
+            }
             peersIDToPosition = new Dictionary<int, int>();
         }
 
@@ -188,41 +195,48 @@ namespace Client
 
         }
 
-        public void SendRequestPeers(Tuple<string, int, string, int> peerInfo)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="msg"></param>
+        public void SendRequestPeers(string msg = "")
         {
-            // Create a list of 
-            Parallel.ForEach(peersInfo, ps =>
-            {
-                ps = new TcpClient();
-                Console.WriteLine("Connecting.....");
 
-                // use the ipaddress as in the server program
-                ps.Connect("127.0.0.1", portSender);
-
-                Console.WriteLine("Connected");
-
-                String reqMessage = msg;
-                if (msg == "")
+            for (int i = 0; i < _peerSender.Count(); i++)
+            { 
+                // Check if peersInfo is not you and then send info
+                if (peersInfo[i].Item3 != playerName)
                 {
-                    Console.Write("Request message was empty, please re-enter: ");
+                    Console.WriteLine("Connecting.....");
 
-                    reqMessage = Console.ReadLine();
+                    _peerSender[i] = new TcpClient();
+                    _peerSender[i].Connect(peersInfo[i].Item1, peersInfo[i].Item2);
+
+                    Console.WriteLine("Connected");
+
+                    String reqMessage = msg;
+                    if (msg == "")
+                    {
+                        Console.Write("Request message was empty, please re-enter: ");
+
+                        reqMessage = Console.ReadLine();
+                    }
+
+                    Stream stm = _peerSender[i].GetStream();
+
+                    ASCIIEncoding asen = new ASCIIEncoding();
+                    byte[] ba = asen.GetBytes(reqMessage);
+                    Console.WriteLine("Transmitting your request to the server.....\n");
+
+                    stm.Write(ba, 0, ba.Length);
+
+                    //byte[] bb = new byte[2048];
+                    //Console.WriteLine("Waiting");
+                    //int k = stm.Read(bb, 0, 2048);
+
+                    _peerSender[i].Close();
                 }
-
-                Stream stm = ps.GetStream();
-
-                ASCIIEncoding asen = new ASCIIEncoding();
-                byte[] ba = asen.GetBytes(reqMessage);
-                Console.WriteLine("Transmitting your request to the server.....\n");
-
-                stm.Write(ba, 0, ba.Length);
-
-                //byte[] bb = new byte[2048];
-                //Console.WriteLine("Waiting");
-                //int k = stm.Read(bb, 0, 2048);
-
-                ps.Close();
-            });
+            }
 
         }
 
@@ -231,7 +245,7 @@ namespace Client
             /* Start Listeneting at the specified port */
             _peerListener.Start();
 
-            Console.WriteLine("The peer is running at port {0}...", portListener);
+            Console.WriteLine("The peer is running at port {0}...", (_peerListener.LocalEndpoint as IPEndPoint).Port);
             Console.WriteLine("The local End point is  :" +
                               _peerListener.LocalEndpoint);
             int counter = 0;
@@ -252,7 +266,7 @@ namespace Client
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("Something went wrong!");
+                    Console.WriteLine(e.Message);
                     _peerListener.Stop();
                     Console.WriteLine(e.StackTrace);
                 }
@@ -390,7 +404,7 @@ namespace Client
                 }
 
             } catch (Exception e) {
-                Console.WriteLine("Something Wrong");
+                Console.WriteLine(e.Message);
                 client.Close();
                 Console.Error.WriteLine(e.StackTrace);
             };
