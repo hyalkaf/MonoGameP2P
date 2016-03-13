@@ -98,67 +98,7 @@ namespace Server
                 socketsForGameRequests[numberOfPeers][pName] = s;
                 // Run a thread for checking if a match should occur
                 // A match occurs when an index in the list has number of peers(players) equal to its index.
-                new Thread(() => {
-                    lock (thisLock)
-                    {
-                        for (int i = 0; i < socketsForGameRequests.Count; i++)
-                        {
-                            // bypass first and second index since there are no matches with 0 or 1 player
-                            if (i != 0 && i != 1)
-                            {
-                                if (i == socketsForGameRequests[i].Count)
-                                {
-                                    // Do match between peers
-                                    foreach (KeyValuePair<string, Socket> dicNameToSocket in socketsForGameRequests[i]) 
-                                    {
-                                        // CH : Get endpoint 
-                                        IPEndPoint remoteIpEndPoint = dicNameToSocket.Value.RemoteEndPoint as IPEndPoint;
-
-                                        // CH : Get ip address from the endpoint
-                                        IPAddress ipaddr = remoteIpEndPoint.Address;
-
-                                        // Assign the ip address to a port
-                                        //TODO: remove this? // portToIPAddresses.Add(portNumber, ipaddr);
-                                        string thisClient = ipaddr + " " + portNumber++ + " " + dicNameToSocket.Key;
-
-                                        playerQueue.Add(thisClient);
-                                    }
-
-                                    string playersToBeSent = "";
-
-                                    for (int z = 0; z < playerQueue.Count; z++)
-                                    {
-                                        playersToBeSent += playerQueue[z] + " " + z;
-                                        if (z != playerQueue.Count - 1)
-                                        {
-                                            playersToBeSent += ",";
-                                        }
-                                    }
-
-                                    responseMessage = RESP_SUCCESS + " " + REQ_GAME + " " + playersToBeSent;
-
-                                    foreach (KeyValuePair<string, Socket> dicNameToSocket in socketsForGameRequests[i])
-                                    {
-                                        Console.WriteLine("DEBUG: Response sent: " + responseMessage);
-
-                                        ASCIIEncoding asen = new ASCIIEncoding();
-
-                                        byte[] b = asen.GetBytes(responseMessage + "\n\n");
-
-                                        Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
-
-                                        dicNameToSocket.Value.Send(b);
-
-                                        Console.WriteLine("\nSent Acknowledgement");
-                                    }
-
-                                    playerQueue.Clear();
-                                }
-
-                            }
-                        }
-                    }
-                }).Start();
+                
 
                 // Since we added 
 
@@ -272,6 +212,9 @@ namespace Server
             Console.WriteLine("The local End point is  :" +
                               listener.LocalEndpoint);
             int counter = 0;
+            new Thread(() => {
+                MatchPeers();
+            }).Start();
             do
             {
                 counter++;
@@ -285,9 +228,10 @@ namespace Server
                     new Thread(() => {
                         EstablishConnection(s, counter);
                     }).Start();
-                
 
-                
+                   
+
+
                 }
                 catch (Exception e)
                 {
@@ -314,6 +258,79 @@ namespace Server
                 Console.WriteLine("Error..... " + e.StackTrace);
             }
         }
+
+        private void MatchPeers()
+        {
+            while (true)
+            {
+                string responseMessage = string.Empty;
+
+                for (int i = 0; i < socketsForGameRequests.Count; i++)
+                {
+                    // bypass first and second index since there are no matches with 0 or 1 player
+                    if (i != 0 && i != 1)
+                    {
+                        // TODO: Will not work when in index 2 there are four want 2
+                        if (i == socketsForGameRequests[i].Count)
+                        {
+                            // Do match between peers
+                            foreach (KeyValuePair<string, Socket> dicNameToSocket in socketsForGameRequests[i])
+                            {
+                                // CH : Get endpoint 
+                                IPEndPoint remoteIpEndPoint = dicNameToSocket.Value.RemoteEndPoint as IPEndPoint;
+
+                                // CH : Get ip address from the endpoint
+                                IPAddress ipaddr = remoteIpEndPoint.Address;
+
+                                // Assign the ip address to a port
+                                //TODO: remove this? // portToIPAddresses.Add(portNumber, ipaddr);
+                                string thisClient = ipaddr + " " + portNumber++ + " " + dicNameToSocket.Key;
+
+                                playerQueue.Add(thisClient);
+                            }
+
+                            string playersToBeSent = "";
+
+                            for (int z = 0; z < playerQueue.Count; z++)
+                            {
+                                playersToBeSent += playerQueue[z] + " " + z;
+                                if (z != playerQueue.Count - 1)
+                                {
+                                    playersToBeSent += ",";
+                                }
+                            }
+
+                            responseMessage = RESP_SUCCESS + " " + REQ_GAME + " " + playersToBeSent;
+
+                            foreach (KeyValuePair<string, Socket> dicNameToSocket in socketsForGameRequests[i])
+                            {
+                                Console.WriteLine("DEBUG: Response sent: " + responseMessage);
+
+                                ASCIIEncoding asen = new ASCIIEncoding();
+
+                                byte[] b = asen.GetBytes(responseMessage + "\n\n");
+
+                                Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
+
+                                dicNameToSocket.Value.Send(b);
+
+                                Console.WriteLine("\nSent Acknowledgement");
+
+                                dicNameToSocket.Value.Close();
+                                sockets.Remove(dicNameToSocket.Value);
+
+                            }
+
+                            // TODO: Find a way to remove only the ones matched
+                            socketsForGameRequests.Remove(socketsForGameRequests[i]);
+                            playerQueue.Clear();
+                        }
+
+                    }
+            }
+            }
+        }
+        
     }
 
 }
