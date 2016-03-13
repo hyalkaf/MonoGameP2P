@@ -19,8 +19,7 @@ namespace Client
         // Initalize variables for peer(client) connecting to other peers(clients)
         private TcpListener _peerListener;
         private List<TcpClient> _peerSender;
-        private List<string> _peersIPAddresses;
-        private List<string> _peers;
+        private List<Tuple<string, string, int>>  peersInfo;
         private Dictionary<int, int> peersIDToPosition;
         private int portSender;
         private int portListener;
@@ -31,22 +30,42 @@ namespace Client
         /// 
         /// </summary>
         /// <param name="port"></param>
-        public Peer(List<string> peersIPAddress, int portSender, int portListener)
+        public Peer(string playerName, int portSender, int portListener, List<Tuple<string, string, int>> peersInfo)
         {
             /* Initializes the Listener */
 
+
             _peerSender = new List<TcpClient>();
-            TcpClient temp = null;
-            _peerSender.Add(temp);
+            _peerSender.Add(null);
+
+            _peerListener = new TcpListener(IPAddress.Any, portListener);
+            peersIDToPosition = new Dictionary<int, int>();
+
+            this.peersInfo = peersInfo;
             this.portListener = portListener;
             this.portSender = portSender;
-            peersIDToPosition = new Dictionary<int, int>();
-            _peerListener = new TcpListener(IPAddress.Any, portListener);
+
+            new Thread(() => {
+                Console.WriteLine("\nDEBUG: Peer listen start");
+                StartListenPeers();
+            }).Start();
+
+
+            while (true)
+            {
+                Console.Write("Enter request (turn, quit): ");
+                string req = Console.ReadLine();
+                req += " " + peersInfo.Where(elem => elem.Item2 == playerName).First().Item3 + " " + 0;
+
+                SendRequestPeers(req);
+            }
 
         }
 
         void EstablishConnection(Socket s, int id)
         {
+            Console.WriteLine("CONNECTED WITH YOU: " + s.RemoteEndPoint);
+            Console.WriteLine();
             StringBuilder sb = new StringBuilder();
             Console.WriteLine("Connection accepted from " + s.RemoteEndPoint);
 
@@ -55,9 +74,9 @@ namespace Client
 
             sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
 
-            String requestMessage = sb.ToString().Trim().ToLower();
+            string requestMessage = sb.ToString().Trim().ToLower();
 
-            //Console.WriteLine("Recieved...");
+            Console.WriteLine("DEBUG: Response: " + requestMessage);
 
             Console.WriteLine(requestMessage);
             string responseMessage = "I DO NOT UNDERSTAND THIS REQUEST";
@@ -66,12 +85,12 @@ namespace Client
             if (requestMessage.StartsWith(TURN))
             {
 
-                if(!peersIDToPosition.ContainsKey(id))
+                if (!peersIDToPosition.ContainsKey(id))
                 {
-                    peersIDToPosition.Add(id, 0); 
+                    peersIDToPosition.Add(id, 0);
                 }
 
-                responseMessage = "turn 0 1 \n\n";
+                responseMessage = "TURN";
 
                 // Parse the request message
                 string trimmedMessage = requestMessage.Trim();
@@ -88,7 +107,7 @@ namespace Client
 
 
                 // Keep track of peers with their position
-                peersIDToPosition[numberOne] += numberTwo;
+                // peersIDToPosition[numberOne] += numberTwo;
 
             }
             else if (requestMessage.StartsWith(QUIT))
@@ -116,9 +135,9 @@ namespace Client
 
 
                 // Keep track of peers with their position
-                peersIDToPosition[numberOne] += numberTwo;
+                // peersIDToPosition[numberOne] += numberTwo;
             }
-           
+
 
             ASCIIEncoding asen = new ASCIIEncoding();
 
@@ -128,19 +147,58 @@ namespace Client
 
             s.Send(b);
 
-            Console.WriteLine("\nSent Acknowledgement");
-
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="msg"></param>
+        public void SendRequestPeers(string msg = "")
+        {
 
-        public void StartListen()
+            Parallel.ForEach(_peerSender, ps =>
+            {
+                ps = new TcpClient();
+                Console.WriteLine("Connecting.....");
+
+                // use the ipaddress as in the server program
+                ps.Connect("127.0.0.1", portSender);
+
+                Console.WriteLine("Connected");
+
+                String reqMessage = msg;
+                if (msg == "")
+                {
+                    Console.Write("Request message was empty, please re-enter: ");
+
+                    reqMessage = Console.ReadLine();
+                }
+
+                Stream stm = ps.GetStream();
+
+                ASCIIEncoding asen = new ASCIIEncoding();
+                byte[] ba = asen.GetBytes(reqMessage);
+                Console.WriteLine("Transmitting your request to the server.....\n");
+
+                stm.Write(ba, 0, ba.Length);
+
+                //byte[] bb = new byte[2048];
+                //Console.WriteLine("Waiting");
+                //int k = stm.Read(bb, 0, 2048);
+
+                ps.Close();
+            });
+        }
+
+        public void StartListenPeers()
         {
             /* Start Listeneting at the specified port */
             _peerListener.Start();
 
-            Console.WriteLine("The peer is running at port 9999...");
+            Console.WriteLine("The peer is running at port {0}...", portListener);
             Console.WriteLine("The local End point is  :" +
                               _peerListener.LocalEndpoint);
+ 
             int counter = 0;
             do
             {
@@ -154,8 +212,6 @@ namespace Client
                         EstablishConnection(s, counter);
                     }).Start();
 
-
-
                 }
                 catch (Exception e)
                 {
@@ -166,91 +222,6 @@ namespace Client
             } while (true);
             /* clean up */
 
-
         }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="msg"></param>
-        public void SendRequest(string msg = "")
-        {
-
-            Parallel.ForEach(_peerSender, ps =>
-            { 
-                ps = new TcpClient();
-                Console.WriteLine("Connecting.....");
-
-                // use the ipaddress as in the server program
-
-                ps.Connect("127.0.0.1", portSender);
-
-                Console.WriteLine("Connected");
-
-                Stream stm = ps.GetStream();
-
-                ASCIIEncoding asen = new ASCIIEncoding();
-                byte[] ba = asen.GetBytes("turn");
-                Console.WriteLine("Transmitting your request to the server.....\n");
-
-                stm.Write(ba, 0, ba.Length);
-
-                //byte[] bb = new byte[2048];
-                //Console.WriteLine("Waiting");
-                //int k = stm.Read(bb, 0, 2048);
-
-                ps.Close();
-            });
-        }
-
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="msg"></param>
-        
-
-        //static void Main(string[] args)
-        //{
-        //    try
-        //    {
-        //        Console.Write("Enter IGN: ");
-        //        string pName = Console.ReadLine();
-        //        List<string> test = new List<string>();
-        //        test.Add("127.0.0.1");
-        //        test.Add("127.0.0.1");
-
-        //        Peer client1 = new Peer(test, 8000, 9000);
-        //        Peer client2 = new Peer(test, 9000, 8000);
-        //        new Thread(() =>
-        //        {
-        //            client1.StartListen();
-        //        }).Start();
-
-        //        new Thread(() =>
-        //        {
-        //            client2.StartListen();
-        //        }).Start();
-
-        //        new Thread(() =>
-        //        {
-        //            client2.SendRequest("quit 2 1 \n \n");
-        //        }).Start();
-
-        //        new Thread(() =>
-        //        {
-        //            client1.SendRequest("turn 2 1 \n \n");
-        //        }).Start();
-
-        //        Console.Write("--See you next time--");
-        //        Console.Read();
-        //    }
-
-        //    catch (Exception e)
-        //    {
-        //        Console.WriteLine("Error..... " + e.StackTrace);
-        //    }
-        //}
-
     }
 }
