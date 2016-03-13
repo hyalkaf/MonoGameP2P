@@ -17,7 +17,10 @@ namespace Server
         const string REQ_CANCEL = "cancel";
     
         const string RESP_SUCCESS = "success";
-       
+
+        private ReplicationManager rm;
+
+        public IPAddress thisLocalAddr;
 
         private List<string> playerQueue;
         private List<Socket> sockets;
@@ -45,10 +48,11 @@ namespace Server
                     
                 }
             }
+            thisLocalAddr =  IPAddress.Parse(localIP);
 
-            Console.WriteLine(localIP);
+            rm = new ReplicationManager(this);
 
-            listener = new TcpListener(IPAddress.Parse(localIP), 8001);
+            listener = new TcpListener(thisLocalAddr, 8001);
         }
 
         void EstablishConnection(Socket s, int id)
