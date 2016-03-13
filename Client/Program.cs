@@ -30,7 +30,8 @@ namespace Client
         private Dictionary<int, int> peersIDToPosition;
         const string TURN = "turn";
         const string QUIT = "quit";
-        List<Tuple<string, string, int>> peersInfo;
+        // Holds information about other peers in the system: IPAddress, portNumber, name and ID.
+        List<Tuple<string, int, string, int>> peersInfo;
 
         /// <summary>
         /// Constructor for creating a client, it will connect to the server and it will have a unique name.
@@ -128,6 +129,11 @@ namespace Client
             }
         }
 
+        /// <summary>
+        /// This method proccess messages coming from the server according to our design document
+        /// </summary>
+        /// <param name="responseMessage"></param>
+        /// <returns></returns>
         private int processResponse(string responseMessage)
         {
 
@@ -143,15 +149,16 @@ namespace Client
                 Console.WriteLine("\nDEBUG: " + requestType + "\n");
                 if (requestType == REQ_GAME)
                 {
-                    peersInfo = new List<Tuple<string, string, int>>();
+                    peersInfo = new List<Tuple<string, int, string, int>>();
                     IEnumerable<string> temp = responseMessage.Split(',');
                     peersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
                     {
                         string[] peerInfo = info.Trim().Split(' ');
-                        Tuple<string, string, int> t = null;
+                        Tuple<string, int, string, int> t = null;
                         if (!string.IsNullOrEmpty(info))
                         {
-                            t =  new Tuple<string, string, int>(peerInfo[0], peerInfo[1], int.Parse(peerInfo[2])); 
+                            // TODO: deal with cases when integer can't be parsed
+                            t = new Tuple<string, int, string, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3])); 
                         }
 
                         return t;
@@ -181,9 +188,10 @@ namespace Client
 
         }
 
-        public void SendRequestPeers(string msg = "")
+        public void SendRequestPeers(Tuple<string, int, string, int> peerInfo)
         {
-            Parallel.ForEach(_peerSender, ps =>
+            // Create a list of 
+            Parallel.ForEach(peersInfo, ps =>
             {
                 ps = new TcpClient();
                 Console.WriteLine("Connecting.....");
@@ -376,7 +384,7 @@ namespace Client
                 {
                     Console.Write("Enter request (turn, quit): ");
                     string req = Console.ReadLine();
-                    req += " " + peersInfo.Where(elem => elem.Item2 == playerName).First().Item3 + " " + 0;
+                    req += " " + peersInfo.Where(elem => elem.Item3 == playerName).First().Item3 + " " + 0;
                    
                     SendRequestPeers(req);
                 }

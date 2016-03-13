@@ -20,6 +20,7 @@ namespace Server
         
         private List<string> playerQueue;
         private Object thisLock = new Object();
+        private int portNumber = 9000;
         private List<Socket> sockets;
         
         // Will use index as number of clients who want to be matched with this amount of other clients
@@ -50,15 +51,9 @@ namespace Server
             StringBuilder sb = new StringBuilder();
             sockets.Add(s);
 
-            //CH : Get endpoint 
-            IPEndPoint remoteIpEndPoint = s.RemoteEndPoint as IPEndPoint;
-            
-            //CH : Get ip address and port from the endpoint
-            IPAddress ipaddr = remoteIpEndPoint.Address;
-            int port = remoteIpEndPoint.Port;
-            portToIPAddresses.Add(port, ipaddr); 
 
-            Console.WriteLine("Connection accepted from " + ipaddr + " : " + port);
+
+            Console.WriteLine("Connection accepted from "); //+ ipaddr + " : " + portNumber);
 
             byte[] buffer = new byte[2048];
             int bytesRead = s.Receive(buffer);
@@ -93,6 +88,74 @@ namespace Server
 
                 // Add this socket to the match making list of list of sockets
                 socketsForGameRequests[numberOfPeers].Add(s);
+
+                // Run a thread for checking if a match should occur
+                // A match occurs when an index in the list has number of peers(players) equal to its index.
+                new Thread(() => {
+                    lock (thisLock)
+                    {
+                        for (int i = 0; i < socketsForGameRequests.Count; i++)
+                        {
+                            // bypass first and second index since there are no matches with 0 or 1 player
+                            if (i != 0 && i != 1)
+                            {
+                                if (i == socketsForGameRequests[i].Count)
+                                {
+                                    // Do match between peers
+                                    foreach (Socket peer in socketsForGameRequests[i])
+                                    {
+                                        //CH : Get endpoint 
+                                        IPEndPoint remoteIpEndPoint = peer.RemoteEndPoint as IPEndPoint;
+
+                                        //CH : Get ip address from the endpoint
+                                        IPAddress ipaddr = remoteIpEndPoint.Address;
+
+                                        // Assign the ip address to a port
+                                        //TODO: remove this? // portToIPAddresses.Add(portNumber, ipaddr);
+                                        string thisClient = ipaddr + " " + portNumber++ + " " + pName;
+
+                                        playerQueue.Add(thisClient);
+                                    }
+
+
+                                    string playersToBeSent = "";
+
+                                    for (int z = 0; z < playerQueue.Count; z++)
+                                    {
+                                        playersToBeSent += playerQueue[z] + " " + z;
+                                        if (z != playerQueue.Count - 1)
+                                        {
+                                            playersToBeSent += ",";
+                                        }
+                                    }
+
+                                    responseMessage = RESP_SUCCESS + " " + REQ_GAME + " " + playersToBeSent;
+
+                                    foreach (Socket peer in socketsForGameRequests[i])
+                                    {
+                                        Console.WriteLine("DEBUG: Response sent: " + responseMessage);
+
+                                        ASCIIEncoding asen = new ASCIIEncoding();
+
+                                        byte[] b = asen.GetBytes(responseMessage + "\n\n");
+
+                                        Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
+
+                                        peer.Send(b);
+
+                                        Console.WriteLine("\nSent Acknowledgement");
+
+
+                                    }
+                                    playerQueue.Clear();
+                                }
+
+                            }
+                        }
+                    }
+                }).Start();
+
+                // Since we added 
 
                 /*//IF PNAME NOT IN QUEUE, THEN PNAME+"2"
                 string thisClient = s.RemoteEndPoint.ToString() + " " + pName;
