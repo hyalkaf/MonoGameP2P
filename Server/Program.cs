@@ -22,16 +22,16 @@ namespace Server
         public IPAddress thisLocalAddr;
         private List<string> playerQueue;
         private Object thisLock = new Object();
-        private int portNumber = 9000;
-        private List<Socket> sockets;
         
+        private List<Socket> sockets;
+        public bool isPrimaryServer = false;
+        private int portNumber = 9000;
+
         // Will use index as number of clients who want to be matched with this amount of other clients
         // then once that index has fullfilled its number we will match those in that index to a game.
         private List<Dictionary<string, Socket>> socketsForGameRequests;
 
         private TcpListener listener;
-        private ManualResetEvent matchingMRE;
-        private ManualResetEvent matchedMRE;
         private AutoResetEvent are = new AutoResetEvent(true);
 
         public ServerProgram()
@@ -39,11 +39,8 @@ namespace Server
             sockets = new List<Socket>();
             socketsForGameRequests = new List<Dictionary<string, Socket>>();
             playerQueue = new List<string>();
-            matchingMRE = new ManualResetEvent(false);
-            matchedMRE = new ManualResetEvent(false);
 
             /* Initializes the Listener */            
-
             IPHostEntry host;
             string localIP = "";
             host = Dns.GetHostEntry(Dns.GetHostName());
@@ -57,6 +54,13 @@ namespace Server
             }
             thisLocalAddr =  IPAddress.Parse(localIP);
 
+            Console.WriteLine("SERVER STARTED! This address is: " + thisLocalAddr);
+            Console.WriteLine("Set this to primary? (Y/N)");
+            var setPrimary = Console.ReadLine();
+            if(setPrimary.Trim().ToUpper() == "Y")
+            {
+                isPrimaryServer = true;
+            }
             rm = new ReplicationManager(this);
 
             listener = new TcpListener(thisLocalAddr, 8001);
@@ -177,40 +181,19 @@ namespace Server
             do
             {
                 counter++;
-                try
-                {
 
-                    Console.WriteLine("Waiting for a connection {0} .....", counter);
-                    Socket s = listener.AcceptSocket();
+                Console.WriteLine("Waiting for a connection {0} .....", counter);
+                Socket s = listener.AcceptSocket();
 
-                    new Thread(() => {
-                        EstablishConnection(s, counter);
-                    }).Start();
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Something went wrong!");
-                    listener.Stop();
-                    Console.WriteLine(e.StackTrace);
-                }
+                new Thread(() => {
+                    EstablishConnection(s, counter);
+                }).Start();
+               
+          
             } while (true);
             /* clean up */
 
           
-        }
-
-        static void Main(string[] args)
-        {
-            try
-            {
-                ServerProgram svr = new ServerProgram();
-                svr.StartListen();
-
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Error..... " + e.StackTrace);
-            }
         }
 
         private void MatchPeers()
@@ -237,7 +220,6 @@ namespace Server
                                 IPAddress ipaddr = remoteIpEndPoint.Address;
 
                                 // Assign the ip address to a port
-                                //TODO: remove this? // portToIPAddresses.Add(portNumber, ipaddr);
                                 string thisClient = ipaddr + " " + portNumber++ + " " + dicNameToSocket.Key;
 
                                 playerQueue.Add(thisClient);
@@ -281,10 +263,24 @@ namespace Server
                         }
 
                     }
-            }
+                }
             }
         }
-        
+        static void Main(string[] args)
+        {
+            try
+            {
+                ServerProgram svr = new ServerProgram();
+                svr.StartListen();
+
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("ERROR from server listening.....\n" + e.Message);
+                Console.WriteLine(e.StackTrace);
+            }
+        }
+
     }
 
 }
