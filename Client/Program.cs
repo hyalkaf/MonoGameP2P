@@ -23,7 +23,8 @@ namespace Client
         public const string REQ_PLAYERS = "players";
         public const string REQ_CANCEL = "cancel";
         //public const string SERVER_IP = "127.0.0.1";
-        public const string SERVER_IP = "10.13.136.75";
+        //public const string SERVER_IP = "10.13.136.75";
+        public const string SERVER_IP = "10.211.55.4";
         const string RESP_SUCCESS = "success";
 
         // Holds information about other peers in the system: IPAddress, portNumber, name and ID.
@@ -233,7 +234,7 @@ namespace Client
                 Console.Write("Enter Your Player Name: ");
                 string pName = Console.ReadLine();
 
-                Console.Write("Enter How many people you want to play with: ");
+                //Console.Write("Enter How many people you want to play with: ");
                 // TODO: Add code to deal with cases when user enter something other than a int
                 //string numberOfPeers = Console.ReadLine();
                 ClientProgram aClient = new ClientProgram(pName);
