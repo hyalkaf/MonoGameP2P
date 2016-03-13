@@ -18,20 +18,15 @@ namespace Client
         TcpClient client;
         private string playerName;
         private int numberOfPeers;
-        private bool inGame = false;
+        public bool inGame = false;
+
         public const string REQ_GAME = "game";
         public const string REQ_PLAYERS = "players";
         public const string REQ_CANCEL = "cancel";
-        public const string SERVER_IP = "127.0.0.1";
+        //public const string SERVER_IP = "127.0.0.1";
+        public const string SERVER_IP = "10.211.55.4";
         const string RESP_SUCCESS = "success";
 
-        // Fileds for Peers
-        private TcpClient[] _peerSender;
-        private TcpListener _peerListener;
-        private Dictionary<int, IPAddress> portsToIPAddresses;
-        private Dictionary<int, int> peersIDToPosition;
-        const string TURN = "turn";
-        const string QUIT = "quit";
         // Holds information about other peers in the system: IPAddress, portNumber, name and ID.
         List<Tuple<string, int, string, int>> peersInfo;
 
@@ -67,25 +62,6 @@ namespace Client
             
         }
 
-        /// <summary>
-        /// This method gets called when each client becomes a peer
-        /// and connects to other peers. 
-        /// </summary>
-        private void inializePeers()
-        {
-            // TODO: Initialize variables to hold other IP Addresses and ports for other peers.
-            // Check if peersInfo is populated
-            if (peersInfo.Count > 0)
-            {
-                _peerSender = new TcpClient[peersInfo.Count];
-
-                // Get this peerInfo
-                // TODO: deal with empty or not existent peer
-                Tuple<string, int, string, int> tempPeer = peersInfo.Where(peer => peer.Item3 == playerName).First();
-                _peerListener = new TcpListener(IPAddress.Parse(tempPeer.Item1), tempPeer.Item2);
-            }
-            peersIDToPosition = new Dictionary<int, int>();
-        }
 
         /// <summary>
         /// Communication between server and client method to send requests from clients to the server.
@@ -171,7 +147,7 @@ namespace Client
                         return t;
                        
                     }).ToList();
-                    
+
                     inGame = true;
                     return 0;
                 }
@@ -195,219 +171,48 @@ namespace Client
 
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="msg"></param>
-        public void SendRequestPeers(string msg = "")
+        public void startClient()
         {
 
-            for (int i = 0; i < _peerSender.Count(); i++)
-            { 
-                // Check if peersInfo is not you and then send info
-                if (peersInfo[i].Item3 != playerName)
-                {
-                    Console.WriteLine("Connecting.....");
-
-                    _peerSender[i] = new TcpClient();
-                    _peerSender[i].Connect(peersInfo[i].Item1, peersInfo[i].Item2);
-
-                    Console.WriteLine("Connected");
-
-                    String reqMessage = msg;
-                    if (msg == "")
-                    {
-                        Console.Write("Request message was empty, please re-enter: ");
-
-                        reqMessage = Console.ReadLine();
-                    }
-
-                    Stream stm = _peerSender[i].GetStream();
-
-                    ASCIIEncoding asen = new ASCIIEncoding();
-                    byte[] ba = asen.GetBytes(reqMessage);
-                    Console.WriteLine("Transmitting your request to the server.....\n");
-
-                    stm.Write(ba, 0, ba.Length);
-
-                    //byte[] bb = new byte[2048];
-                    //Console.WriteLine("Waiting");
-                    //int k = stm.Read(bb, 0, 2048);
-
-                    _peerSender[i].Close();
-                }
-            }
-
-        }
-
-        public void StartListenPeers()
-        {
-            /* Start Listeneting at the specified port */
-            _peerListener.Start();
-
-            Console.WriteLine("The peer is running at port {0}...", (_peerListener.LocalEndpoint as IPEndPoint).Port);
-            Console.WriteLine("The local End point is  :" +
-                              _peerListener.LocalEndpoint);
-            int counter = 0;
-            do
-            {
-                counter++;
+            while (true) { 
                 try
                 {
-                    Console.WriteLine("Waiting for a connection {0} .....", counter);
-                    Socket s = _peerListener.AcceptSocket();
 
-                    new Thread(() => {
-                        EstablishConnectionPeers(s, counter);
-                    }).Start();
+                    while (true)
+                    {
 
+                        if (!inGame)
+                        {
 
+                            Console.Write("Send request (game, players, cancel): ");
+                            var request = Console.ReadLine().Trim().ToLower();
+
+                            Console.WriteLine("Sending request \"{0}\"", request);
+                            SendRequest(request, numberOfPeers);
+
+                        }
+
+                        else
+                        {
+                            break;
+
+                        }
+                    }
+
+                    using (Peer peer = new Peer(playerName, peersInfo))
+                    
+                    inGame = false;
+                    connectToServer();
 
                 }
                 catch (Exception e)
                 {
                     Console.WriteLine(e.Message);
-                    _peerListener.Stop();
-                    Console.WriteLine(e.StackTrace);
-                }
-            } while (true);
-            /* clean up */
-
-
-        }
-
-        void EstablishConnectionPeers(Socket s, int id)
-        {
-            StringBuilder sb = new StringBuilder();
-            Console.WriteLine("Connection accepted from " + s.RemoteEndPoint);
-
-            byte[] buffer = new byte[2048];
-            int bytesRead = s.Receive(buffer);
-
-            sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
-
-            String requestMessage = sb.ToString().Trim().ToLower();
-
-            Console.WriteLine("DEBUG: Response: " + requestMessage);
-
-            Console.WriteLine(requestMessage);
-            string responseMessage = "I DO NOT UNDERSTAND THIS REQUEST";
-
-            // When a peer is broadcasting its turn
-            if (requestMessage.StartsWith(TURN))
-            {
-
-                if (!peersIDToPosition.ContainsKey(id))
-                {
-                    peersIDToPosition.Add(id, 0);
-                }
-
-                responseMessage = "TURN";
-
-                // Parse the request message
-                string trimmedMessage = requestMessage.Trim();
-                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(4).ToList();
-
-                // Get the first number in the turn message
-                int numberOne = (int)Char.GetNumericValue(restOfMessageAfterTurn.SkipWhile(ch =>
-                    char.IsWhiteSpace(ch)).TakeWhile(ch => !char.IsWhiteSpace(ch)).First());
-
-                // Get the second the number in the turn message
-                int numberTwo = (int)Char.GetNumericValue(restOfMessageAfterTurn.SkipWhile(ch =>
-                    char.IsWhiteSpace(ch)).SkipWhile(ch => !char.IsWhiteSpace(ch)).SkipWhile(ch =>
-                    char.IsWhiteSpace(ch)).TakeWhile(ch => !char.IsWhiteSpace(ch)).First());
-
-
-                // Keep track of peers with their position
-                // peersIDToPosition[numberOne] += numberTwo;
-
-            }
-            else if (requestMessage.StartsWith(QUIT))
-            {
-                if (!peersIDToPosition.ContainsKey(id))
-                {
-                    peersIDToPosition.Add(id, 0);
-                }
-
-                responseMessage = "QUIT";
-
-                // Parse the request message
-                string trimmedMessage = requestMessage.Trim();
-                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(4).ToList();
-
-                // Get the first number in the turn message
-                int numberOne = (int)Char.GetNumericValue(restOfMessageAfterTurn.SkipWhile(ch =>
-                    char.IsWhiteSpace(ch)).TakeWhile(ch => !char.IsWhiteSpace(ch)).First());
-
-                // Get the second the number in the turn message
-                int numberTwo = (int)Char.GetNumericValue(restOfMessageAfterTurn.SkipWhile(ch =>
-                    char.IsWhiteSpace(ch)).SkipWhile(ch => !char.IsWhiteSpace(ch)).SkipWhile(ch =>
-                    char.IsWhiteSpace(ch)).TakeWhile(ch => !char.IsWhiteSpace(ch)).First());
-
-
-
-                // Keep track of peers with their position
-                // peersIDToPosition[numberOne] += numberTwo;
-            }
-
-
-            ASCIIEncoding asen = new ASCIIEncoding();
-
-            byte[] b = asen.GetBytes(responseMessage + "\n\n");
-
-            Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
-
-            s.Send(b);
-
-        }
-
-
-        public void startClient()
-        {
-            try {
-                while (true) { 
-                    if(!inGame) {
-
-                        Console.Write("Send request (game, players, cancel): ");
-                        var request = Console.ReadLine().Trim().ToLower();
-
-                        //Thread t = new Thread(() => {
-                            Console.WriteLine("Sending request \"{0}\"", request);
-                            SendRequest(request, numberOfPeers);
-        
-                       // });
-
-                       // t.Start();
-                    }
-
-                    else
-                    {
-                        break;
-
-                    }
-                }
-
-                inializePeers();
-                new Thread(() => {
-                    Console.WriteLine("\nDEBUG: Peer listen start");
-                    StartListenPeers();
-                }).Start();
-
-
-                while (true)
-                {
-                    Console.Write("Enter request (turn, quit): ");
-                    string req = Console.ReadLine();
-                    req += " " + peersInfo.Where(elem => elem.Item3 == playerName).First().Item3 + " " + 0;
-                   
-                    SendRequestPeers(req);
-                }
-
-            } catch (Exception e) {
-                Console.WriteLine(e.Message);
-                client.Close();
-                Console.Error.WriteLine(e.StackTrace);
-            };
+                    client.Close();
+                    Console.Error.WriteLine(e.StackTrace);
+                };
+             }
+            
         }
 
         static void Main(string[] args)
@@ -424,7 +229,7 @@ namespace Client
                 aClient.startClient();
 
 
-                Console.Write("--See you next time--");
+                Console.Write("--Program terminated. See you next time!--");
                 Console.Read();
             }
 

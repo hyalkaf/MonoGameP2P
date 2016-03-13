@@ -14,36 +14,44 @@ namespace Client
     /// <summary>
     /// 
     /// </summary>
-    public class Peer
+    public class Peer : IDisposable
     {
         // Initalize variables for peer(client) connecting to other peers(clients)
+        private string playerName;
         private TcpListener _peerListener;
-        private List<TcpClient> _peerSender;
-        private List<Tuple<string, string, int>>  peersInfo;
+        private TcpClient[] _peerSender;
+        private List<Tuple<string, int, string, int>> peersInfo;
         private Dictionary<int, int> peersIDToPosition;
-        private int portSender;
-        private int portListener;
         const string TURN = "turn";
         const string QUIT = "quit";
+
 
         /// <summary>
         /// 
         /// </summary>
         /// <param name="port"></param>
-        public Peer(string playerName, int portSender, int portListener, List<Tuple<string, string, int>> peersInfo)
+        public Peer(string playerName, List<Tuple<string, int, string, int>> peersInfo)
         {
-            /* Initializes the Listener */
+            Console.WriteLine("PEER ESTABLISHED!!");
+            this.playerName = playerName;
+            Console.WriteLine("For " + playerName);
 
 
-            _peerSender = new List<TcpClient>();
-            _peerSender.Add(null);
+            // TODO: Initialize variables to hold other IP Addresses and ports for other peers.
+            // Check if peersInfo is populated
+            if (peersInfo.Count > 0)
+            {
+                _peerSender = new TcpClient[peersInfo.Count];
 
-            _peerListener = new TcpListener(IPAddress.Any, portListener);
+                // Get this peerInfo
+                // TODO: deal with empty or not existent peer
+                Tuple<string, int, string, int> tempPeer = peersInfo.Where(peer => peer.Item3 == playerName).First();
+                _peerListener = new TcpListener(IPAddress.Parse(tempPeer.Item1), tempPeer.Item2);
+            }
+
             peersIDToPosition = new Dictionary<int, int>();
 
             this.peersInfo = peersInfo;
-            this.portListener = portListener;
-            this.portSender = portSender;
 
             new Thread(() => {
                 Console.WriteLine("\nDEBUG: Peer listen start");
@@ -51,14 +59,23 @@ namespace Client
             }).Start();
 
 
+             
             while (true)
             {
                 Console.Write("Enter request (turn, quit): ");
                 string req = Console.ReadLine();
-                req += " " + peersInfo.Where(elem => elem.Item2 == playerName).First().Item3 + " " + 0;
+                req += " " + peersInfo.Where(elem => elem.Item3 == playerName).First().Item3 + " " + 0;
 
-                SendRequestPeers(req);
+                try
+                {
+                    SendRequestPeers(req);
+                }
+                catch (Exception e)
+                {
+                    break;
+                }
             }
+            
 
         }
 
@@ -149,6 +166,8 @@ namespace Client
 
         }
 
+
+
         /// <summary>
         /// 
         /// </summary>
@@ -156,72 +175,87 @@ namespace Client
         public void SendRequestPeers(string msg = "")
         {
 
-            Parallel.ForEach(_peerSender, ps =>
+            for (int i = 0; i < _peerSender.Count(); i++)
             {
-                ps = new TcpClient();
-                Console.WriteLine("Connecting.....");
-
-                // use the ipaddress as in the server program
-                ps.Connect("127.0.0.1", portSender);
-
-                Console.WriteLine("Connected");
-
-                String reqMessage = msg;
-                if (msg == "")
+                // Check if peersInfo is not you and then send info
+                if (peersInfo[i].Item3 != playerName)
                 {
-                    Console.Write("Request message was empty, please re-enter: ");
+                    Console.WriteLine("Connecting.....");
 
-                    reqMessage = Console.ReadLine();
+                    _peerSender[i] = new TcpClient();
+                    _peerSender[i].Connect(peersInfo[i].Item1, peersInfo[i].Item2);
+
+                    Console.WriteLine("Connected");
+
+                    String reqMessage = msg;
+                    if (msg == "")
+                    {
+                        Console.Write("Request message was empty, please re-enter: ");
+
+                        reqMessage = Console.ReadLine();
+                    }
+
+                    Stream stm = _peerSender[i].GetStream();
+
+                    ASCIIEncoding asen = new ASCIIEncoding();
+                    byte[] ba = asen.GetBytes(reqMessage);
+                    Console.WriteLine("Transmitting your request to the other peers.....\n");
+
+                    stm.Write(ba, 0, ba.Length);
+
+                    //byte[] bb = new byte[2048];
+                    //Console.WriteLine("Waiting");
+                    //int k = stm.Read(bb, 0, 2048);
+
+                    _peerSender[i].Close();
                 }
+            }
 
-                Stream stm = ps.GetStream();
-
-                ASCIIEncoding asen = new ASCIIEncoding();
-                byte[] ba = asen.GetBytes(reqMessage);
-                Console.WriteLine("Transmitting your request to the server.....\n");
-
-                stm.Write(ba, 0, ba.Length);
-
-                //byte[] bb = new byte[2048];
-                //Console.WriteLine("Waiting");
-                //int k = stm.Read(bb, 0, 2048);
-
-                ps.Close();
-            });
         }
+
+
 
         public void StartListenPeers()
         {
             /* Start Listeneting at the specified port */
+            try { 
             _peerListener.Start();
 
-            Console.WriteLine("The peer is running at port {0}...", portListener);
+            Console.WriteLine("The peer is running at port {0}...", (_peerListener.LocalEndpoint as IPEndPoint).Port);
             Console.WriteLine("The local End point is  :" +
                               _peerListener.LocalEndpoint);
- 
             int counter = 0;
             do
             {
                 counter++;
-                try
-                {
-                    Console.WriteLine("Waiting for a connection {0} .....", counter);
-                    Socket s = _peerListener.AcceptSocket();
+                
+                Console.WriteLine("Waiting for a connection {0} .....", counter);
+                Socket s = _peerListener.AcceptSocket();
 
-                    new Thread(() => {
-                        EstablishConnection(s, counter);
-                    }).Start();
+                new Thread(() => {
+                    EstablishConnection(s, counter);
+                }).Start();
 
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Something went wrong!");
-                    _peerListener.Stop();
-                    Console.WriteLine(e.StackTrace);
-                }
+                
             } while (true);
             /* clean up */
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                _peerListener.Stop();
+                Console.WriteLine(e.StackTrace);
+            }
 
         }
+
+        public void Dispose()
+        {
+            _peerListener.Stop();
+            _peerSender = null;
+            peersInfo = null;
+            peersIDToPosition = null;
+
+    }
     }
 }

@@ -17,7 +17,9 @@ namespace Server
         const string REQ_CANCEL = "cancel";
         const string REQ_IP = "ip";
         const string RESP_SUCCESS = "success";
-        
+
+        private ReplicationManager rm;
+        public IPAddress thisLocalAddr;
         private List<string> playerQueue;
         private Object thisLock = new Object();
         private int portNumber = 9000;
@@ -42,16 +44,30 @@ namespace Server
             matchingMRE = new ManualResetEvent(false);
             matchedMRE = new ManualResetEvent(false);
 
-            /* Initializes the Listener */
-            listener = new TcpListener(IPAddress.Any, 8001);
+            /* Initializes the Listener */            
+
+            IPHostEntry host;
+            string localIP = "";
+            host = Dns.GetHostEntry(Dns.GetHostName());
+            foreach (IPAddress ip in host.AddressList)
+            {
+                if (ip.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    localIP = ip.ToString();
+                    
+                }
+            }
+            thisLocalAddr =  IPAddress.Parse(localIP);
+
+            rm = new ReplicationManager(this);
+
+            listener = new TcpListener(thisLocalAddr, 8001);
         }
 
         void EstablishConnection(Socket s, int id)
         {
             StringBuilder sb = new StringBuilder();
             sockets.Add(s);
-
-
 
             Console.WriteLine("Connection accepted from "); //+ ipaddr + " : " + portNumber);
 
@@ -206,11 +222,13 @@ namespace Server
         public void StartListen()
         {
             /* Start Listeneting at the specified port */
+
             listener.Start();
 
             Console.WriteLine("The server is running at port 8001...");
-            Console.WriteLine("The local End point is  :" +
-                              listener.LocalEndpoint);
+            Console.WriteLine("The local End point is  :" + listener.LocalEndpoint);
+            
+
             int counter = 0;
             new Thread(() => {
                 MatchPeers();
@@ -221,17 +239,12 @@ namespace Server
                 try
                 {
 
-                
                     Console.WriteLine("Waiting for a connection {0} .....", counter);
                     Socket s = listener.AcceptSocket();
 
                     new Thread(() => {
                         EstablishConnection(s, counter);
                     }).Start();
-
-                   
-
-
                 }
                 catch (Exception e)
                 {
