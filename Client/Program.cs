@@ -17,14 +17,13 @@ namespace Client
     {
         TcpClient client;
         private string playerName;
-        private int numberOfPeers;
         public bool inGame = false;
 
         public const string REQ_GAME = "game";
         public const string REQ_PLAYERS = "players";
         public const string REQ_CANCEL = "cancel";
         //public const string SERVER_IP = "127.0.0.1";
-        public const string SERVER_IP = "10.211.55.4";
+        public const string SERVER_IP = "10.13.136.75";
         const string RESP_SUCCESS = "success";
 
         // Holds information about other peers in the system: IPAddress, portNumber, name and ID.
@@ -35,11 +34,11 @@ namespace Client
         /// TODO: Change defualt name to something else
         /// </summary>
         /// <param name="player"></param>
-        public ClientProgram(int numberOfPeers, string player = "NewPlayer")
+        public ClientProgram(string player = "NewPlayer")
         {
             connectToServer();
             playerName = player;
-            this.numberOfPeers = numberOfPeers;
+            //this.numberOfPeers = numberOfPeers;
 
             // Generate two ports for sending and listening (8002 - 9999)
             
@@ -68,14 +67,26 @@ namespace Client
         /// TODO: Why is msg have a defualt string? If client presses enter the empty string should be parsed as request too?
         /// </summary>
         /// <param name="msg"></param>
-        public void SendRequest(string msg = "", int numberOfPeers = 2)
+        public void SendRequest(string msg = "")
         {
             
-            string reqMessage = msg;
-
-            if(reqMessage == REQ_GAME || reqMessage == REQ_CANCEL)
+            string reqMessage = msg.Trim();
+            string[] reqMessageElem = reqMessage.Split(' ');
+            //
+            reqMessageElem = reqMessageElem.Where(elem => elem != "").ToArray();
+            string req = reqMessageElem[0];
+            if (req == REQ_GAME)
             {
-                reqMessage += " " + playerName + " " + numberOfPeers;
+                
+                string numOfPeersToMatch = reqMessageElem[1];
+                Console.WriteLine("DEBUG: " + numOfPeersToMatch);
+
+                reqMessage = req +  " " + playerName + " " + numOfPeersToMatch;
+                //Console.log(reqMessage);
+            }
+            else if(req == REQ_CANCEL)
+            {
+                reqMessage = req;
             }
 
             reqMessage += "\n\n";
@@ -188,7 +199,7 @@ namespace Client
                             var request = Console.ReadLine().Trim().ToLower();
 
                             Console.WriteLine("Sending request \"{0}\"", request);
-                            SendRequest(request, numberOfPeers);
+                            SendRequest(request);
 
                         }
 
@@ -224,8 +235,8 @@ namespace Client
 
                 Console.Write("Enter How many people you want to play with: ");
                 // TODO: Add code to deal with cases when user enter something other than a int
-                string numberOfPeers = Console.ReadLine();
-                ClientProgram aClient = new ClientProgram(int.Parse(numberOfPeers), pName);
+                //string numberOfPeers = Console.ReadLine();
+                ClientProgram aClient = new ClientProgram(pName);
                 aClient.startClient();
 
 

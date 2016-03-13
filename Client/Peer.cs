@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -22,8 +21,8 @@ namespace Client
         private TcpClient[] _peerSender;
         private List<Tuple<string, int, string, int>> peersInfo;
         private Dictionary<int, int> peersIDToPosition;
-        const string TURN = "turn";
-        const string QUIT = "quit";
+        const string REQ_TURN = "turn";
+        const string REQ_QUIT = "quit";
 
 
         /// <summary>
@@ -58,13 +57,13 @@ namespace Client
                 StartListenPeers();
             }).Start();
 
-
-             
             while (true)
             {
                 Console.Write("Enter request (turn, quit): ");
                 string req = Console.ReadLine();
-                req += " " + peersInfo.Where(elem => elem.Item3 == playerName).First().Item3 + " " + 0;
+                req = req.Trim().ToLower();
+                //if(req.StartsWith(REQ_TURN) || req.StartsWith(REQ_QUIT)) { 
+                req += " " + peersInfo.Where(elem => elem.Item3 == playerName).First().Item3 + " " + 0 + " " + 0;
 
                 try
                 {
@@ -74,6 +73,7 @@ namespace Client
                 {
                     break;
                 }
+                
             }
             
 
@@ -99,7 +99,7 @@ namespace Client
             string responseMessage = "I DO NOT UNDERSTAND THIS REQUEST";
 
             // When a peer is broadcasting its turn
-            if (requestMessage.StartsWith(TURN))
+            if (requestMessage.StartsWith(REQ_TURN))
             {
 
                 if (!peersIDToPosition.ContainsKey(id))
@@ -127,7 +127,7 @@ namespace Client
                 // peersIDToPosition[numberOne] += numberTwo;
 
             }
-            else if (requestMessage.StartsWith(QUIT))
+            else if (requestMessage.StartsWith(REQ_QUIT))
             {
                 if (!peersIDToPosition.ContainsKey(id))
                 {
@@ -203,42 +203,36 @@ namespace Client
 
                     stm.Write(ba, 0, ba.Length);
 
-                    //byte[] bb = new byte[2048];
-                    //Console.WriteLine("Waiting");
-                    //int k = stm.Read(bb, 0, 2048);
-
                     _peerSender[i].Close();
                 }
             }
 
         }
 
-
-
         public void StartListenPeers()
         {
             /* Start Listeneting at the specified port */
             try { 
-            _peerListener.Start();
+                _peerListener.Start();
 
-            Console.WriteLine("The peer is running at port {0}...", (_peerListener.LocalEndpoint as IPEndPoint).Port);
-            Console.WriteLine("The local End point is  :" +
-                              _peerListener.LocalEndpoint);
-            int counter = 0;
-            do
-            {
-                counter++;
+                Console.WriteLine("The peer is running at port {0}...", (_peerListener.LocalEndpoint as IPEndPoint).Port);
+                Console.WriteLine("The local End point is  :" +
+                                  _peerListener.LocalEndpoint);
+                int counter = 0;
+                do
+                {
+                    counter++;
                 
-                Console.WriteLine("Waiting for a connection {0} .....", counter);
-                Socket s = _peerListener.AcceptSocket();
+                    Console.WriteLine("Waiting for a connection {0} .....", counter);
+                    Socket s = _peerListener.AcceptSocket();
 
-                new Thread(() => {
-                    EstablishConnection(s, counter);
-                }).Start();
+                    new Thread(() => {
+                        EstablishConnection(s, counter);
+                    }).Start();
 
                 
-            } while (true);
-            /* clean up */
+                } while (true);
+
             }
             catch (Exception e)
             {

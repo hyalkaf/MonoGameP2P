@@ -29,12 +29,10 @@ namespace Server
         // then once that index has fullfilled its number we will match those in that index to a game.
         private List<Dictionary<string, Socket>> socketsForGameRequests;
 
-        private Dictionary<int, IPAddress> portToIPAddresses;
         private TcpListener listener;
         private ManualResetEvent matchingMRE;
         private ManualResetEvent matchedMRE;
         private AutoResetEvent are = new AutoResetEvent(true);
-        private int matchingCounter = 0;
 
         public ServerProgram()
         {
@@ -112,63 +110,6 @@ namespace Server
                 }
 
                 socketsForGameRequests[numberOfPeers][pName] = s;
-                // Run a thread for checking if a match should occur
-                // A match occurs when an index in the list has number of peers(players) equal to its index.
-                
-
-                // Since we added 
-
-                /*//IF PNAME NOT IN QUEUE, THEN PNAME+"2"
-                string thisClient = s.RemoteEndPoint.ToString() + " " + pName;
-
-                playerQueue.Add(thisClient);
-
-                if (playerQueue.Count < 2)
-                {
-                    matchingMRE.Reset();
-
-                }
-                else
-                {
-
-                    matchingMRE.Set();
-                }
-                // Hangs until at least two players are in queue
-                matchingMRE.WaitOne();
-
-
-                string players = "";
-
-                for (int i = 1; i <= 2; i++)
-                {
-                    players += playerQueue[i - 1] + " " + i + ",";
-                }
-
-                //pNameplayers.Substring(0,players.Length-1); ELEMINATE LAST COMMA?
-                responseMessage = RESP_SUCCESS + " " + REQ_GAME + " " + players;
-
-                if (++matchingCounter < 2)
-                {
-                    matchedMRE.Reset();
-                }
-                else
-                {
-                    matchedMRE.Set();
-                    matchingCounter = 0;
-                }
-
-                //Hangs until response messages are formed complete for every matched player
-                matchedMRE.WaitOne();
-
-                Thread.Sleep(1000);
-
-                // Remove this player from this queue
-                if(playerQueue.Exists(player => (player == thisClient)))
-                {
-                    Console.WriteLine("Yo this exists");
-                    playerQueue.Remove(thisClient);
-                }*/
-
 
             }
             else if (requestType == REQ_PLAYERS)
