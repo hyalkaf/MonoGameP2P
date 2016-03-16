@@ -83,7 +83,7 @@ namespace Server
             string messageParam;
             string responseMessage;
             bool parsedCorrectly = false;
-            byte[] b = (new ASCIIEncoding).GetBytes("");
+            byte[] b = new byte[4096];
 
             // get requestType out of the request message
             if (requestMessage.IndexOf(" ") == -1)
@@ -129,8 +129,9 @@ namespace Server
                         {
                             responseMessage += allReplicaAddr[i].Item1;
                         }
+
                     }
-                    
+
 
                     ASCIIEncoding asen = new ASCIIEncoding();
 
@@ -213,7 +214,7 @@ namespace Server
                         messageToBeSent += allReplicaAddr[i].Item1 + ",";
                     }
                     else
-                    {
+        {
                         messageToBeSent += allReplicaAddr[i].Item1;
                     }
                 }
@@ -230,7 +231,7 @@ namespace Server
             stm.Write(ba, 0, ba.Length);
 
             replicaClient.Close();
-            
+  
         }
 
         public void ListenReplica()
