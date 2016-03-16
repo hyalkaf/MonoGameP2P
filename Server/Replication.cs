@@ -21,7 +21,7 @@ namespace Server
             // rmListener = new TcpListener();
             if (replica.isPrimaryServer)
             {
-                primaryServerIp = replica.thisLocalAddr;
+                primaryServerIp = replica.ipAddr;
             }
         }
 

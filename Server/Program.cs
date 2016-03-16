@@ -19,7 +19,7 @@ namespace Server
         const string RESP_SUCCESS = "success";
 
         private ReplicationManager rm;
-        public IPAddress thisLocalAddr;
+        public IPAddress ipAddr;
         private List<string> playerQueue;
         private Object thisLock = new Object();
         
@@ -52,9 +52,9 @@ namespace Server
                     
                 }
             }
-            thisLocalAddr =  IPAddress.Parse(localIP);
+            ipAddr =  IPAddress.Parse(localIP);
 
-            Console.WriteLine("SERVER STARTED! This address is: " + thisLocalAddr);
+            Console.WriteLine("SERVER STARTED! This address is: " + ipAddr);
             Console.WriteLine("Set this to primary? (Y/N)");
             var setPrimary = Console.ReadLine();
             if(setPrimary.Trim().ToUpper() == "Y")
@@ -63,7 +63,7 @@ namespace Server
             }
             rm = new ReplicationManager(this);
 
-            listener = new TcpListener(thisLocalAddr, 8001);
+            listener = new TcpListener(ipAddr, 8001);
         }
 
         void EstablishConnection(Socket s, int id)
