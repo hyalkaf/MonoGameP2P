@@ -406,10 +406,6 @@ namespace Server
                 {
                     svr.StartListen();
                 }
-                else
-                {
-                    svr.rm.ListenReplica();
-                }
 
             }
             catch (Exception e)

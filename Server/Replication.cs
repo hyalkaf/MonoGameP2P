@@ -44,10 +44,18 @@ namespace Server
 
             thisServer = replica;
 
-            //new Thread(() =>
-            //{
-            //    ListenReplica();
-            //});
+            // Run listening on its own thread
+            new Thread(() =>
+            {
+                ListenReplica();
+            });
+
+            // secondary replica sends a replica request
+            if (!replica.isPrimaryServer)
+            {
+                SendReplica("replica", replica.ipAddr);
+            }
+
 
         }
 
@@ -214,14 +222,19 @@ namespace Server
                         messageToBeSent += allReplicaAddr[i].Item1 + ",";
                     }
                     else
-        {
+                    {
                         messageToBeSent += allReplicaAddr[i].Item1;
                     }
                 }
             }
+            else if (tempMsg.StartsWith(REQ_REPLICA))
+            {
+                // Message to be sent 
+                messageToBeSent = "replica" + " " + ipAddressOfReplica;
+            }
 
             // will send a message to the replica
-            replicaClient.Connect(ipAddressOfReplica, 8000);
+            replicaClient.Connect(primaryServerIp, 8000);
 
             Stream stm = replicaClient.GetStream();
 
