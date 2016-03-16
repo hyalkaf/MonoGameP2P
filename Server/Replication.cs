@@ -48,7 +48,7 @@ namespace Server
             new Thread(() =>
             {
                 ListenReplica();
-            });
+            }).Start();
 
             // secondary replica sends a replica request
             if (!replica.isPrimaryServer)
@@ -146,7 +146,7 @@ namespace Server
                     b = asen.GetBytes(responseMessage + "\n\n");
                 }
             }
-            /*
+            
             else if (requestType == REQ_INFO)
             {
                 // get IP Addresses of all the other programs 
@@ -183,7 +183,7 @@ namespace Server
                     b = asen.GetBytes(responseMessage + "\n\n");
                 }
 
-            }*/
+            }
 
             return b;
         }
