@@ -69,7 +69,10 @@ namespace Server
             // TODO: Might need to change the way this code is being called. 
             // new Task(() => { rm.ListenReplica(); }).Start();
 
-            listener = new TcpListener(ipAddr, 8001);
+            if (isPrimaryServer)
+            {
+                listener = new TcpListener(ipAddr, 8001);
+            }
         }
 
         /// <summary>
