@@ -23,6 +23,7 @@ namespace Client
         private Dictionary<int, int> peersIDToPosition;
         const string REQ_TURN = "turn";
         const string REQ_QUIT = "quit";
+        const string REQ_SUCCESS = "success";
 
 
         /// <summary>
@@ -102,7 +103,6 @@ namespace Client
 
             Console.WriteLine("DEBUG: Response: " + requestMessage);
 
-            Console.WriteLine(requestMessage);
             string responseMessage = "I DO NOT UNDERSTAND THIS REQUEST";
 
             // When a peer is broadcasting its turn
@@ -114,7 +114,7 @@ namespace Client
                     peersIDToPosition.Add(id, 0);
                 }
 
-                responseMessage = "TURN";
+                responseMessage = REQ_SUCCESS + " " + REQ_TURN;
 
                 // Parse the request message
                 string trimmedMessage = requestMessage.Trim();
@@ -141,7 +141,7 @@ namespace Client
                     peersIDToPosition.Add(id, 0);
                 }
 
-                responseMessage = "QUIT";
+                responseMessage = REQ_SUCCESS + " " + REQ_QUIT;
 
                 // Parse the request message
                 string trimmedMessage = requestMessage.Trim();
@@ -179,7 +179,7 @@ namespace Client
         /// 
         /// </summary>
         /// <param name="msg"></param>
-        public void SendRequestPeers(string msg = "")
+        public void SendRequestPeers(string msg)
         {
 
             int playerID = peersInfo.Where(elem => elem.Item3 == playerName).First().Item4;
@@ -195,38 +195,71 @@ namespace Client
                 msg += " " + playerID + " " + 0;
             }
 
-            for (int i = 0; i < _peerSender.Count(); i++)
+            var responseCounterFlag = 0;
+
+            new Thread(() =>
             {
-                // Check if peersInfo is not you and then send info
-                if (peersInfo[i].Item3 != playerName)
+
+                for (int i = 0; i < _peerSender.Count(); i++)
                 {
-                    Console.WriteLine("Connecting.....");
-
-                    _peerSender[i] = new TcpClient();
-                    _peerSender[i].Connect(peersInfo[i].Item1, peersInfo[i].Item2);
-
-                    Console.WriteLine("Connected");
-
-                    String reqMessage = msg;
-                    if (msg == "")
+                    // Check if peersInfo is not you and then send info
+                    if (peersInfo[i].Item3 != playerName)
                     {
-                        Console.Write("Request message was empty, please re-enter: ");
+                        Console.WriteLine("Connecting to a peer.....");
 
-                        reqMessage = Console.ReadLine();
+                        _peerSender[i] = new TcpClient();
+                        //EXCEPTION HANDLE
+                        try { 
+                            _peerSender[i].Connect(peersInfo[i].Item1, peersInfo[i].Item2);
+                        }catch (Exception e)
+                        {
+                            Console.WriteLine("Can't connect to peer " + peersInfo[i].Item4);
+                       
+                            continue;
+                        }
+
+                        Console.WriteLine("Connected to the peer");
+
+                        String reqMessage = msg;
+                        if (msg == "")
+                        {
+                            Console.Write("Request message was empty, please re-enter: ");
+
+                            reqMessage = Console.ReadLine();
+                        }
+
+                        Stream stm = _peerSender[i].GetStream();
+
+                        ASCIIEncoding asen = new ASCIIEncoding();
+                        byte[] ba = asen.GetBytes(reqMessage);
+                        Console.WriteLine("Transmitting your request to the peer {0} .....\n", peersInfo[i].Item4);
+
+                        stm.Write(ba, 0, ba.Length);
+
+                        byte[] bb = new byte[2048];
+                        Console.WriteLine("Waiting for response from peer {0}...", peersInfo[i].Item4);
+                        int k = stm.Read(bb, 0, 2048);
+                        string responseMessage = "";
+                        char c = ' ';
+                        for (int j = 0; j < k; j++)
+                        {
+                            c = Convert.ToChar(bb[j]);
+                            responseMessage += c;
+                        }
+
+
+                        Console.WriteLine("RESPONSE " + responseMessage);
+                        if (responseMessage.StartsWith(REQ_SUCCESS))
+                        {
+                            responseCounterFlag++;
+                            Console.WriteLine("NUM OF RESPONSES " + responseCounterFlag);
+                        }
+
+                        _peerSender[i].Close();
+                        
                     }
-
-                    Stream stm = _peerSender[i].GetStream();
-
-                    ASCIIEncoding asen = new ASCIIEncoding();
-                    byte[] ba = asen.GetBytes(reqMessage);
-                    Console.WriteLine("Transmitting your request to the other peers.....\n");
-
-                    stm.Write(ba, 0, ba.Length);
-
-                    _peerSender[i].Close();
                 }
-            }
-
+            }).Start();
         }
 
         public void StartListenPeers()

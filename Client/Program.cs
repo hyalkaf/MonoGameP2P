@@ -22,7 +22,9 @@ namespace Client
         public const string REQ_GAME = "game";
         public const string REQ_PLAYERS = "players";
         public const string REQ_CANCEL = "cancel";
-        const string RESP_SUCCESS = "success";
+        public const string REQ_CHECKNAME = "checkname";
+        public const string RESP_SUCCESS = "success";
+        public const string RESP_FAILURE = "failure";
 
         public static string SERVER_IP = "";
 
@@ -34,18 +36,27 @@ namespace Client
         /// TODO: Change defualt name to something else
         /// </summary>
         /// <param name="player"></param>
-        public ClientProgram(string player = "NewPlayer")
+        public ClientProgram()
         {
-            playerName = player.Trim().Replace(" ", "").Replace("\t","");
-
+           
+            // Set IP address of server
             if (SERVER_IP == "")
             {
                 Console.Write("NO SERVER IP SET, Enter server ip: ");
                 SERVER_IP = Console.ReadLine();
             }
 
-            connectToServer();
-                     
+            // Connect to server and set unique player name 
+            string pName = String.Empty;
+            do
+            {
+                connectToServer();
+                Console.Write("Enter Your Player Name: ");
+                pName = Console.ReadLine();
+            } while (!checkNameAvailable(pName));
+
+            playerName = pName.Trim().Replace(" ", "").Replace("\t", "");
+
         }
 
         /// <summary>
@@ -55,22 +66,45 @@ namespace Client
         private void connectToServer()
         {
             client = new TcpClient();
-            Console.WriteLine("Connecting to Server.....");
 
-            // Connect to the server
-            client.Connect(SERVER_IP, 8001);
+            bool connected = true;
+            do
+            {
+                try
+                {
+                    connected = true;
+                    Console.WriteLine("Connecting to Server.....");
+
+                    // Connect to the server
+                    client.Connect(SERVER_IP, 8001);
+                }catch (Exception e)
+                {
+                    connected = false;
+                }
+
+            } while (!connected);
+
             
-            // 
             Console.WriteLine("Connected to Server at IP {0} and port {1}", SERVER_IP, 8001);
-            
+
+
         }
 
+
+        public bool checkNameAvailable(string pName)
+        {
+            if( SendRequest(REQ_CHECKNAME + " "  + pName) != -1)
+            {
+                return true;
+            }
+            return false;
+        }
 
         /// <summary>
         /// Communication between server and client method to send requests from clients to the server.
         /// </summary>
         /// <param name="msg"></param>
-        public void SendRequest(string msg)
+        public int SendRequest(string msg)
         {
             
             string reqMessage = msg.Trim();
@@ -80,7 +114,18 @@ namespace Client
             string req = reqMessageElem[0];
             if (req == REQ_GAME)
             {
-                
+                int inttest;
+                if (reqMessageElem.Length < 2 || !int.TryParse(reqMessageElem[1], out inttest))
+                {
+                    Console.WriteLine("USAGE: game <number>");
+                    client.Close();
+                    if (!inGame)
+                    {
+                        // Connect back to server immediately if user not in game
+                        connectToServer();
+                    }
+                    return 0 ;
+                }
                 string numOfPeersToMatch = reqMessageElem[1];
 
                 reqMessage = req +  " " + playerName + " " + numOfPeersToMatch;
@@ -90,6 +135,24 @@ namespace Client
             {
                 reqMessage = req;
             }
+            else if (req == REQ_PLAYERS)
+            {
+                reqMessage = req;
+            }
+            else if (req == REQ_CHECKNAME)
+            {
+                reqMessage = msg;
+            }
+            else
+            {
+                client.Close();
+                if (!inGame)
+                {
+                    // Connect back to server immediately if user not in game
+                    connectToServer();
+                }
+                return 0;
+            }
 
             reqMessage += "\n\n";
 
@@ -98,11 +161,11 @@ namespace Client
             ASCIIEncoding asen = new ASCIIEncoding();
             byte[] ba = asen.GetBytes(reqMessage);
 
-            Console.WriteLine("Transmitting your request to the server.....\n");
+            Console.WriteLine("Transmitting request to the server.....\n");
             stm.Write(ba, 0, ba.Length);
 
             byte[] bb = new byte[2048];
-            Console.WriteLine("Waiting");
+            Console.WriteLine("Waiting for response from Server...");
             int k = stm.Read(bb, 0, 2048);
 
             string responseMessage = "";
@@ -116,6 +179,7 @@ namespace Client
 
             if (processResponse(responseMessage) == -1) {
                 Console.WriteLine("\nDEBUG: INVALID REQUEST/RESPONSE\n");
+                return -1;
             }
 
             client.Close();
@@ -123,6 +187,7 @@ namespace Client
                 // Connect back to server immediately if user not in game
                 connectToServer();
             }
+            return 0;
         }
 
         /// <summary>
@@ -177,8 +242,30 @@ namespace Client
                     Console.WriteLine("\nYou have CANCELED your match making.");
                     return 0;
                 }
+                else if (requestType == REQ_CHECKNAME)
+                {
+                    Console.WriteLine("\nName is available!");
+                    return 0;
+                }
 
             }
+            else if (responseMessage.StartsWith(RESP_FAILURE))
+            {
+
+                responseMessage = responseMessage.Substring(RESP_FAILURE.Length).Trim();
+                string requestType = responseMessage.Substring(0, responseMessage.IndexOf(" ")).Trim();
+                responseMessage = responseMessage.Substring(requestType.Length);
+
+                Console.WriteLine("\nDEBUG: " + requestType + "\n");
+
+                if (requestType == REQ_CHECKNAME)
+                {
+                    Console.WriteLine("\nName is not available!");
+                    return -1;
+                }
+            }
+
+           
 
             return -1;
 
@@ -234,13 +321,12 @@ namespace Client
         {
             try
             {
-                Console.Write("Enter Your Player Name: ");
-                string pName = Console.ReadLine();
+                
 
                 //Console.Write("Enter How many people you want to play with: ");
                 // TODO: Add code to deal with cases when user enter something other than a int
                 //string numberOfPeers = Console.ReadLine();
-                ClientProgram aClient = new ClientProgram(pName);
+                ClientProgram aClient = new ClientProgram();
                 aClient.startClient();
 
 

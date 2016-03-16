@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Server
@@ -23,6 +24,7 @@ namespace Server
             {
                 primaryServerIp = replica.ipAddr;
             }
+
         }
 
         public void addReplica(ServerProgram replica)
@@ -35,9 +37,9 @@ namespace Server
   
         }
 
-        public void ListenReplica()
+        public void ListenReplica(IPAddress ip)
         {
-
+            TcpListener listener = new TcpListener(ip, 8000);
         }
 
         public void MakeThisServerPrimary()

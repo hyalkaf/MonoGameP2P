@@ -7,16 +7,20 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Collections;
 using System.Threading;
+using System.Collections.Concurrent;
 
 namespace Server
 {
     public class ServerProgram
     {
-        const string REQ_GAME = "game";
-        const string REQ_PLAYERS = "players";
-        const string REQ_CANCEL = "cancel";
-        const string REQ_IP = "ip";
-        const string RESP_SUCCESS = "success";
+        public const string REQ_GAME = "game";
+        public const string REQ_PLAYERS = "players";
+        public const string REQ_CANCEL = "cancel";
+        public const string REQ_IP = "ip";
+        public const string RESP_SUCCESS = "success";
+        public const string REQ_CHECKNAME = "checkname";
+        public const string RESP_FAILURE = "failure";
+
 
         private ReplicationManager rm;
         public IPAddress ipAddr;
@@ -24,12 +28,13 @@ namespace Server
         private Object thisLock = new Object();
         
         private List<Socket> sockets;
+        private List<string> allPlayerNamesUsed;
         public bool isPrimaryServer = false;
         private int portNumber = 9000;
 
         // Will use index as number of clients who want to be matched with this amount of other clients
         // then once that index has fullfilled its number we will match those in that index to a game.
-        private List<Dictionary<string, Socket>> socketsForGameRequests;
+        private List<ConcurrentDictionary<string, Socket>> socketsForGameRequests;
 
         private TcpListener listener;
         private AutoResetEvent are = new AutoResetEvent(true);
@@ -37,9 +42,9 @@ namespace Server
         public ServerProgram()
         {
             sockets = new List<Socket>();
-            socketsForGameRequests = new List<Dictionary<string, Socket>>();
+            socketsForGameRequests = new List<ConcurrentDictionary<string, Socket>>();
             playerQueue = new List<string>();
-
+            allPlayerNamesUsed = new List<string>();
             /* Initializes the Listener */            
             IPHostEntry host;
             string localIP = "";
@@ -107,13 +112,17 @@ namespace Server
                 // Add this socket to the match making list of list of sockets
                 if (numberOfPeers >= socketsForGameRequests.Count)
                 {
-                    for (int i = 0; i <= numberOfPeers; i++)
+                    for (int i = socketsForGameRequests.Count; i <= numberOfPeers; i++)
                     {
-                        socketsForGameRequests.Add(new Dictionary<string, Socket>());
-                    }                    
+                        socketsForGameRequests.Add(new ConcurrentDictionary<string, Socket>());
+                    }
                 }
 
+                // Name should be unique, otherwise change it
                 socketsForGameRequests[numberOfPeers][pName] = s;
+
+                // Find game match
+                MatchPeers();
 
             }
             else if (requestType == REQ_PLAYERS)
@@ -160,7 +169,36 @@ namespace Server
                 }
 
             }
+            else if (requestType == REQ_CHECKNAME)
+            {
+                var aPlayerName = requestMessage;
+                if (allPlayerNamesUsed.IndexOf(aPlayerName) == -1)
+                {
+                    responseMessage = RESP_SUCCESS + " " + REQ_CHECKNAME + "  This name is not taken";
+                    allPlayerNamesUsed.Add(aPlayerName);
+                }
+                else
+                {
+                    responseMessage = RESP_FAILURE + " " + REQ_CHECKNAME + "  This name is taken";
+                }
+                
+                Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
+                ASCIIEncoding asen = new ASCIIEncoding();
+
+                byte[] b = asen.GetBytes(responseMessage + "\n\n");
+
+                Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
+
+                s.Send(b);
+
+                Console.WriteLine("\nSent Acknowledgement");
+                if (sockets.Exists(soc => soc == s))
+                {
+                    sockets.Remove(s);
+                }
+
+            }
 
         }
 
@@ -175,9 +213,6 @@ namespace Server
             
 
             int counter = 0;
-            new Thread(() => {
-                MatchPeers();
-            }).Start();
             do
             {
                 counter++;
@@ -198,8 +233,9 @@ namespace Server
 
         private void MatchPeers()
         {
-            while (true)
-            {
+            //while (true)
+            //{
+                
                 string responseMessage = string.Empty;
 
                 for (int i = 0; i < socketsForGameRequests.Count; i++)
@@ -208,6 +244,7 @@ namespace Server
                     if (i != 0 && i != 1)
                     {
                         // TODO: Will not work when in index 2 there are four want 2
+                        // This breaks when there are two clients one want 2 games and another want 3 games.
                         if (i == socketsForGameRequests[i].Count)
                         {
                             // Do match between peers
@@ -250,8 +287,8 @@ namespace Server
 
                                 dicNameToSocket.Value.Send(b);
 
-                                Console.WriteLine("\nSent Acknowledgement");
-
+                                Console.WriteLine("\nSent Acknowledgement [Game Matched!]");
+                                Console.WriteLine();
                                 dicNameToSocket.Value.Close();
                                 sockets.Remove(dicNameToSocket.Value);
 
@@ -263,7 +300,7 @@ namespace Server
                         }
 
                     }
-                }
+                //}
             }
         }
         static void Main(string[] args)
