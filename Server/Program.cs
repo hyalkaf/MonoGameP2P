@@ -20,6 +20,7 @@ namespace Server
 
         private ReplicationManager rm;
         public IPAddress ipAddr;
+        private IPAddress primaryIPAddress;
         private List<string> playerQueue;
         private Object thisLock = new Object();
         
@@ -54,16 +55,62 @@ namespace Server
             }
             ipAddr =  IPAddress.Parse(localIP);
 
-            Console.WriteLine("SERVER STARTED! This address is: " + ipAddr);
-            Console.WriteLine("Set this to primary? (Y/N)");
-            var setPrimary = Console.ReadLine();
-            if(setPrimary.Trim().ToUpper() == "Y")
-            {
-                isPrimaryServer = true;
-            }
-            rm = new ReplicationManager(this);
+            // Change ipaddress of primary in case 
+            readServerStatusFromConsole();
+
+            // Initalize a replica and make it listen
+            rm = new ReplicationManager(this, primaryIPAddress);
+
+            // Initalize a listening port for replication Manager.
+            // TODO: Might need to change the way this code is being called. 
+            // new Task(() => { rm.ListenReplica(); }).Start();
 
             listener = new TcpListener(ipAddr, 8001);
+        }
+
+        /// <summary>
+        /// This method gets information from console about status of server and their IP addresses
+        /// </summary>
+        private void readServerStatusFromConsole()
+        {
+            // Messages to the console when server starts
+            Console.WriteLine("SERVER STARTED! This address is: " + ipAddr);
+            Console.WriteLine("Set this to primary? (Y/N)");
+
+            // Get user input and for either Yes or No and deal with other inputs
+            string getInput = Console.ReadLine().Trim().ToUpper();
+            while (getInput != "Y" || getInput != "N")
+            {
+                Console.WriteLine("Input is wrong, please indicate if this is the primary server or Not by inputing Y or N? ");
+                getInput = Console.ReadLine().Trim().ToUpper();
+            }
+
+            // Check that what the user has input
+            IPAddress ipaddress = ipAddr;
+            if (getInput == "Y")
+            {
+                isPrimaryServer = true;
+                ipAddr = ipaddress;
+                primaryIPAddress = ipaddress;
+            }
+            else if (getInput == "N")
+            {
+                Console.WriteLine("What is the IP address of the primary server? ");
+                string getIP = Console.ReadLine();
+                
+                while (!IPAddress.TryParse(getIP, out ipaddress))
+                {
+                    Console.WriteLine("There was a mistake in your IP address input. What is the IP address of the primary server in the form x.x.x.x? ");
+                    getIP = Console.ReadLine();
+                }
+                primaryIPAddress = ipaddress;
+            }
+            // Code shouldn't hit else part
+            else
+            {
+                Console.WriteLine("ERROR");
+            }
+
         }
 
         void EstablishConnection(Socket s, int id)
@@ -278,6 +325,7 @@ namespace Server
             {
                 Console.WriteLine("ERROR from server listening.....\n" + e.Message);
                 Console.WriteLine(e.StackTrace);
+                //Console.ReadLine();
             }
         }
 
