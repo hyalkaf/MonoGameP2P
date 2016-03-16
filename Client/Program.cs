@@ -401,6 +401,8 @@ namespace Client
             catch (Exception e)
             {
                 Console.WriteLine("Error..... " + e.StackTrace);
+                Console.WriteLine(e.Message);
+                Console.ReadLine();
             }
         }
     }

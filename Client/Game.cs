@@ -10,8 +10,6 @@ namespace Client
 
     class Game
     {
-
         private int gameId;
-        
     }
 }
