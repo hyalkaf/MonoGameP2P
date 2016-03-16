@@ -37,8 +37,7 @@ namespace Client
         /// </summary>
         /// <param name="player"></param>
         public ClientProgram()
-        {
-           
+        { 
             // Set IP address of server
             if (SERVER_IP == "")
             {
@@ -53,9 +52,10 @@ namespace Client
                 connectToServer();
                 Console.Write("Enter Your Player Name: ");
                 pName = Console.ReadLine();
+                pName = pName.Trim().Replace(" ", "").Replace("\t", "");
             } while (!checkNameAvailable(pName));
 
-            playerName = pName.Trim().Replace(" ", "").Replace("\t", "");
+            playerName = pName;
 
         }
 
@@ -286,9 +286,11 @@ namespace Client
 
                             Console.Write("Send request (game, players, cancel): ");
                             var request = Console.ReadLine().Trim().ToLower();
+                            if(request != String.Empty) { 
 
-                            Console.WriteLine("Sending request \"{0}\"", request);
-                            SendRequest(request);
+                                Console.WriteLine("Sending request \"{0}\"", request);
+                                SendRequest(request);
+                            }
 
                         }
 

@@ -21,7 +21,6 @@ namespace Server
         public const string REQ_CHECKNAME = "checkname";
         public const string RESP_FAILURE = "failure";
 
-
         private ReplicationManager rm;
         public IPAddress ipAddr;
         private List<string> playerQueue;
@@ -79,7 +78,16 @@ namespace Server
             Console.WriteLine("Connection accepted from "); //+ ipaddr + " : " + portNumber);
 
             byte[] buffer = new byte[2048];
-            int bytesRead = s.Receive(buffer);
+            int bytesRead;
+            try { 
+               bytesRead = s.Receive(buffer);
+            }
+            catch (Exception e)
+            {
+                s.Close();
+                sockets.Remove(s);
+                return;
+            }
 
             sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
 
@@ -104,6 +112,7 @@ namespace Server
             {
                 // All the data has been read from the 
                 // client. Display it on the console.
+                
                 string pName = requestMessage.Substring(0, requestMessage.IndexOf(" "));
 
                 // TODO: Deal with cases where parsing doesn't work
@@ -141,6 +150,7 @@ namespace Server
                 Console.WriteLine("\nSent Acknowledgement");
                 if (sockets.Exists(soc => soc == s))
                 {
+                    s.Close();
                     sockets.Remove(s);
                 }
 
@@ -165,6 +175,7 @@ namespace Server
                 Console.WriteLine("\nSent Acknowledgement");
                 if (sockets.Exists(soc => soc == s))
                 {
+                    s.Close();
                     sockets.Remove(s);
                 }
 
@@ -195,6 +206,7 @@ namespace Server
                 Console.WriteLine("\nSent Acknowledgement");
                 if (sockets.Exists(soc => soc == s))
                 {
+                    s.Close();
                     sockets.Remove(s);
                 }
 
@@ -232,10 +244,7 @@ namespace Server
         }
 
         private void MatchPeers()
-        {
-            //while (true)
-            //{
-                
+        {                
                 string responseMessage = string.Empty;
 
                 for (int i = 0; i < socketsForGameRequests.Count; i++)
@@ -300,7 +309,7 @@ namespace Server
                         }
 
                     }
-                //}
+
             }
         }
         static void Main(string[] args)
