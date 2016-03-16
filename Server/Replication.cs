@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,15 +11,18 @@ namespace Server
         
     class ReplicationManager
     {
-        public static string primaryServerIp = "10.13.136.75";
+        public static IPAddress primaryServerIp = IPAddress.Parse("0.0.0.0");
         public static List<ServerProgram> listReplicas = new List<ServerProgram>();
 
         private TcpListener rmListener;
         public ReplicationManager(ServerProgram replica)
         {
             addReplica(replica);
-           // rmListener = new TcpListener();
-
+            // rmListener = new TcpListener();
+            if (replica.isPrimaryServer)
+            {
+                primaryServerIp = replica.thisLocalAddr;
+            }
         }
 
         public void addReplica(ServerProgram replica)
@@ -41,7 +45,7 @@ namespace Server
 
         }
 
-        public bool IsPrimary(string ipAddr)
+        public bool IsPrimary(IPAddress ipAddr)
         {
             return ipAddr == primaryServerIp;
         }

@@ -236,8 +236,7 @@ namespace Client
                 _peerListener.Start();
 
                 Console.WriteLine("The peer is running at port {0}...", (_peerListener.LocalEndpoint as IPEndPoint).Port);
-                Console.WriteLine("The local End point is  :" +
-                                  _peerListener.LocalEndpoint);
+                Console.WriteLine("The local End point is  :" + _peerListener.LocalEndpoint);
                 int counter = 0;
                 do
                 {

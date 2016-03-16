@@ -22,10 +22,9 @@ namespace Client
         public const string REQ_GAME = "game";
         public const string REQ_PLAYERS = "players";
         public const string REQ_CANCEL = "cancel";
-        //public const string SERVER_IP = "127.0.0.1";
-        //public const string SERVER_IP = "10.13.136.75";
-        public const string SERVER_IP = "10.211.55.4";
         const string RESP_SUCCESS = "success";
+
+        public static string SERVER_IP = "";
 
         // Holds information about other peers in the system: IPAddress, portNumber, name and ID.
         List<Tuple<string, int, string, int>> peersInfo;
@@ -37,12 +36,16 @@ namespace Client
         /// <param name="player"></param>
         public ClientProgram(string player = "NewPlayer")
         {
-            connectToServer();
-            playerName = player;
-            //this.numberOfPeers = numberOfPeers;
+            playerName = player.Trim().Replace(" ", "").Replace("\t","");
 
-            // Generate two ports for sending and listening (8002 - 9999)
-            
+            if (SERVER_IP == "")
+            {
+                Console.Write("NO SERVER IP SET, Enter server ip: ");
+                SERVER_IP = Console.ReadLine();
+            }
+
+            connectToServer();
+                     
         }
 
         /// <summary>
@@ -65,10 +68,9 @@ namespace Client
 
         /// <summary>
         /// Communication between server and client method to send requests from clients to the server.
-        /// TODO: Why is msg have a defualt string? If client presses enter the empty string should be parsed as request too?
         /// </summary>
         /// <param name="msg"></param>
-        public void SendRequest(string msg = "")
+        public void SendRequest(string msg)
         {
             
             string reqMessage = msg.Trim();
@@ -80,7 +82,6 @@ namespace Client
             {
                 
                 string numOfPeersToMatch = reqMessageElem[1];
-                Console.WriteLine("DEBUG: " + numOfPeersToMatch);
 
                 reqMessage = req +  " " + playerName + " " + numOfPeersToMatch;
                 //Console.log(reqMessage);
@@ -112,7 +113,6 @@ namespace Client
                 responseMessage += c;
             }
 
-           
 
             if (processResponse(responseMessage) == -1) {
                 Console.WriteLine("\nDEBUG: INVALID REQUEST/RESPONSE\n");
@@ -120,6 +120,7 @@ namespace Client
 
             client.Close();
             if (!inGame) {
+                // Connect back to server immediately if user not in game
                 connectToServer();
             }
         }
@@ -186,10 +187,10 @@ namespace Client
         public void startClient()
         {
 
+            // Continously stay connected to the server
             while (true) { 
                 try
                 {
-
                     while (true)
                     {
 
@@ -206,13 +207,15 @@ namespace Client
 
                         else
                         {
+                            // Leave the server if a game was matched, 
+                            //   proceed to p2p connection with other players
                             break;
-
                         }
                     }
 
                     using (Peer peer = new Peer(playerName, peersInfo))
                     
+                    // Game ended connect back to server
                     inGame = false;
                     connectToServer();
 
