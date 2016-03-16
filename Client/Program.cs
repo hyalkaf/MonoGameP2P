@@ -23,6 +23,7 @@ namespace Client
         public const string REQ_PLAYERS = "players";
         public const string REQ_CANCEL = "cancel";
         public const string REQ_CHECKNAME = "checkname";
+        public const string REQ_RECONN = "reconn";
         public const string RESP_SUCCESS = "success";
         public const string RESP_FAILURE = "failure";
 
@@ -47,13 +48,31 @@ namespace Client
 
             // Connect to server and set unique player name 
             string pName = String.Empty;
+            bool checkNameResult = false;
             do
             {
                 connectToServer();
                 Console.Write("Enter Your Player Name: ");
                 pName = Console.ReadLine();
                 pName = pName.Trim().Replace(" ", "").Replace("\t", "");
-            } while (!checkNameAvailable(pName));
+                checkNameResult = checkNameAvailable(pName);
+                if (!checkNameResult)
+                {
+                    Console.Write("Name exists on server, is it you? (Y/N)");
+                    string isityou = Console.ReadLine().Trim().ToLower();
+
+                    if(isityou == "y")
+                    {
+                        checkNameResult = true;
+                    }
+                    else
+                    {
+                        Console.Write("Re");
+                    }
+                    
+                }
+
+            } while (!checkNameResult);
 
             playerName = pName;
 
@@ -129,7 +148,6 @@ namespace Client
                 string numOfPeersToMatch = reqMessageElem[1];
 
                 reqMessage = req +  " " + playerName + " " + numOfPeersToMatch;
-                //Console.log(reqMessage);
             }
             else if(req == REQ_CANCEL)
             {
@@ -142,6 +160,24 @@ namespace Client
             else if (req == REQ_CHECKNAME)
             {
                 reqMessage = msg;
+            }
+            else if (req == REQ_RECONN)
+            {
+                int inttest;
+                if (reqMessageElem.Length < 2 || !int.TryParse(reqMessageElem[1], out inttest))
+                {
+                    Console.WriteLine("USAGE: reconn <gameId>");
+                    client.Close();
+                    if (!inGame)
+                    {
+                        // Connect back to server immediately if user not in game
+                        connectToServer();
+                    }
+                    return 0;
+                }
+                string gameId = reqMessageElem[1];
+
+                reqMessage = req + " " + gameId;
             }
             else
             {
@@ -179,6 +215,7 @@ namespace Client
 
             if (processResponse(responseMessage) == -1) {
                 Console.WriteLine("\nDEBUG: INVALID REQUEST/RESPONSE\n");
+                client.Close();
                 return -1;
             }
 
@@ -229,6 +266,27 @@ namespace Client
                     inGame = true;
                     return 0;
                 }
+                else if (requestType == REQ_RECONN)
+                {
+                    peersInfo = new List<Tuple<string, int, string, int>>();
+                    IEnumerable<string> temp = responseMessage.Split(',');
+                    peersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
+                    {
+                        string[] peerInfo = info.Trim().Split(' ');
+                        Tuple<string, int, string, int> t = null;
+                        if (!string.IsNullOrEmpty(info))
+                        {
+                            // TODO: deal with cases when integer can't be parsed
+                            t = new Tuple<string, int, string, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3]));
+                        }
+
+                        return t;
+
+                    }).ToList();
+
+                    inGame = true;
+                    return 0;
+                }
                 else if (requestType == REQ_PLAYERS)
                 {
                     // DISPLAY playernum ON GUI
@@ -262,6 +320,10 @@ namespace Client
                 {
                     Console.WriteLine("\nName is not available!");
                     return -1;
+                }else if(requestType == REQ_RECONN)
+                {
+                    Console.WriteLine(responseMessage);
+                    return 0;
                 }
             }
 
@@ -284,7 +346,7 @@ namespace Client
                         if (!inGame)
                         {
 
-                            Console.Write("Send request (game, players, cancel): ");
+                            Console.Write("Send request (game, players, cancel, reconn): ");
                             var request = Console.ReadLine().Trim().ToLower();
                             if(request != String.Empty) { 
 
