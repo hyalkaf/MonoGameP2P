@@ -17,27 +17,29 @@ namespace Server
         public const string REQ_PLAYERS = "players";
         public const string REQ_CANCEL = "cancel";
         public const string REQ_IP = "ip";
-        public const string RESP_SUCCESS = "success";
         public const string REQ_CHECKNAME = "checkname";
+        public const string REQ_RECONN = "reconn";
+        public const string RESP_SUCCESS = "success";
         public const string RESP_FAILURE = "failure";
 
         private ReplicationManager rm;
         public IPAddress ipAddr;
         private IPAddress primaryIPAddress;
         private List<string> playerQueue;
-        private Object thisLock = new Object();
-        
-        private List<Socket> sockets;
-        private List<string> allPlayerNamesUsed;
-        public bool isPrimaryServer = false;
-        private int portNumber = 9000;
+
 
         // Will use index as number of clients who want to be matched with this amount of other clients
         // then once that index has fullfilled its number we will match those in that index to a game.
         private List<ConcurrentDictionary<string, Socket>> socketsForGameRequests;
+        private List<Socket> sockets;
+        private List<string> allPlayerNamesUsed;
+        private Dictionary<string, string> gameSession;
+        public bool isPrimaryServer = false;
+        private int portNumber = 9000;
+        private int gameIdGenerate = 1;
 
         private TcpListener listener;
-        private AutoResetEvent are = new AutoResetEvent(true);
+
 
         public ServerProgram()
         {
@@ -45,7 +47,8 @@ namespace Server
             socketsForGameRequests = new List<ConcurrentDictionary<string, Socket>>();
             playerQueue = new List<string>();
             allPlayerNamesUsed = new List<string>();
-            /* Initializes the Listener */            
+            gameSession = new Dictionary<string, string>();
+            /* Initializes the Listener */
             IPHostEntry host;
             string localIP = "";
             host = Dns.GetHostEntry(Dns.GetHostName());
@@ -165,7 +168,6 @@ namespace Server
                 
                 string pName = requestMessage.Substring(0, requestMessage.IndexOf(" "));
 
-                // TODO: Deal with cases where parsing doesn't work
                 int numberOfPeers = int.Parse(requestMessage.Substring(pName.Length));
 
                 // Add this socket to the match making list of list of sockets
@@ -182,6 +184,39 @@ namespace Server
 
                 // Find game match
                 MatchPeers();
+
+            }
+            else if (requestType == REQ_RECONN)
+            {
+
+
+                string gameId = requestMessage;
+                if (gameSession.ContainsKey(gameId))
+                {
+                    responseMessage = RESP_SUCCESS + " " + REQ_RECONN + "  " + gameSession[gameId];
+                }
+                else
+                {
+                    responseMessage = RESP_FAILURE + " " + REQ_RECONN + "  No such game exists";
+                }
+                
+                Console.WriteLine("DEBUG: Response sent: " + responseMessage);
+
+                ASCIIEncoding asen = new ASCIIEncoding();
+
+                byte[] b = asen.GetBytes(responseMessage + "\n\n");
+
+                Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
+
+                s.Send(b);
+
+                Console.WriteLine("\nSent Acknowledgement");
+                if (sockets.Exists(soc => soc == s))
+                {
+                    s.Close();
+                    sockets.Remove(s);
+                }
+
 
             }
             else if (requestType == REQ_PLAYERS)
@@ -296,7 +331,7 @@ namespace Server
         private void MatchPeers()
         {                
                 string responseMessage = string.Empty;
-
+                string playersToBeSent = "";
                 for (int i = 0; i < socketsForGameRequests.Count; i++)
                 {
                     // bypass first and second index since there are no matches with 0 or 1 player
@@ -320,8 +355,6 @@ namespace Server
 
                                 playerQueue.Add(thisClient);
                             }
-
-                            string playersToBeSent = "";
 
                             for (int z = 0; z < playerQueue.Count; z++)
                             {
@@ -353,6 +386,9 @@ namespace Server
 
                             }
 
+                             //  Save game session for reconnect
+                            gameSession.Add(gameIdGenerate.ToString(), playersToBeSent);
+                            gameIdGenerate++;
                             // TODO: Find a way to remove only the ones matched
                             socketsForGameRequests.Remove(socketsForGameRequests[i]);
                             playerQueue.Clear();
