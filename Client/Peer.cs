@@ -101,7 +101,6 @@ namespace Client
             Console.WriteLine("CONNECTED WITH YOU: " + s.RemoteEndPoint);
             Console.WriteLine();
             StringBuilder sb = new StringBuilder();
-            Console.WriteLine("Connection accepted from " + s.RemoteEndPoint);
 
             byte[] buffer = new byte[2048];
             int bytesRead = s.Receive(buffer);
@@ -189,6 +188,10 @@ namespace Client
                    .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray()));
 
                 Console.WriteLine("\nPlayer " + playerId + " quit the game! (" + turnNum + ") ");
+
+                //Remove player from the list
+                peersInfo.Remove (peersInfo.Where(peerInfo => peerInfo.Item4 == playerId).First());
+                _peerSender = new TcpClient[_peerSender.Length - 1];
                 // Keep track of peers with their position
                 // peersIDToPosition[numberOne] += numberTwo;
             }
