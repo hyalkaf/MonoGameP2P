@@ -44,10 +44,10 @@ namespace Server
 
             thisServer = replica;
 
-            new Thread(() =>
-            {
-                ListenReplica();
-            });
+            //new Thread(() =>
+            //{
+            //    ListenReplica();
+            //});
 
         }
 
@@ -240,6 +240,7 @@ namespace Server
             rmListener.Start();
             while (true)
             {
+                Console.WriteLine("Listening");
                 Socket sock = rmListener.AcceptSocket();
                 new Thread(() => {
                     EstablishConnection(sock);

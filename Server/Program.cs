@@ -57,7 +57,6 @@ namespace Server
                 if (ip.AddressFamily == AddressFamily.InterNetwork)
                 {
                     localIP = ip.ToString();
-                    
                 }
             }
             ipAddr =  IPAddress.Parse(localIP);
@@ -403,7 +402,14 @@ namespace Server
             try
             {
                 ServerProgram svr = new ServerProgram();
-                svr.StartListen();
+                if (svr.isPrimaryServer)
+                {
+                    svr.StartListen();
+                }
+                else
+                {
+                    svr.rm.ListenReplica();
+                }
 
             }
             catch (Exception e)
