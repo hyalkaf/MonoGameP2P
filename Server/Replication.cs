@@ -263,7 +263,7 @@ namespace Server
                 Socket sock = rmListener.AcceptSocket();
                 new Thread(() => {
                     EstablishConnection(sock);
-                });
+                }).Start();
             }
         }
 
