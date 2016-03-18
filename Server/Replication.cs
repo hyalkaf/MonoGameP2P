@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 namespace Server
 {
         
-    class ReplicationManager
+    public class ReplicationManager
     {
         // Primary server ip address
         public static IPAddress primaryServerIp = IPAddress.Parse("0.0.0.0");
@@ -303,7 +303,7 @@ namespace Server
         /// </summary>
         /// <param gameSessionInfo="gameSessionInfo">Dictionary of gameIDs to list of player info to be sent from primary server to replica.</param>
         /// <returns>Message to be sent to the replica</returns>
-        private string ConstructPrimaryMessageSession(Dictionary<string, string> gameSessionInfo)
+        public string ConstructPrimaryMessageSession(Dictionary<string, string> gameSessionInfo)
         {
             string responseMessage = "session" + " ";
             int counter = 0;
@@ -311,7 +311,7 @@ namespace Server
             // send client names on the server
             foreach (KeyValuePair<string, string> idToplayerInfo in gameSessionInfo)
             {
-                responseMessage = idToplayerInfo.Key + " ";
+                responseMessage += idToplayerInfo.Key + " ";
 
                 // get player information
                 string[] arrayOfPlayerInfo = idToplayerInfo.Value.Split(',');
