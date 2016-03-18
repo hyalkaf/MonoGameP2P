@@ -134,7 +134,7 @@ namespace Server
 
                     // Create a response back to the replicationManager of the replica
                     // add required information to be sent back
-                    responseMessage = REQ_INFO + " ";
+                    responseMessage = RESP_SUCCESS + " " + REQ_REPLICA + " ";
                     for (int i = 0; i < allReplicaAddr.Count; i++)
                     {
                         // Comma shouldn't be added at the end of the message
@@ -199,7 +199,16 @@ namespace Server
             }
             else if (requestType == REQ_CHECK)
             {
-                Console.WriteLine("I'm Checking the primary server if exits");
+                Console.WriteLine("I'm Checking the primary server");
+            }
+            else if (requestType == RESP_SUCCESS)
+            {
+                string success_message = messageParam.Substring(0, messageParam.IndexOf(" ")).Trim();
+
+                if (success_message.StartsWith(REQ_REPLICA))
+                {
+                    allReplicaAddr.Add(new Tuple<IPAddress, bool>(thisServer.ipAddr, true));
+                }
             }
 
             return b;
