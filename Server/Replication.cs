@@ -25,11 +25,15 @@ namespace Server
         Timer timer;
         //
         private Object thisLock = new Object();
+        //
+        public static readonly string[] arrayOfReplicaMessages = { "replica", "name", "session" };
 
 
         // Request messsage between replicas and server
         const string REQ_REPLICA = "replica";
-        const string REQ_INFO = "info";
+        const string REQ_ADDRESS = "address";
+        const string REQ_NAMES = "name";
+        const string REQ_GAMESESSIONS = "session";
         const string REQ_CHECK = "check";
         const string RESP_SUCCESS = "success";
 
@@ -42,6 +46,9 @@ namespace Server
             primaryServerIp = primaryServerIPAddress;
             if (!replica.isPrimaryServer)
             {
+                // Add Primary server ip address to replica
+                allReplicaAddr.Add(new Tuple<IPAddress, bool>(primaryServerIp, true));
+
                 // Communicate with the primary server to get info about the game
                 timer = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
             }
@@ -61,10 +68,8 @@ namespace Server
             // secondary replica sends a replica request
             if (!replica.isPrimaryServer)
             {
-                SendReplica("replica");
+                SendReplica(true);
             }
-
-
         }
 
         public void EstablishConnection(Socket sock)
@@ -80,7 +85,6 @@ namespace Server
             Console.WriteLine("Message that was listened to {0}", sb.ToString());
 
             string requestMessage = sb.ToString().Trim().ToLower();
-
 
             byte[] responseMessage = parseRequestMessage(requestMessage);
 
@@ -101,7 +105,7 @@ namespace Server
         {
             string requestType;
             string messageParam;
-            string responseMessage;
+            string responseMessage = string.Empty;
             bool parsedCorrectly = false;
             byte[] b = new byte[4096];
 
@@ -140,8 +144,10 @@ namespace Server
 
                     // Create a response back to the replicationManager of the replica
                     // add required information to be sent back
-                    responseMessage = REQ_INFO + " ";
-                    for (int i = 0; i < allReplicaAddr.Count; i++)
+                    responseMessage = REQ_ADDRESS + " ";
+
+                    // Send replicas ip addresses starting from first replica
+                    for (int i = 1; i < allReplicaAddr.Count; i++)
                     {
                         // Comma shouldn't be added at the end of the message
                         if (i != allReplicaAddr.Count - 1)
@@ -155,14 +161,13 @@ namespace Server
 
                     }
 
-
                     ASCIIEncoding asen = new ASCIIEncoding();
 
                     b = asen.GetBytes(responseMessage + "\n\n");
                 }
             }
             
-            else if (requestType == REQ_INFO)
+            else if (requestType == REQ_ADDRESS)
             {
                 // get IP Addresses of all the other programs 
                 string[] arrayOfIPAddresses = messageParam.Split(',');
@@ -188,7 +193,7 @@ namespace Server
                     else
                     {
                         // Add tempIP into the list of existing ip addresses
-                        if (allReplicaAddr.All(tuple => tuple.Item1 != ipAddr))
+                        if (allReplicaAddr.All(tuple => !tuple.Item1.Equals(ipAddr)))
                         {
                             Console.WriteLine("Add this IP Address to the list {0}", ipAddr);
                             allReplicaAddr.Add(new Tuple<IPAddress, bool>(ipAddr, true));
@@ -200,7 +205,7 @@ namespace Server
                 if (parsedCorrectly)
                 {
                     // Create a response back to the replicationManager of the server
-                    responseMessage = RESP_SUCCESS + " " + REQ_INFO + "  ";
+                    responseMessage = RESP_SUCCESS + " " + REQ_ADDRESS + "  ";
 
                     ASCIIEncoding asen = new ASCIIEncoding();
 
@@ -212,11 +217,22 @@ namespace Server
                     Console.WriteLine("The replicas are: {0} {1}", replica.Item1, replica.Item2);
                 }
             }
-            /*else if (requestType == REQ_CHECK)
+            else if (requestType == REQ_NAMES || requestType == REQ_GAMESESSIONS)
             {
-                Console.WriteLine("I'm Checking the primary server");
-            }*/
-            else if (requestType == RESP_SUCCESS)
+                if (thisServer.isPrimaryServer)
+                {
+                    responseMessage = ConstructPrimaryMessagesBasedOnType(requestType);
+                }
+                else
+                {
+                    responseMessage = ConstructReplicaMessageAfterReceivingServerInfo(requestType, messageParam);
+                }
+
+                ASCIIEncoding asen = new ASCIIEncoding();
+
+                b = asen.GetBytes(responseMessage + "\n\n");
+            }
+            /*else if (requestType == RESP_SUCCESS)
             {
                 string success_message = messageParam.Substring(0, messageParam.IndexOf(" ")).Trim();
 
@@ -224,9 +240,183 @@ namespace Server
                 {
                     allReplicaAddr.Add(new Tuple<IPAddress, bool>(thisServer.ipAddr, true));
                 }
-            }
+            }*/
 
             return b;
+        }
+
+        private string ConstructPrimaryMessagesBasedOnType(string requestType)
+        {
+            // Add response Type
+            string responseMessage = string.Empty;
+            List<string> names = thisServer.allPlayerNamesUsed;
+            Dictionary<string, string> session = thisServer.gameSession;
+
+            // based on request get the server info needed
+            if (requestType.Equals(REQ_ADDRESS))
+            {
+                Console.WriteLine("This is where it used to be info");
+            }
+            else if (requestType.Equals(REQ_NAMES))
+            {
+                responseMessage = ConstructPrimaryMessageNames(names);
+            }
+            else if (requestType.Equals(REQ_GAMESESSIONS))
+            {
+                responseMessage = ConstructPrimaryMessageSession(session);
+            }
+            
+            return responseMessage;
+        }
+
+        /// <summary>
+        /// This method constructs a message that will be sent from primary to replica for name request.
+        /// </summary>
+        /// <param name="names">List of names of players to be sent from primary server to replica.</param>
+        /// <returns>Message to be sent to the replica</returns>
+        private string ConstructPrimaryMessageNames(List<string> names)
+        {
+            string responseMessage = "name" + " ";
+
+            // send client names on the server
+            for (int i = 0; i < names.Count; i++)
+            {
+                // Comma shouldn't be added at the end of the message
+                if (i != names.Count - 1)
+                {
+                    responseMessage += thisServer.allPlayerNamesUsed[i] + ",";
+                }
+                else
+                {
+                    responseMessage += thisServer.allPlayerNamesUsed[i];
+                }
+            }
+
+            return responseMessage;
+        }
+
+        /// <summary>
+        /// This method constructs a message that will be sent from primary to replica for session request.
+        /// </summary>
+        /// <param gameSessionInfo="gameSessionInfo">Dictionary of gameIDs to list of player info to be sent from primary server to replica.</param>
+        /// <returns>Message to be sent to the replica</returns>
+        private string ConstructPrimaryMessageSession(Dictionary<string, string> gameSessionInfo)
+        {
+            string responseMessage = "session" + " ";
+            int counter = 0;
+
+            // send client names on the server
+            foreach (KeyValuePair<string, string> idToplayerInfo in gameSessionInfo)
+            {
+                responseMessage = idToplayerInfo.Key + " ";
+
+                // get player information
+                string[] arrayOfPlayerInfo = idToplayerInfo.Value.Split(',');
+
+                // append all player info to response message
+                for (int j = 0; j < arrayOfPlayerInfo.Count(); j++)
+                {
+                    if (j != arrayOfPlayerInfo.Count() - 1)
+                    {
+                        responseMessage += arrayOfPlayerInfo[j] + " ";
+                    }
+                    else
+                    {
+                        responseMessage += arrayOfPlayerInfo[j];
+                    }
+                }
+
+                // Append a comma at the end
+                if (counter != gameSessionInfo.Count - 1)
+                {
+                    responseMessage += ",";
+                }
+
+                counter++;
+            }
+
+            return responseMessage;
+        }
+
+        /// <summary>
+        /// This method constructs a message that will be sent from primary to replica for name request.
+        /// </summary>
+        /// <param name="names">List of names of players to be sent from primary server to replica.</param>
+        /// <returns>Message to be sent to the replica</returns>
+        private string ConstructReplicaMessageAfterReceivingServerInfo(string requestType, string messageParam)
+        {
+            string responseMessage = string.Empty;
+
+            if (requestType == REQ_NAMES)
+            {
+                // get player names
+                string[] arrayOfPlayerNames = messageParam.Split(',');
+
+                // Convert IP address from string to IPAddress
+                foreach (string tempName in arrayOfPlayerNames)
+                {
+                    // Add tempIP into the list of existing ip addresses
+                    if (thisServer.allPlayerNamesUsed.All(name => !name.Equals(tempName)))
+                    {
+                        thisServer.allPlayerNamesUsed.Add(tempName);
+                    }
+                }
+            }
+            else if (requestType == REQ_GAMESESSIONS)
+            {
+                // split games sessions
+                string[] arrayOfSessions = messageParam.Split(',');
+
+                // Convert IP address from string to IPAddress
+                foreach (string tempSession in arrayOfSessions)
+                {
+                    // Extract game ID
+                    string gameID = new string(tempSession
+                   .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray());
+
+                    // Add session into existing sessions if it doesn't exist
+                    if (!thisServer.gameSession.ContainsKey(gameID))
+                    {
+                        string playerIP = new string(tempSession
+                        .SkipWhile(ch => !char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => char.IsWhiteSpace(ch))
+                        .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray());
+
+                        string playerPort = new string(tempSession
+                        .SkipWhile(ch => !char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => !char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => char.IsWhiteSpace(ch))
+                        .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray());
+
+                        string playerName = new string(tempSession
+                        .SkipWhile(ch => !char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => !char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => !char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => char.IsWhiteSpace(ch))
+                        .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray());
+
+                        string playerID = new string(tempSession
+                        .SkipWhile(ch => !char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => !char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => !char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => !char.IsWhiteSpace(ch))
+                        .SkipWhile(ch => char.IsWhiteSpace(ch))
+                        .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray());
+
+                        string playerInfoDelimitedByComma = playerIP + "," + playerPort + "," + playerName + "," + playerID;
+
+                        thisServer.gameSession[gameID] = playerInfoDelimitedByComma;
+                    }
+                }
+            }
+
+            return responseMessage;
         }
 
         /// <summary>
@@ -244,75 +434,33 @@ namespace Server
         /// Communication between each replica and the server. Replicas will send either replica or check.
         /// </summary>
         /// <param name="tempMsg">what replicas are trying to send as clients</param>
-        public void SendReplica(string tempMsg)
+        public void SendReplica(bool isReplica)
         {
-            string messageToBeSent = string.Empty;
 
-            // Check tryp of message
-            if (tempMsg.StartsWith(REQ_INFO))
+            if (isReplica)
             {
-                // add required information to be sent back
-                messageToBeSent = "info" + " ";
-                for (int i = 0; i < allReplicaAddr.Count; i++)
+
+                // Catch errors in case we are checking server existence
+                try
                 {
-                    // Comma shouldn't be added at the end of the message
-                    if (i != allReplicaAddr.Count - 1)
+                    // Loop through three requests for duplicating data
+                    for (int i = 0; i < 3; i++)
                     {
-                        messageToBeSent += allReplicaAddr[i].Item1 + ",";
-                    }
-                    else
-                    {
-                        messageToBeSent += allReplicaAddr[i].Item1;
+                        ConnectReplica(arrayOfReplicaMessages[i]);
                     }
                 }
-            }
-            else if (tempMsg.StartsWith(REQ_REPLICA))
-            {
-                // Message to be sent 
-                messageToBeSent = "replica" + " " + thisServer.ipAddr;
-            }
-            else if (tempMsg.StartsWith(REQ_CHECK))
-            {
-                // Message to be sent 
-                messageToBeSent = "check" + " ";
-            }
-
-            // Initalize a new TcpClient
-            replicaClient = new TcpClient();
-
-            // Catch errors in case we are checking server existence
-            try
-            {
-
-                // will send a message to the replica
-                replicaClient.Connect(primaryServerIp, 8000);
-
-                Stream stm = replicaClient.GetStream();
-
-                ASCIIEncoding asen = new ASCIIEncoding();
-                byte[] ba = asen.GetBytes(messageToBeSent);
-
-                stm.Write(ba, 0, ba.Length);
-                byte[] bb = new byte[4096];
-                // Receive response
-                int k = stm.Read(bb, 0, 4096);
-
-                string responseMessage = "";
-                char c = ' ';
-                for (int i = 0; i < k; i++)
+                catch (Exception e)
                 {
-                    c = Convert.ToChar(bb[i]);
-                    responseMessage += c;
+                    Console.WriteLine("sending from replica to primary for replica, name, and session is not working {0}", e.Message);
                 }
-
-                parseRequestMessage(responseMessage);
-                
-                replicaClient.Close();
             }
-            catch(Exception e)
+            else
             {
-                // Check what type of message was being sent
-                if (tempMsg.StartsWith(REQ_CHECK))
+                try
+                {
+                    ConnectReplica("check");
+                }
+                catch (Exception e)
                 {
                     // In this case: server must have crashed
                     // take over and become the primary 
@@ -321,10 +469,76 @@ namespace Server
                     {
                         MakeThisServerPrimary();
                     }
-                    
                 }
             }
   
+        }
+
+        /// <summary>
+        /// This method build up message to be sent from each replica to the server.
+        /// </summary>
+        /// <param name="replicaMsg">request that should be sent to the primary server</param>
+        /// <returns>Complete message that should be sent to the primary server</returns>
+        private string ConstructReplicaMessagesFromReplicaToServer(string replicaMsg)
+        {
+            string messageToBeSent = string.Empty;
+
+            // Check type of Message 
+            if (replicaMsg.StartsWith(REQ_NAMES))
+            {
+                // add required information to be sent back
+                messageToBeSent = "name" + " "; 
+            }
+            else if (replicaMsg.StartsWith(REQ_REPLICA))
+            {
+                // Message to be sent 
+                messageToBeSent = "replica" + " " + thisServer.ipAddr;
+            }
+            else if (replicaMsg.StartsWith(REQ_CHECK))
+            {
+                // Message to be sent 
+                messageToBeSent = "check" + " ";
+            }
+            else if (replicaMsg.StartsWith(REQ_GAMESESSIONS))
+            {
+                messageToBeSent = "session" + " ";
+            }
+
+            return messageToBeSent;
+        }
+
+
+        private void ConnectReplica(string tempMsg)
+        {
+            string messageToBeSent = ConstructReplicaMessagesFromReplicaToServer(tempMsg);
+
+            // Initalize a new TcpClient
+            replicaClient = new TcpClient();
+
+            // will send a message to the replica
+            replicaClient.Connect(primaryServerIp, 8000);
+
+            Stream stm = replicaClient.GetStream();
+
+            ASCIIEncoding asen = new ASCIIEncoding();
+            byte[] ba = asen.GetBytes(messageToBeSent);
+
+            stm.Write(ba, 0, ba.Length);
+            byte[] bb = new byte[4096];
+            // Receive response
+            int k = stm.Read(bb, 0, 4096);
+
+            string responseMessage = "";
+            char c = ' ';
+            for (int i = 0; i < k; i++)
+            {
+                c = Convert.ToChar(bb[i]);
+                responseMessage += c;
+            }
+
+            parseRequestMessage(responseMessage);
+
+            replicaClient.Close();
         }
 
         public void ListenReplica()
@@ -364,7 +578,7 @@ namespace Server
             // Send to primary a message
             lock (thisLock)
             {
-                SendReplica("check");
+                SendReplica(false);
             }
         }
         

@@ -32,8 +32,8 @@ namespace Server
         // then once that index has fullfilled its number we will match those in that index to a game.
         private List<ConcurrentDictionary<string, Socket>> socketsForGameRequests;
         private List<Socket> sockets;
-        private List<string> allPlayerNamesUsed;
-        private Dictionary<string, string> gameSession;
+        public List<string> allPlayerNamesUsed;
+        public Dictionary<string, string> gameSession;
         public bool isPrimaryServer = false;
         private int portNumber = 9000;
         private int gameIdGenerate = 1;
