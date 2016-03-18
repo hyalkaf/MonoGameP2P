@@ -36,14 +36,10 @@ namespace Server
         {
             addReplica(replica);
             // rmListener = new TcpListener();
-            if (replica.isPrimaryServer)
-            {
-                primaryServerIp = primaryServerIPAddress;
-            }
-            else
+            primaryServerIp = primaryServerIPAddress;
+            if (!replica.isPrimaryServer)
             {
                 // Communicate with the primary server to get info about the game
-                primaryServerIp = primaryServerIPAddress;
                 timer = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
             }
 
