@@ -187,6 +187,10 @@ namespace Server
                     b = asen.GetBytes(responseMessage + "\n\n");
                 }
 
+                foreach (Tuple<IPAddress, bool> replica in allReplicaAddr)
+                {
+                    Console.WriteLine("The replicas are: {0} {1}", replica.Item1, replica.Item2);
+                }
             }
 
             return b;
