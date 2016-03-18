@@ -344,6 +344,7 @@ namespace Server
             // TODO: change this to try Parse
             // primaryServerIp = IPAddress.Parse("162.246.157.120");
             thisServer.StartListen();
+            timer.Change(Timeout.Infinite, Timeout.Infinite);
         }
 
         public bool IsPrimary(IPAddress ipAddr)
