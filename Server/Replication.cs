@@ -126,6 +126,8 @@ namespace Server
                 {
                     // In case what was sent can't be parsed as an IP address
                     // TODO: deal with this error in some way
+                    Console.WriteLine("ERROR");
+                    parsedCorrectly = false;
                 }
                 else
                 {
@@ -161,6 +163,7 @@ namespace Server
             {
                 // get IP Addresses of all the other programs 
                 string[] arrayOfIPAddresses = messageParam.Split(',');
+
 
                 // Convert IP address from string to IPAddress
                 foreach (string tempIP in arrayOfIPAddresses)
