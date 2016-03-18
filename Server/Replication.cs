@@ -134,7 +134,7 @@ namespace Server
 
                     // Create a response back to the replicationManager of the replica
                     // add required information to be sent back
-                    responseMessage = RESP_SUCCESS + " " + REQ_INFO + " ";
+                    responseMessage = REQ_INFO + " ";
                     for (int i = 0; i < allReplicaAddr.Count; i++)
                     {
                         // Comma shouldn't be added at the end of the message
