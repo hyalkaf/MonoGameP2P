@@ -170,6 +170,7 @@ namespace Server
                     {
                         // In case what was sent can't be parsed as an IP address
                         // TODO: deal with this error in some way
+                        Console.WriteLine("ERROR");
                         parsedCorrectly = false;
                     }
                     else
