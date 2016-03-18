@@ -229,7 +229,8 @@ namespace Client
             }
             catch (Exception e)
             {
-                throw e;
+                client.Close();
+                connectToServer();
             }
             
             return 0;
