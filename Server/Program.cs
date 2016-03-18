@@ -70,11 +70,6 @@ namespace Server
             // Initalize a listening port for replication Manager.
             // TODO: Might need to change the way this code is being called. 
             // new Task(() => { rm.ListenReplica(); }).Start();
-
-            if (isPrimaryServer)
-            {
-                listener = new TcpListener(ipAddr, 8001);
-            }
         }
 
         /// <summary>
@@ -301,7 +296,7 @@ namespace Server
         public void StartListen()
         {
             /* Start Listeneting at the specified port */
-
+            listener = new TcpListener(ipAddr, 8001);
             listener.Start();
 
             Console.WriteLine("The server is running at port 8001...");
