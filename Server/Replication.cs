@@ -292,15 +292,15 @@ namespace Server
                 Console.WriteLine("Message to be sent {0}", messageToBeSent);
 
                 stm.Write(ba, 0, ba.Length);
-
+                byte[] bb = new byte[4096];
                 // Receive response
-                int k = stm.Read(ba, 0, 4096);
+                int k = stm.Read(bb, 0, 4096);
 
                 string responseMessage = "";
                 char c = ' ';
                 for (int i = 0; i < k; i++)
                 {
-                    c = Convert.ToChar(ba[i]);
+                    c = Convert.ToChar(bb[i]);
                     responseMessage += c;
                 }
 
