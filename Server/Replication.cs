@@ -44,7 +44,7 @@ namespace Server
             {
                 // Communicate with the primary server to get info about the game
                 primaryServerIp = primaryServerIPAddress;
-                //timer = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+                timer = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
             }
 
             thisServer = replica;
