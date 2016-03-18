@@ -178,6 +178,12 @@ namespace Server
                         {
                             allReplicaAddr.Add(new Tuple<IPAddress, bool>(ipAddr, true));
                         }
+
+                        // Add replica to list if it's not primary
+                        if (IsPrimary(thisServer.ipAddr))
+                        {
+                            allReplicaAddr.Add(new Tuple<IPAddress, bool>(thisServer.ipAddr, true));
+                        }
                         parsedCorrectly = true;
                     }
                 }
