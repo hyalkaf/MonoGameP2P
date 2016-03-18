@@ -39,6 +39,11 @@ namespace Server
 
 
         private ServerProgram thisServer;
+        public ReplicationManager()
+        {
+            Console.WriteLine("Testing");
+        }
+
         public ReplicationManager(ServerProgram replica, IPAddress primaryServerIPAddress)
         {
             
@@ -346,7 +351,7 @@ namespace Server
         /// </summary>
         /// <param name="names">List of names of players to be sent from primary server to replica.</param>
         /// <returns>Message to be sent to the replica</returns>
-        private string ConstructReplicaMessageAfterReceivingServerInfo(string requestType, string messageParam)
+        public string ConstructReplicaMessageAfterReceivingServerInfo(string requestType, string messageParam)
         {
             string responseMessage = string.Empty;
 
@@ -412,7 +417,7 @@ namespace Server
                         .SkipWhile(ch => char.IsWhiteSpace(ch))
                         .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray());
 
-                        string playerInfoDelimitedByComma = playerIP + "," + playerPort + "," + playerName + "," + playerID;
+                        string playerInfoDelimitedByComma = playerIP + " " + playerPort + " " + playerName + " " + playerID;
 
                         thisServer.gameSession[gameID] = playerInfoDelimitedByComma;
                     }
