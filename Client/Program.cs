@@ -123,7 +123,7 @@ namespace Client
         /// Communication between server and client method to send requests from clients to the server.
         /// </summary>
         /// <param name="msg"></param>
-        public int SendRequest(string msg)
+        public int SendRequest(string msg) 
         {
             
             string reqMessage = msg.Trim();
@@ -191,39 +191,47 @@ namespace Client
             }
 
             reqMessage += "\n\n";
+            try { 
+                Stream stm = client.GetStream();
 
-            Stream stm = client.GetStream();
+                ASCIIEncoding asen = new ASCIIEncoding();
+                byte[] ba = asen.GetBytes(reqMessage);
 
-            ASCIIEncoding asen = new ASCIIEncoding();
-            byte[] ba = asen.GetBytes(reqMessage);
+                Console.WriteLine("Transmitting request to the server.....\n");
+                stm.Write(ba, 0, ba.Length);
+                byte[] bb = new byte[2048];
+                Console.WriteLine("Waiting for response from Server...");
+                int k = stm.Read(bb, 0, 2048);
 
-            Console.WriteLine("Transmitting request to the server.....\n");
-            stm.Write(ba, 0, ba.Length);
-
-            byte[] bb = new byte[2048];
-            Console.WriteLine("Waiting for response from Server...");
-            int k = stm.Read(bb, 0, 2048);
-
-            string responseMessage = "";
-            char c = ' ';
-            for (int i = 0; i < k; i++)
-            {
-                c = Convert.ToChar(bb[i]);
-                responseMessage += c;
-            }
+                string responseMessage = "";
+                char c = ' ';
+                for (int i = 0; i < k; i++)
+                {
+                    c = Convert.ToChar(bb[i]);
+                    responseMessage += c;
+                }
 
 
-            if (processResponse(responseMessage) == -1) {
-                Console.WriteLine("\nDEBUG: INVALID REQUEST/RESPONSE\n");
+                if (processResponse(responseMessage) == -1)
+                {
+                    Console.WriteLine("\nDEBUG: INVALID REQUEST/RESPONSE\n");
+                    client.Close();
+                    connectToServer();
+                    return -1;
+                }
+
                 client.Close();
-                return -1;
+                if (!inGame)
+                {
+                    // Connect back to server immediately if user not in game
+                    connectToServer();
+                }
             }
-
-            client.Close();
-            if (!inGame) {
-                // Connect back to server immediately if user not in game
-                connectToServer();
+            catch (Exception e)
+            {
+                throw e;
             }
+            
             return 0;
         }
 
