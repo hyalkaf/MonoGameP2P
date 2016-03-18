@@ -314,7 +314,7 @@ namespace Server
                     // In this case: server must have crashed
                     // take over and become the primary 
                     // TODO: This won't work for multiple servers
-                    if (allReplicaAddr[1].Item1 == thisServer.ipAddr)
+                    if (allReplicaAddr[1].Item1.ToString() == thisServer.ipAddr.ToString())
                     {
                         MakeThisServerPrimary();
                     }
