@@ -23,7 +23,6 @@ namespace Server
         private TcpClient replicaClient = new TcpClient();
         //
         Timer timer;
-        const IPAddress dummyIP = IPAddress.Parse("0.0.0.0");
 
         // Request messsage between replicas and server
         const string REQ_REPLICA = "replica";
