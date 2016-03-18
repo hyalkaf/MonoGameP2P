@@ -140,7 +140,7 @@ namespace Client
 
                 // Parse the request message
                 string trimmedMessage = requestMessage.Trim();
-                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(4).ToList();
+                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(REQ_TURN.Length).ToList();
 
 
                 string playerName = new string(restOfMessageAfterTurn
@@ -180,7 +180,7 @@ namespace Client
 
                 // Parse the request message
                 string trimmedMessage = requestMessage.Trim();
-                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(4).ToList();
+                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(REQ_QUIT.Length).ToList();
 
                 // Get the first number in the turn message
                 int.Parse(new string(restOfMessageAfterTurn
@@ -210,13 +210,11 @@ namespace Client
 
                 responseMessage = REQ_SUCCESS + " " + REQ_STRIKE;
                 string trimmedMessage = requestMessage.Trim();
-                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(5).ToList();
+                string restOfMessageAfterStrike = trimmedMessage.Substring(REQ_STRIKE.Length);
 
-                int playerId = int.Parse(new string(restOfMessageAfterTurn
-                   .SkipWhile(ch => char.IsWhiteSpace(ch))
-                   .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray()));
+                int playerId = int.Parse(restOfMessageAfterStrike.Trim());
 
-                peersInfo[playerId] = new Tuple<string, int, string, int, int>(peersInfo[playerId].Item1, peersInfo[playerId].Item2, peersInfo[playerId].Item3, peersInfo[playerId].Item4, peersInfo[playerId].Item5+1);
+                strikePlayer(playerId);
             }
 
 
@@ -241,7 +239,7 @@ namespace Client
             int playerToBeStriked = -1;
             if (msg.StartsWith(REQ_STRIKE))
             {
-                playerToBeStriked = int.Parse(msg.Substring(6).Trim());
+                playerToBeStriked = int.Parse(msg.Substring(REQ_STRIKE.Length).Trim());
 
             }
 
