@@ -448,6 +448,18 @@ namespace Server
                     {
                         ConnectReplica(arrayOfReplicaMessages[i]);
                     }
+
+                    // Print 
+                    foreach(string tempStr in thisServer.allPlayerNamesUsed)
+                    {
+                        Console.WriteLine("player name is {0} ", tempStr);
+                    }
+
+                    foreach (KeyValuePair<string, string> tempDict in thisServer.gameSession)
+                    {
+                        Console.WriteLine("The game ID is {0} and the player infor {1}", tempDict.Key, tempDict.Value);
+                    }
+
                 }
                 catch (Exception e)
                 {
