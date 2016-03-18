@@ -98,8 +98,6 @@ namespace Server
             bool parsedCorrectly = false;
             byte[] b = new byte[4096];
 
-            Console.WriteLine(requestMessage);
-
             // get requestType out of the request message
             if (requestMessage.IndexOf(" ") == -1)
             {
@@ -288,8 +286,6 @@ namespace Server
 
                 ASCIIEncoding asen = new ASCIIEncoding();
                 byte[] ba = asen.GetBytes(messageToBeSent);
-
-                Console.WriteLine("Message to be sent {0}", messageToBeSent);
 
                 stm.Write(ba, 0, ba.Length);
                 byte[] bb = new byte[4096];
