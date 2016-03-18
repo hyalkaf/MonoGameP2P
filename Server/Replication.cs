@@ -61,6 +61,7 @@ namespace Server
 
         public void EstablishConnection(Socket sock)
         {
+            Console.WriteLine("Establishing Connection with {0} {1}", (sock.RemoteEndPoint as IPEndPoint).Address, (sock.LocalEndPoint as IPEndPoint).Address);
             StringBuilder sb = new StringBuilder();
 
             byte[] buffer = new byte[2048];
@@ -68,11 +69,14 @@ namespace Server
 
             sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
 
+            Console.WriteLine("Message that was listened to {0}", sb.ToString());
+
             string requestMessage = sb.ToString().Trim().ToLower();
 
-            Console.WriteLine(requestMessage);
 
             byte[] responseMessage = parseRequestMessage(requestMessage);
+
+            Console.WriteLine("Message that was sent back {0}", responseMessage);
 
             sock.Send(responseMessage);
 
@@ -240,6 +244,8 @@ namespace Server
 
             ASCIIEncoding asen = new ASCIIEncoding();
             byte[] ba = asen.GetBytes(messageToBeSent);
+
+            Console.WriteLine("Message to be sent {0}", messageToBeSent);
 
             stm.Write(ba, 0, ba.Length);
 
