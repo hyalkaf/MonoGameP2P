@@ -76,7 +76,7 @@ namespace Server
 
             byte[] responseMessage = parseRequestMessage(requestMessage);
 
-            Console.WriteLine("Message that was sent back {0}", responseMessage);
+            Console.WriteLine("Message that was sent back {0}", responseMessage.ToString());
 
             sock.Send(responseMessage);
 
