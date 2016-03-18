@@ -219,7 +219,7 @@ namespace Server
         }
 
         /// <summary>
-        /// Communication between each replica and the server. It will send each replica information about other replicas.
+        /// Communication between each replica and the server. Replicas will send either replica or check.
         /// </summary>
         /// <param name="tempMsg">what replicas are trying to send as clients</param>
         public void SendReplica(string tempMsg)
@@ -258,19 +258,38 @@ namespace Server
             // Initalize a new TcpClient
             replicaClient = new TcpClient();
 
-            // will send a message to the replica
-            replicaClient.Connect(primaryServerIp, 8000);
+            // Catch errors in case we are checking server existence
+            try
+            {
 
-            Stream stm = replicaClient.GetStream();
+                // will send a message to the replica
+                replicaClient.Connect(primaryServerIp, 8000);
 
-            ASCIIEncoding asen = new ASCIIEncoding();
-            byte[] ba = asen.GetBytes(messageToBeSent);
+                Stream stm = replicaClient.GetStream();
 
-            Console.WriteLine("Message to be sent {0}", messageToBeSent);
+                ASCIIEncoding asen = new ASCIIEncoding();
+                byte[] ba = asen.GetBytes(messageToBeSent);
 
-            stm.Write(ba, 0, ba.Length);
+                Console.WriteLine("Message to be sent {0}", messageToBeSent);
 
-            replicaClient.Close();
+                stm.Write(ba, 0, ba.Length);
+
+                replicaClient.Close();
+            }
+            catch(Exception e)
+            {
+                // Check what type of message was being sent
+                if (tempMsg.StartsWith(REQ_CHECK))
+                {
+                    // In this case: server must have crashed
+                    // take over and become the primary 
+                    if (allReplicaAddr[1].Item1 == thisServer.ipAddr)
+                    {
+                        MakeThisServerPrimary();
+                    }
+                    
+                }
+            }
   
         }
 
@@ -291,6 +310,8 @@ namespace Server
         public void MakeThisServerPrimary()
         {
             thisServer.isPrimaryServer = true;
+            // TODO: change this to try Parse
+            primaryServerIp = IPAddress.Parse("162.246.157.120");
         }
 
         public bool IsPrimary(IPAddress ipAddr)
