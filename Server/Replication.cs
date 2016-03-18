@@ -130,6 +130,7 @@ namespace Server
                 else
                 {
                     // add information about this replica
+                    Console.WriteLine("Add Replica IP to Server {0}", ipAddr);
                     allReplicaAddr.Add(new Tuple<IPAddress, bool>(ipAddr, true));
 
                     // Create a response back to the replicationManager of the replica
@@ -176,12 +177,14 @@ namespace Server
                         // Add tempIP into the list of existing ip addresses
                         if (allReplicaAddr.All(tuple => tuple.Item1 != ipAddr))
                         {
+                            Console.WriteLine("Add this IP Address to the list {0}", ipAddr);
                             allReplicaAddr.Add(new Tuple<IPAddress, bool>(ipAddr, true));
                         }
 
                         // Add replica to list if it's not primary
                         if (IsPrimary(thisServer.ipAddr))
                         {
+                            Console.WriteLine("Add This IP Address Again {0}", thisServer.ipAddr);
                             allReplicaAddr.Add(new Tuple<IPAddress, bool>(thisServer.ipAddr, true));
                         }
                         parsedCorrectly = true;
