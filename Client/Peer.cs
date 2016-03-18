@@ -238,16 +238,23 @@ namespace Client
         public void SendToALlPeers(string msg)
         {
             var responseCounterFlag = 0;
+            int playerToBeStriked = -1;
+            if (msg.StartsWith(REQ_STRIKE))
+            {
+                playerToBeStriked = int.Parse(msg.Substring(6).Trim());
+
+            }
+
             Parallel.For(0, _peerSender.Count(), i => {
                 // Check if peersInfo is not you and then send info
-                if (peersInfo[i].Item3 != playerName)
+                if (peersInfo[i].Item3 != playerName && peersInfo[i].Item4 != playerToBeStriked)
                 {
                     Console.WriteLine("Connecting to a peer.....");
 
                     _peerSender[i] = new TcpClient();
 
                     bool succPeerConnect = true;
-                    int numOfTries = 10;
+                    int numOfTries = 3;
                     do
                     {
                         succPeerConnect = true;
@@ -337,7 +344,6 @@ namespace Client
             }
             else if (msg.StartsWith(REQ_STRIKE))
             {
-                msg += " " + msg.Substring(6).Trim();
                 SendToALlPeers(msg);
             }
             else
@@ -398,20 +404,27 @@ namespace Client
 
         private void strikePlayer(int playerId)
         {
-            int strikeout = peersInfo[playerId].Item5 + 1;
-
+            int index = peersInfo.IndexOf(peersInfo.Where(peer => peer.Item4 == playerId).First());
+            Tuple<string, int, string, int, int> peerInfo = peersInfo[index];
+            int strikeout = peerInfo.Item5 + 1;
+            
             if (strikeout > 2)
             {
-                peersInfo.Remove(peersInfo[playerId]);
+                peersInfo.RemoveAt(index);
+                _peerSender = new TcpClient[_peerSender.Length - 1];
+                Console.WriteLine("Player " + playerId + " has been removed due to unresponsiveness.");
             }
-            else { 
+            else {
 
-                peersInfo[playerId] = new Tuple<string, int, string, int, int>(
-                    peersInfo[playerId].Item1, 
-                    peersInfo[playerId].Item2, 
-                    peersInfo[playerId].Item3, 
-                    peersInfo[playerId].Item4, 
+                peerInfo = new Tuple<string, int, string, int, int>(
+                    peerInfo.Item1,
+                    peerInfo.Item2,
+                    peerInfo.Item3,
+                    peerInfo.Item4, 
                     strikeout);
+
+                peersInfo[index] = peerInfo;
+                Console.WriteLine("Player " + playerId + " strike " + strikeout);
             }
         }
     }
