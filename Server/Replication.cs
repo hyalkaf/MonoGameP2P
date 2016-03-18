@@ -265,7 +265,7 @@ namespace Server
             else if (tempMsg.StartsWith(REQ_REPLICA))
             {
                 // Message to be sent 
-                messageToBeSent = "replica" + " " + thisServer.ipAddr;
+                messageToBeSent = "info" + " " + thisServer.ipAddr;
             }
             else if (tempMsg.StartsWith(REQ_CHECK))
             {
