@@ -207,10 +207,10 @@ namespace Server
                     Console.WriteLine("The replicas are: {0} {1}", replica.Item1, replica.Item2);
                 }
             }
-            else if (requestType == REQ_CHECK)
+            /*else if (requestType == REQ_CHECK)
             {
                 Console.WriteLine("I'm Checking the primary server");
-            }
+            }*/
             else if (requestType == RESP_SUCCESS)
             {
                 string success_message = messageParam.Substring(0, messageParam.IndexOf(" ")).Trim();
@@ -294,7 +294,7 @@ namespace Server
                 stm.Write(ba, 0, ba.Length);
 
                 // Receive response
-                int k = stm.Read(ba, 0, 2048);
+                int k = stm.Read(ba, 0, 4096);
 
                 string responseMessage = "";
                 char c = ' ';
