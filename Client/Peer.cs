@@ -47,7 +47,19 @@ namespace Client
                 // Get this peerInfo
                 // TODO: deal with empty or not existent peer
                 Tuple<string, int, string, int> tempPeer = peersInfo.Where(peer => peer.Item3 == playerName).First();
-                _peerListener = new TcpListener(IPAddress.Parse(tempPeer.Item1), tempPeer.Item2);
+                IPHostEntry host;
+                string localIP = "";
+                host = Dns.GetHostEntry(Dns.GetHostName());
+                foreach (IPAddress ip in host.AddressList)
+                {
+                    if (ip.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        localIP = ip.ToString();
+                    }
+                }
+                IPAddress ipAddr = IPAddress.Parse(localIP);
+
+                _peerListener = new TcpListener(ipAddr, tempPeer.Item2);
             }
 
             peersIDToPosition = new Dictionary<int, int>();
