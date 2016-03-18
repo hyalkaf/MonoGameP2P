@@ -77,7 +77,7 @@ namespace Server
 
             byte[] responseMessage = parseRequestMessage(requestMessage);
 
-            Console.WriteLine("Message that was sent back {0}", responseMessage.ToString());
+            // Print messages
 
             sock.Send(responseMessage);
 
@@ -293,6 +293,19 @@ namespace Server
 
                 stm.Write(ba, 0, ba.Length);
 
+                // Receive response
+                int k = stm.Read(ba, 0, 2048);
+
+                string responseMessage = "";
+                char c = ' ';
+                for (int i = 0; i < k; i++)
+                {
+                    c = Convert.ToChar(ba[i]);
+                    responseMessage += c;
+                }
+
+                parseRequestMessage(responseMessage);
+                
                 replicaClient.Close();
             }
             catch(Exception e)
