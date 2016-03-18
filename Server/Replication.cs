@@ -102,6 +102,8 @@ namespace Server
             bool parsedCorrectly = false;
             byte[] b = new byte[4096];
 
+            Console.WriteLine(requestMessage);
+
             // get requestType out of the request message
             if (requestMessage.IndexOf(" ") == -1)
             {
