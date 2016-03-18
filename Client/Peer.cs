@@ -19,18 +19,20 @@ namespace Client
         private string playerName;
         private TcpListener _peerListener;
         private TcpClient[] _peerSender;
-        private List<Tuple<string, int, string, int>> peersInfo;
+        // Peerinfo <ip, port, playername, playerID, timebeforekick>
+        private List<Tuple<string, int, string, int, int>> peersInfo;
         private Dictionary<int, int> peersIDToPosition;
         public const string REQ_TURN = "turn";
         public const string REQ_QUIT = "quit";
         public const string REQ_SUCCESS = "success";
         public const string REQ_RECONNECTED = "reconnected";
+        public const string REQ_STRIKE = "strike";
         private ManualResetEvent mre;
         /// <summary>
         /// 
         /// </summary>
         /// <param name="port"></param>
-        public Peer(string playerName, List<Tuple<string, int, string, int>> peersInfo)
+        public Peer(string playerName, List<Tuple<string, int, string, int, int>> peersInfo)
         {
             
             Console.WriteLine("PEER ESTABLISHED!!");
@@ -46,7 +48,7 @@ namespace Client
 
                 // Get this peerInfo
                 // TODO: deal with empty or not existent peer
-                Tuple<string, int, string, int> tempPeer = peersInfo.Where(peer => peer.Item3 == playerName).First();
+                Tuple<string, int, string, int, int> tempPeer = peersInfo.Where(peer => peer.Item3 == playerName).First();
                 IPHostEntry host;
                 string localIP = "";
                 host = Dns.GetHostEntry(Dns.GetHostName());
@@ -140,9 +142,6 @@ namespace Client
                 string trimmedMessage = requestMessage.Trim();
                 List<char> restOfMessageAfterTurn = trimmedMessage.Substring(4).ToList();
 
-                //string playername = Char.GetNumericValue(restOfMessageAfterTurn
-                //    .TakeWhile(ch => !char.IsWhiteSpace(ch)).First())
-
 
                 string playerName = new string(restOfMessageAfterTurn
                    .SkipWhile(ch => char.IsWhiteSpace(ch))
@@ -206,6 +205,18 @@ namespace Client
                 _peerSender = new TcpClient[_peerSender.Length - 1];
                 // Keep track of peers with their position
                 // peersIDToPosition[numberOne] += numberTwo;
+            }else if (requestMessage.StartsWith(REQ_STRIKE))
+            {
+
+                responseMessage = REQ_SUCCESS + " " + REQ_STRIKE;
+                string trimmedMessage = requestMessage.Trim();
+                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(5).ToList();
+
+                int playerId = int.Parse(new string(restOfMessageAfterTurn
+                   .SkipWhile(ch => char.IsWhiteSpace(ch))
+                   .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray()));
+
+                peersInfo[playerId] = new Tuple<string, int, string, int, int>(peersInfo[playerId].Item1, peersInfo[playerId].Item2, peersInfo[playerId].Item3, peersInfo[playerId].Item4, peersInfo[playerId].Item5+1);
             }
 
 
@@ -227,16 +238,23 @@ namespace Client
         public void SendToALlPeers(string msg)
         {
             var responseCounterFlag = 0;
+            int playerToBeStriked = -1;
+            if (msg.StartsWith(REQ_STRIKE))
+            {
+                playerToBeStriked = int.Parse(msg.Substring(6).Trim());
+
+            }
+
             Parallel.For(0, _peerSender.Count(), i => {
                 // Check if peersInfo is not you and then send info
-                if (peersInfo[i].Item3 != playerName)
+                if (peersInfo[i].Item3 != playerName && peersInfo[i].Item4 != playerToBeStriked)
                 {
                     Console.WriteLine("Connecting to a peer.....");
 
                     _peerSender[i] = new TcpClient();
 
                     bool succPeerConnect = true;
-                    int numOfTries = 10;
+                    int numOfTries = 3;
                     do
                     {
                         succPeerConnect = true;
@@ -254,6 +272,10 @@ namespace Client
                             {
                                 Console.WriteLine("Unable to communicate with peer " + peersInfo[i].Item4);
                                 Console.WriteLine("Skip it for now...");
+                                SendRequestPeers(REQ_STRIKE + " " + peersInfo[i].Item4);
+
+                                strikePlayer(i);
+
                                 return;
                             }
                         }
@@ -320,6 +342,10 @@ namespace Client
 
                 SendToALlPeers(msg);
             }
+            else if (msg.StartsWith(REQ_STRIKE))
+            {
+                SendToALlPeers(msg);
+            }
             else
             {
                 msg += " " + playerID + " " + 0;
@@ -373,6 +399,33 @@ namespace Client
             peersInfo = null;
             peersIDToPosition = null;
 
-         }
+
+        }
+
+        private void strikePlayer(int playerId)
+        {
+            int index = peersInfo.IndexOf(peersInfo.Where(peer => peer.Item4 == playerId).First());
+            Tuple<string, int, string, int, int> peerInfo = peersInfo[index];
+            int strikeout = peerInfo.Item5 + 1;
+            
+            if (strikeout > 2)
+            {
+                peersInfo.RemoveAt(index);
+                _peerSender = new TcpClient[_peerSender.Length - 1];
+                Console.WriteLine("Player " + playerId + " has been removed due to unresponsiveness.");
+            }
+            else {
+
+                peerInfo = new Tuple<string, int, string, int, int>(
+                    peerInfo.Item1,
+                    peerInfo.Item2,
+                    peerInfo.Item3,
+                    peerInfo.Item4, 
+                    strikeout);
+
+                peersInfo[index] = peerInfo;
+                Console.WriteLine("Player " + playerId + " strike " + strikeout);
+            }
+        }
     }
 }

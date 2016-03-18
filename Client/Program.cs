@@ -30,7 +30,7 @@ namespace Client
         public static string SERVER_IP = "";
 
         // Holds information about other peers in the system: IPAddress, portNumber, name and ID.
-        List<Tuple<string, int, string, int>> peersInfo;
+        List<Tuple<string, int, string, int, int>> peersInfo;
 
         /// <summary>
         /// Constructor for creating a client, it will connect to the server and it will have a unique name.
@@ -256,16 +256,16 @@ namespace Client
                 Console.WriteLine("\nDEBUG: " + requestType + "\n");
                 if (requestType == REQ_GAME)
                 {
-                    peersInfo = new List<Tuple<string, int, string, int>>();
+                    peersInfo = new List<Tuple<string, int, string, int, int>>();
                     IEnumerable<string> temp = responseMessage.Split(',');
                     peersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
                     {
                         string[] peerInfo = info.Trim().Split(' ');
-                        Tuple<string, int, string, int> t = null;
+                        Tuple<string, int, string, int, int> t = null;
                         if (!string.IsNullOrEmpty(info))
                         {
                             // TODO: deal with cases when integer can't be parsed
-                            t = new Tuple<string, int, string, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3])); 
+                            t = new Tuple<string, int, string, int, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3]),0); 
                         }
 
                         return t;
@@ -277,16 +277,16 @@ namespace Client
                 }
                 else if (requestType == REQ_RECONN)
                 {
-                    peersInfo = new List<Tuple<string, int, string, int>>();
+                    peersInfo = new List<Tuple<string, int, string, int, int>>();
                     IEnumerable<string> temp = responseMessage.Split(',');
                     peersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
                     {
                         string[] peerInfo = info.Trim().Split(' ');
-                        Tuple<string, int, string, int> t = null;
+                        Tuple<string, int, string, int, int> t = null;
                         if (!string.IsNullOrEmpty(info))
                         {
                             // TODO: deal with cases when integer can't be parsed
-                            t = new Tuple<string, int, string, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3]));
+                            t = new Tuple<string, int, string, int, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3]),0);
                         }
 
                         return t;
