@@ -23,6 +23,9 @@ namespace Server
         private TcpClient replicaClient;
         //
         Timer timer;
+        //
+        private Object thisLock = new Object();
+
 
         // Request messsage between replicas and server
         const string REQ_REPLICA = "replica";
@@ -359,7 +362,10 @@ namespace Server
         private void CheckServerExistence(object state)
         {
             // Send to primary a message
-            SendReplica("check");
+            lock (thisLock)
+            {
+                SendReplica("check");
+            }
         }
         
     }
