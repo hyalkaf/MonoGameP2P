@@ -33,7 +33,7 @@ namespace Server
         private List<ConcurrentDictionary<string, Socket>> socketsForGameRequests;
         private List<Socket> sockets;
         public List<string> allPlayerNamesUsed;
-        public Dictionary<string, string> gameSession;
+        public Dictionary<string, List<string>> gameSession;
         public bool isPrimaryServer = false;
         private int portNumber = 9000;
         private int gameIdGenerate = 1;
@@ -47,7 +47,7 @@ namespace Server
             socketsForGameRequests = new List<ConcurrentDictionary<string, Socket>>();
             playerQueue = new List<string>();
             allPlayerNamesUsed = new List<string>();
-            gameSession = new Dictionary<string, string>();
+            gameSession = new Dictionary<string, List<string>>();
             /* Initializes the Listener */
             IPHostEntry host;
             string localIP = "";
@@ -187,7 +187,18 @@ namespace Server
                 string gameId = requestMessage;
                 if (gameSession.ContainsKey(gameId))
                 {
-                    responseMessage = RESP_SUCCESS + " " + REQ_RECONN + "  " + gameSession[gameId];
+                    responseMessage = RESP_SUCCESS + " " + REQ_RECONN + "  ";
+                    for (int j = 0; j < gameSession[gameId].Count; j++)
+                    {
+                        if (j != gameSession[gameId].Count - 1)
+                        {
+                            responseMessage += gameSession[gameId][j] + ",";
+                        }
+                        else
+                        {
+                            responseMessage += gameSession[gameId][j];
+                        }
+                    }
                 }
                 else
                 {
@@ -326,6 +337,7 @@ namespace Server
         {                
                 string responseMessage = string.Empty;
                 string playersToBeSent = "";
+                List<string> playersToBeSentList = new List<string>();
                 for (int i = 0; i < socketsForGameRequests.Count; i++)
                 {
                     // bypass first and second index since there are no matches with 0 or 1 player
@@ -353,6 +365,7 @@ namespace Server
                             for (int z = 0; z < playerQueue.Count; z++)
                             {
                                 playersToBeSent += playerQueue[z] + " " + z;
+                                playersToBeSentList.Add(playerQueue[z] + " " + z);
                                 if (z != playerQueue.Count - 1)
                                 {
                                     playersToBeSent += ",";
@@ -381,7 +394,7 @@ namespace Server
                             }
 
                              //  Save game session for reconnect
-                            gameSession.Add(gameIdGenerate.ToString(), playersToBeSent);
+                            gameSession.Add(gameIdGenerate.ToString(), playersToBeSentList);
                             gameIdGenerate++;
                             // TODO: Find a way to remove only the ones matched
                             socketsForGameRequests.Remove(socketsForGameRequests[i]);

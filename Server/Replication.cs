@@ -258,7 +258,7 @@ namespace Server
             // Add response Type
             string responseMessage = string.Empty;
             List<string> names = thisServer.allPlayerNamesUsed;
-            Dictionary<string, string> session = thisServer.gameSession;
+            Dictionary<string, List<string>> session = thisServer.gameSession;
 
             // based on request get the server info needed
             if (requestType.Equals(REQ_ADDRESS))
@@ -308,29 +308,29 @@ namespace Server
         /// </summary>
         /// <param gameSessionInfo="gameSessionInfo">Dictionary of gameIDs to list of player info to be sent from primary server to replica.</param>
         /// <returns>Message to be sent to the replica</returns>
-        public string ConstructPrimaryMessageSession(Dictionary<string, string> gameSessionInfo)
+        public string ConstructPrimaryMessageSession(Dictionary<string, List<string>> gameSessionInfo)
         {
             string responseMessage = "session" + " ";
             int counter = 0;
 
             // send client names on the server
-            foreach (KeyValuePair<string, string> idToplayerInfo in gameSessionInfo)
+            foreach (KeyValuePair<string, List<string>> idToPlayerInfo in gameSessionInfo)
             {
-                responseMessage += idToplayerInfo.Key + " ";
+                responseMessage += idToPlayerInfo.Key + " ";
 
                 // get player information
-                string[] arrayOfPlayerInfo = idToplayerInfo.Value.Split(',');
+                // string[] arrayOfPlayerInfo = idToplayerInfo.Value.Split(',');
 
                 // append all player info to response message
-                for (int j = 0; j < arrayOfPlayerInfo.Count(); j++)
+                for (int j = 0; j < idToPlayerInfo.Value.Count; j++)
                 {
-                    if (j != arrayOfPlayerInfo.Count() - 1)
+                    if (j != idToPlayerInfo.Value.Count() - 1)
                     {
-                        responseMessage += arrayOfPlayerInfo[j] + " ";
+                        responseMessage += idToPlayerInfo.Value[j] + " ";
                     }
                     else
                     {
-                        responseMessage += arrayOfPlayerInfo[j];
+                        responseMessage += idToPlayerInfo.Value[j];
                     }
                 }
 
@@ -375,9 +375,13 @@ namespace Server
                 // split games sessions
                 string[] arrayOfSessions = messageParam.Split(',');
 
+                
+
                 // Convert IP address from string to IPAddress
                 foreach (string tempSession in arrayOfSessions)
                 {
+                    List<string> playersInfo = new List<string>();
+
                     // Extract game ID
                     string gameID = new string(tempSession
                    .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray());
@@ -418,8 +422,10 @@ namespace Server
                         .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray());
 
                         string playerInfoDelimitedByComma = playerIP + " " + playerPort + " " + playerName + " " + playerID;
+                        playersInfo.Add(playerInfoDelimitedByComma);
 
-                        thisServer.gameSession[gameID] = playerInfoDelimitedByComma;
+                        // TODO: have a loop before to add all players
+                        thisServer.gameSession[gameID] = playersInfo;
                     }
                 }
             }
@@ -463,9 +469,14 @@ namespace Server
                         Console.WriteLine("player name is {0} ", tempStr);
                     }
 
-                    foreach (KeyValuePair<string, string> tempDict in thisServer.gameSession)
+                    foreach (KeyValuePair<string, List<string>> tempDict in thisServer.gameSession)
                     {
-                        Console.WriteLine("The game ID is {0} and the player infor {1}", tempDict.Key, tempDict.Value);
+                        Console.WriteLine("The game ID is {0} ", tempDict.Key);
+
+                        foreach (string tempString in tempDict.Value)
+                        {
+                            Console.WriteLine("The player infor {1}", tempString);
+                        }
                     }
 
                 }
