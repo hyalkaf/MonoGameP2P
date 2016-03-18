@@ -137,7 +137,7 @@ namespace Server
 
                     // Create a response back to the replicationManager of the replica
                     // add required information to be sent back
-                    responseMessage = RESP_SUCCESS + " " + REQ_REPLICA + " ";
+                    responseMessage = REQ_INFO + " ";
                     for (int i = 0; i < allReplicaAddr.Count; i++)
                     {
                         // Comma shouldn't be added at the end of the message
@@ -183,13 +183,6 @@ namespace Server
                         {
                             Console.WriteLine("Add this IP Address to the list {0}", ipAddr);
                             allReplicaAddr.Add(new Tuple<IPAddress, bool>(ipAddr, true));
-                        }
-
-                        // Add replica to list if it's not primary
-                        if (IsPrimary(thisServer.ipAddr))
-                        {
-                            Console.WriteLine("Add This IP Address Again {0}", thisServer.ipAddr);
-                            allReplicaAddr.Add(new Tuple<IPAddress, bool>(thisServer.ipAddr, true));
                         }
                         parsedCorrectly = true;
                     }
@@ -269,7 +262,7 @@ namespace Server
             else if (tempMsg.StartsWith(REQ_REPLICA))
             {
                 // Message to be sent 
-                messageToBeSent = "info" + " " + thisServer.ipAddr;
+                messageToBeSent = "replica" + " " + thisServer.ipAddr;
             }
             else if (tempMsg.StartsWith(REQ_CHECK))
             {
