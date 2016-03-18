@@ -225,7 +225,10 @@ namespace Server
                 }
                 else
                 {
-                    responseMessage = ConstructReplicaMessageAfterReceivingServerInfo(requestType, messageParam);
+                    if (!string.IsNullOrEmpty(messageParam))
+                    {
+                        responseMessage = ConstructReplicaMessageAfterReceivingServerInfo(requestType, messageParam);
+                    }
                 }
 
                 ASCIIEncoding asen = new ASCIIEncoding();
