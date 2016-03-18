@@ -20,7 +20,7 @@ namespace Server
         // CH: New way of storing replicas (IPAddress, Bool: online status)
         public static List<Tuple<IPAddress,bool>> allReplicaAddr = new List<Tuple<IPAddress,bool>>();
         // 
-        private TcpClient replicaClient = new TcpClient();
+        private TcpClient replicaClient;
         //
         Timer timer;
 
@@ -254,6 +254,9 @@ namespace Server
                 // Message to be sent 
                 messageToBeSent = "check" + " ";
             }
+
+            // Initalize a new TcpClient
+            replicaClient = new TcpClient();
 
             // will send a message to the replica
             replicaClient.Connect(primaryServerIp, 8000);
