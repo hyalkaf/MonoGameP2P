@@ -34,13 +34,17 @@ namespace Server
         private ServerProgram thisServer;
         public ReplicationManager(ServerProgram replica, IPAddress primaryServerIPAddress)
         {
-            addReplica(replica);
+            
             // rmListener = new TcpListener();
             primaryServerIp = primaryServerIPAddress;
             if (!replica.isPrimaryServer)
             {
                 // Communicate with the primary server to get info about the game
                 timer = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+            }
+            else
+            {
+                addReplica(replica);
             }
 
             thisServer = replica;
@@ -228,8 +232,6 @@ namespace Server
         /// <param name="replica"></param>
         public void addReplica(ServerProgram replica)
         {
-            listReplicas.Add(replica);
-
             bool isOnline = true;
 
             allReplicaAddr.Add(new Tuple<IPAddress, bool>(replica.ipAddr, isOnline));
