@@ -164,6 +164,12 @@ namespace Server
                 // get IP Addresses of all the other programs 
                 string[] arrayOfIPAddresses = messageParam.Split(',');
 
+                // 
+                foreach (string tempstr in arrayOfIPAddresses)
+                {
+                    Console.WriteLine("parsing info with IP = {0}", tempstr);
+                }
+                Console.WriteLine("");
 
                 // Convert IP address from string to IPAddress
                 foreach (string tempIP in arrayOfIPAddresses)
