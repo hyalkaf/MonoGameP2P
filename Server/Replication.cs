@@ -21,11 +21,16 @@ namespace Server
         public static List<Tuple<IPAddress,bool>> allReplicaAddr = new List<Tuple<IPAddress,bool>>();
         // 
         private TcpClient replicaClient = new TcpClient();
+        //
+        Timer timer;
+        const IPAddress dummyIP = IPAddress.Parse("0.0.0.0");
 
         // Request messsage between replicas and server
         const string REQ_REPLICA = "replica";
         const string REQ_INFO = "info";
+        const string REQ_CHECK = "check";
         const string RESP_SUCCESS = "success";
+
 
         private ServerProgram thisServer;
         public ReplicationManager(ServerProgram replica, IPAddress primaryServerIPAddress)
@@ -40,10 +45,11 @@ namespace Server
             {
                 // Communicate with the primary server to get info about the game
                 primaryServerIp = primaryServerIPAddress;
+                timer = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
             }
 
             thisServer = replica;
-
+            
             // Run listening on its own thread
             new Thread(() =>
             {
@@ -53,7 +59,7 @@ namespace Server
             // secondary replica sends a replica request
             if (!replica.isPrimaryServer)
             {
-                SendReplica("replica", replica.ipAddr);
+                SendReplica("replica");
             }
 
 
@@ -192,6 +198,10 @@ namespace Server
                     Console.WriteLine("The replicas are: {0} {1}", replica.Item1, replica.Item2);
                 }
             }
+            else if (requestType == REQ_CHECK)
+            {
+                Console.WriteLine("I'm Checking the primary server if exits");
+            }
 
             return b;
         }
@@ -213,7 +223,7 @@ namespace Server
         /// Communication between each replica and the server. It will send each replica information about other replicas.
         /// </summary>
         /// <param name="tempMsg">what replicas are trying to send as clients</param>
-        public void SendReplica(string tempMsg, IPAddress ipAddressOfReplica)
+        public void SendReplica(string tempMsg)
         {
             string messageToBeSent = string.Empty;
 
@@ -238,7 +248,12 @@ namespace Server
             else if (tempMsg.StartsWith(REQ_REPLICA))
             {
                 // Message to be sent 
-                messageToBeSent = "replica" + " " + ipAddressOfReplica;
+                messageToBeSent = "replica" + " " + thisServer.ipAddr;
+            }
+            else if (tempMsg.StartsWith(REQ_CHECK))
+            {
+                // Message to be sent 
+                messageToBeSent = "check" + " ";
             }
 
             // will send a message to the replica
@@ -281,6 +296,15 @@ namespace Server
             return ipAddr == primaryServerIp;
         }
 
+        /// <summary>
+        /// This method checks that the primary server exists at all time.
+        /// </summary>
+        /// <param name="state">This parameter has to be passed even though we don't need it here.</param>
+        private void CheckServerExistence(object state)
+        {
+            // Send to primary a message
+            SendReplica("check");
+        }
         
     }
 }
