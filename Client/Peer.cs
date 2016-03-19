@@ -78,10 +78,10 @@ namespace Client
 
             peersIDToPosition = new Dictionary<int, int>();
             turnEvent = new AutoResetEvent(false);
-            initializeGameState();
+            InitializeGameState();
         }
 
-        private void initializeGameState()
+        private void InitializeGameState()
         {
             foreach(PeerInfo pInfo in allPeersInfo)
             {
@@ -101,7 +101,7 @@ namespace Client
             }
         }
 
-        public void startPeerCommunication()
+        public void StartPeerCommunication()
         {
 
             new Thread(() => {
@@ -260,7 +260,7 @@ namespace Client
 
                 int playerId = int.Parse(restOfMessageAfterStrike.Trim());
 
-                strikePlayer(playerId);
+                StrikePlayer(playerId);
             }
 
 
@@ -324,7 +324,7 @@ namespace Client
                                 Console.WriteLine("Skip it for now...");
                                 SendRequestPeers(REQ_STRIKE + " " + allPeersInfo[i].PlayerInfo.PlayerId);
 
-                                strikePlayer(i);
+                                StrikePlayer(i);
 
                                 return;
                             }
@@ -463,7 +463,7 @@ namespace Client
 
         }
 
-        private void strikePlayer(int playerId)
+        private void StrikePlayer(int playerId)
         {
             int index = allPeersInfo.IndexOf(allPeersInfo.Where(peer => peer.PlayerInfo.PlayerId == playerId).First());
             //Tuple<string, int, string, int, int> peerInfo = allPeersInfo[index];

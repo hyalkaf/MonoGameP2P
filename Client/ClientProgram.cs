@@ -383,7 +383,7 @@ namespace Client
                     }
                     Peer peer;
                     using (peer = new Peer(playerName, allPeersInfo)) 
-                    peer.startPeerCommunication();
+                    peer.StartPeerCommunication();
                     
                     // Game ended connect back to server
                     inGame = false;
