@@ -491,7 +491,7 @@ namespace Server
                 {
                     ConnectReplica("check");
                 }
-                catch (SocketException e)
+                catch (SocketException)
                 {
                     // In this case: server must have crashed
                     // take over and become the primary 

@@ -30,13 +30,12 @@ namespace Client
         public static string SERVER_IP = "";
 
         // Holds information about other peers in the system: IPAddress, portNumber, name and ID.
-        List<Tuple<string, int, string, int, int>> peersInfo;
+        //List<Tuple<string, int, string, int, int>> peersInfo;
+        List<PeerInfo> allPeersInfo;
 
         /// <summary>
-        /// Constructor for creating a client, it will connect to the server and it will have a unique name.
-        /// TODO: Change defualt name to something else
+        /// Constructor for creating a client, it will connect to the server and prompts for unique name.
         /// </summary>
-        /// <param name="player"></param>
         public ClientProgram()
         { 
             // Set IP address of server
@@ -97,7 +96,7 @@ namespace Client
 
                     // Connect to the server
                     client.Connect(SERVER_IP, 8001);
-                }catch (Exception e)
+                }catch (Exception)
                 {
                     connected = false;
                     client.Close();
@@ -229,7 +228,7 @@ namespace Client
                     connectToServer();
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 client.Close();
                 connectToServer();
@@ -258,19 +257,23 @@ namespace Client
                 Console.WriteLine("\nDEBUG: " + requestType + "\n");
                 if (requestType == REQ_GAME)
                 {
-                    peersInfo = new List<Tuple<string, int, string, int, int>>();
+                    allPeersInfo = new List<PeerInfo>();
+                    //peersInfo = new List<Tuple<string, int, string, int, int>>();
                     IEnumerable<string> temp = responseMessage.Split(',');
-                    peersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
+                    allPeersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
                     {
-                        string[] peerInfo = info.Trim().Split(' ');
-                        Tuple<string, int, string, int, int> t = null;
+                        string[] parsedInfo = info.Trim().Split(' ');
+                        //Tuple<string, int, string, int, int> t = null;
+                        PeerInfo pInfo = null;
                         if (!string.IsNullOrEmpty(info))
                         {
                             // TODO: deal with cases when integer can't be parsed
-                            t = new Tuple<string, int, string, int, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3]),0); 
+                            //t = new Tuple<string, int, string, int, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3]),0); 
+                            pInfo = new PeerInfo(parsedInfo[0], int.Parse(parsedInfo[1]), parsedInfo[2], int.Parse(parsedInfo[3]),0);
                         }
 
-                        return t;
+                        //return t;
+                        return pInfo;
                        
                     }).ToList();
 
@@ -279,19 +282,23 @@ namespace Client
                 }
                 else if (requestType == REQ_RECONN)
                 {
-                    peersInfo = new List<Tuple<string, int, string, int, int>>();
+                    allPeersInfo = new List<PeerInfo>();
+                    //peersInfo = new List<Tuple<string, int, string, int, int>>();
                     IEnumerable<string> temp = responseMessage.Split(',');
-                    peersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
+                    allPeersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
                     {
-                        string[] peerInfo = info.Trim().Split(' ');
-                        Tuple<string, int, string, int, int> t = null;
+                        string[] parsedInfo = info.Trim().Split(' ');
+                        //Tuple<string, int, string, int, int> t = null;
+                        PeerInfo pInfo = null;
                         if (!string.IsNullOrEmpty(info))
                         {
                             // TODO: deal with cases when integer can't be parsed
-                            t = new Tuple<string, int, string, int, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3]),0);
+                            //t = new Tuple<string, int, string, int, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3]),0); 
+                            pInfo = new PeerInfo(parsedInfo[0], int.Parse(parsedInfo[1]), parsedInfo[2], int.Parse(parsedInfo[3]), 0);
                         }
 
-                        return t;
+                        //return t;
+                        return pInfo;
 
                     }).ToList();
 
@@ -374,8 +381,9 @@ namespace Client
                             break;
                         }
                     }
-
-                    using (Peer peer = new Peer(playerName, peersInfo))
+                    Peer peer;
+                    using (peer = new Peer(playerName, allPeersInfo)) 
+                    peer.startPeerCommunication();
                     
                     // Game ended connect back to server
                     inGame = false;
@@ -384,6 +392,7 @@ namespace Client
                 }
                 catch (Exception e)
                 {
+                    Console.WriteLine("--Error! Client Program Ended--");
                     Console.WriteLine(e.Message);
                     client.Close();
                     Console.Error.WriteLine(e.StackTrace);
@@ -396,11 +405,7 @@ namespace Client
         {
             try
             {
-                
 
-                //Console.Write("Enter How many people you want to play with: ");
-                // TODO: Add code to deal with cases when user enter something other than a int
-                //string numberOfPeers = Console.ReadLine();
                 ClientProgram aClient = new ClientProgram();
                 aClient.startClient();
 

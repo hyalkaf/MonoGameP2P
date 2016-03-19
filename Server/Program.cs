@@ -129,7 +129,7 @@ namespace Server
             try { 
                bytesRead = s.Receive(buffer);
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 s.Close();
                 sockets.Remove(s);

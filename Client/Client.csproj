@@ -48,8 +48,9 @@
   <ItemGroup>
     <Compile Include="Game.cs" />
     <Compile Include="Peer.cs" />
+    <Compile Include="PeerInfo.cs" />
     <Compile Include="Player.cs" />
-    <Compile Include="Program.cs" />
+    <Compile Include="ClientProgram.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
