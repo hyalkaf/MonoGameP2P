@@ -84,11 +84,12 @@ namespace Client
         /// </summary>
         private void connectToServer()
         {
-            client = new TcpClient();
+           
 
             bool connected = true;
             do
             {
+                client = new TcpClient();
                 try
                 {
                     connected = true;
@@ -99,6 +100,7 @@ namespace Client
                 }catch (Exception e)
                 {
                     connected = false;
+                    client.Close();
                 }
 
             } while (!connected);

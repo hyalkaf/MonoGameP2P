@@ -27,7 +27,7 @@ namespace Client
         public const string REQ_SUCCESS = "success";
         public const string REQ_RECONNECTED = "reconnected";
         public const string REQ_STRIKE = "strike";
-        private ManualResetEvent mre;
+
         /// <summary>
         /// 
         /// </summary>
@@ -38,7 +38,6 @@ namespace Client
             Console.WriteLine("PEER ESTABLISHED!!");
             this.playerName = playerName;
             Console.WriteLine("For " + playerName);
-            mre = new ManualResetEvent(false);
 
             // TODO: Initialize variables to hold other IP Addresses and ports for other peers.
             // Check if peersInfo is populated
@@ -249,12 +248,12 @@ namespace Client
                 {
                     Console.WriteLine("Connecting to a peer.....");
 
-                    _peerSender[i] = new TcpClient();
 
                     bool succPeerConnect = true;
                     int numOfTries = 3;
                     do
                     {
+                        _peerSender[i] = new TcpClient();
                         succPeerConnect = true;
                         try
                         {
@@ -264,6 +263,7 @@ namespace Client
                         {
                             Console.WriteLine("Can't connect to peer " + peersInfo[i].Item4);
                             Console.WriteLine("Trying... Times to try: " + numOfTries);
+                            _peerSender[i].Close();
                             succPeerConnect = false;
                             numOfTries--;
                             if (numOfTries == 0)
