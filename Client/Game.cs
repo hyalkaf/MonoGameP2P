@@ -12,8 +12,7 @@ namespace Game
     {
         private List<Player>[] Board = new List<Player> [20];    //game board
         private int MAX_PLAYERS;                              //Max PLayers in game
-        private bool Game_over;                        //is the game over
-        private Player Winner;                            //winner of the game
+        private Player winner;                            //winner of the game
 
         //construvtor
         public Game(List<PeerInfo> players)
@@ -25,17 +24,17 @@ namespace Game
             }
 
             //set each player location to 0
+            // and add all players to first space on board
             foreach (PeerInfo p in players)
             {
                 Player player = p.PlayerInfo;
                 Board[0].Add(player);
             }
 
-            //add all players to first space on board
-            //Board[0].Add(players);
-
             //set maxplayers
             MAX_PLAYERS = players.Count;
+
+            winner = null;
         }
 
         /// <summary>
@@ -49,7 +48,11 @@ namespace Game
             //get current and new locations
             int cur_loc = current_player.Position;
             int new_loc = cur_loc + offset;
-            if (new_loc >= Board.Length) new_loc = Board.Length-1;
+            if (new_loc >= Board.Length - 1 )
+            {
+                new_loc = Board.Length - 1;
+                Winner = current_player;
+            }                    
            
            
             //remove player from board space
@@ -120,5 +123,23 @@ namespace Game
 
             return display;
         }
+
+        public bool Over
+        {
+            get { return Winner != null;  }
+        }
+
+        public Player Winner
+        {
+            get { return winner; }
+            internal set {
+                winner = value;
+                Console.WriteLine("\n---------------------------------");
+                Console.WriteLine("The Winner is (" + winner.PlayerId+")"+winner.Name);
+                Console.WriteLine("---------------------------------\n");
+            }
+        }
+
+       
     }
 }

@@ -303,10 +303,12 @@ namespace Client
                     do
                     {
                         _peerSender[i] = new TcpClient();
+                        _peerSender[i].SendTimeout = 5000;
                         succPeerConnect = true;
                         try
                         {
                             // _peerSender[i].Connect(peersInfo[i].Item1, peersInfo[i].Item2);
+                            
                             _peerSender[i].Connect(allPeersInfo[i].IPAddr, allPeersInfo[i].Port);
                         }
                         catch (Exception)
