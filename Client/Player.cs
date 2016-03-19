@@ -24,7 +24,12 @@ namespace Client
             id = playerId;
         }
 
-   
+        public Player(string playername)
+        {
+            name = playername;
+        }
+
+
         public int PlayerId
         {
             get { return id; }
@@ -44,7 +49,10 @@ namespace Client
         public int Turn
         {
             get { return inGameTurn; }
-            set { inGameTurn = value; }
+            set {
+                inGameTurn = value;
+
+            }
         }
 
     }
