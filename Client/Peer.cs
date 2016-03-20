@@ -445,10 +445,11 @@ namespace Client
                     Console.WriteLine("Waiting for a connection {0} .....", counter);
                     Socket s = _peerListener.AcceptSocket();
 
-                    new Thread(() => {
+                    Thread connectionThread = new Thread(() => {
                         EstablishConnection(s, counter);
-                    }).Start();
-
+                    });
+                    connectionThread.IsBackground = true;
+                    connectionThread.Start();
                 
                 } while (true);
 
