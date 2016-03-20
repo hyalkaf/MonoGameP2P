@@ -50,6 +50,12 @@ namespace Client
             get { return ipaddr; }
             set { ipaddr = value; }
         }
+
+        public override string ToString()
+        {
+            return "(" + PlayerInfo.PlayerId + ")" + PlayerInfo.Name;
+        }
+
         public int Port {
             get { return listeningPort; }
             set { listeningPort = value; }

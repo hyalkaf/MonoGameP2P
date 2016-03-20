@@ -25,9 +25,6 @@ namespace Client
         // Peerinfo <ip, port, playername, playerID, timebeforekick>
         // private List<Tuple<string, int, string, int, int>> peersInfo;
 
-        private AutoResetEvent turnEvent;
-
-        private Dictionary<int, int> peersIDToPosition;
         public const string REQ_TURN = "turn";
         public const string REQ_QUIT = "quit";
         public const string REQ_RECONNECTED = "reconnected";
@@ -76,8 +73,7 @@ namespace Client
                 _peerListener = new TcpListener(ipAddr, myPeerInfo.Port);
             }
 
-            peersIDToPosition = new Dictionary<int, int>();
-            turnEvent = new AutoResetEvent(false);
+
             InitializeGameState();
         }
 
@@ -153,18 +149,13 @@ namespace Client
 
             string requestMessage = sb.ToString().Trim().ToLower();
 
-            Console.WriteLine("DEBUG: Response: " + requestMessage);
+            Console.WriteLine("DEBUG: Request: " + requestMessage);
 
             string responseMessage = RESP_FAILURE + " " + RESP_UNKNOWN;
 
             // When a peer is broadcasting its turn
             if (requestMessage.StartsWith(REQ_TURN))
             {
-
-                if (!peersIDToPosition.ContainsKey(id))
-                {
-                    peersIDToPosition.Add(id, 0);
-                }
 
                 responseMessage = RESP_SUCCESS + " " + REQ_TURN;
 
@@ -220,10 +211,6 @@ namespace Client
             }
             else if (requestMessage.StartsWith(REQ_QUIT))
             {
-                if (!peersIDToPosition.ContainsKey(id))
-                {
-                    peersIDToPosition.Add(id, 0);
-                }
 
                 responseMessage = RESP_SUCCESS + " " + REQ_QUIT;
 
@@ -247,7 +234,9 @@ namespace Client
 
                 //Remove player from the list
                 //peersInfo.Remove (peersInfo.Where(peerInfo => peerInfo.Item4 == playerId).First());
-                allPeersInfo.Remove(allPeersInfo.Where(peer => peer.PlayerInfo.PlayerId == playerId).First());
+                PeerInfo peerToRemove = allPeersInfo.Where(peer => peer.PlayerInfo.PlayerId == playerId).First();
+                allPeersInfo.Remove(peerToRemove);
+                game.RemovePlayer(peerToRemove.PlayerInfo);
                 _peerSender = new TcpClient[_peerSender.Length - 1];
                 // Keep track of peers with their position
                 // peersIDToPosition[numberOne] += numberTwo;
@@ -466,13 +455,16 @@ namespace Client
 
         private void StrikePlayer(int playerId)
         {
-            int index = allPeersInfo.IndexOf(allPeersInfo.Where(peer => peer.PlayerInfo.PlayerId == playerId).First());
+            PeerInfo playerToBeStriked = allPeersInfo.Where(peer => peer.PlayerInfo.PlayerId == playerId).First();
+
             //Tuple<string, int, string, int, int> peerInfo = allPeersInfo[index];
             //int strikeout = peerInfo.Item5 + 1;
             
-            if (allPeersInfo[index].IsStrikeOutOnNextAdd())
+            if (playerToBeStriked.IsStrikeOutOnNextAdd())
             {
-                allPeersInfo.RemoveAt(index);
+                allPeersInfo.Remove(playerToBeStriked);
+
+                game.RemovePlayer(playerToBeStriked.PlayerInfo);
                 _peerSender = new TcpClient[_peerSender.Length - 1];
                 Console.WriteLine("Player " + playerId + " has been removed due to unresponsiveness.");
             }
@@ -485,9 +477,9 @@ namespace Client
                 //    peerInfo.Item4, 
                 //    strikeout);
 
-                allPeersInfo[index].AddStrike();
+                playerToBeStriked.AddStrike();
 
-                Console.WriteLine("Player " + playerId + " strike " + allPeersInfo[index]);
+                Console.WriteLine("Player " + playerId + " strike " + playerToBeStriked);
             }
         }
 
@@ -496,8 +488,6 @@ namespace Client
             _peerListener.Stop();
             _peerSender = null;
             allPeersInfo = null;
-            peersIDToPosition = null;
-
 
         }
 

@@ -107,13 +107,33 @@ namespace Game
             set { MAX_PLAYERS = value; }
         }
 
+        public void RemovePlayer(Player pToBeRemoved)
+        {
+            int removedPlayerTurnNum = pToBeRemoved.Turn;
+
+            Board[pToBeRemoved.Position].Remove(pToBeRemoved);
+
+            foreach (List<Player> players in Board)
+            {
+                foreach (Player p in players)
+                {
+                    if (p.Turn > removedPlayerTurnNum)
+                    {
+                        p.Turn -= 1;
+                    }
+
+                }
+            }
+            MAX_PLAYERS--;
+        }
+
         public override string ToString()
         {
             string display = "";
 
             foreach(List<Player> players in Board)
             {
-                display += "[] ";
+                display += "["+(Array.IndexOf(Board,players)+1)+"] ";
                 foreach(Player p in players)
                 {
                     display += "(" + p.PlayerId + ")" + p.Name + " ";

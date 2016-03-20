@@ -51,7 +51,7 @@ namespace Client
             get { return inGameTurn; }
             set {
                 inGameTurn = value;
-
+                Console.Write("Until " + value + " is " + Name + "'s turn. ");
             }
         }
 
