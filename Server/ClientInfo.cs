@@ -11,13 +11,27 @@ namespace Server
     public class ClientInfo
     {
         private string playerName;
-        private Socket socket;
+        private TcpClient tcpclient;
         private IPAddress ipaddr;
 
-        public string PlayerName { get { return playerName; } set { playerName = value; } }
+        public ClientInfo(TcpClient tcpclient)
+        {
+            TcpClient = tcpclient;
+        }
+
+        public string PlayerName {
+            get { return playerName; }
+            set { playerName = value; }
+        }
         public IPAddress IPAddr {
             get { return ipaddr; }
             set { ipaddr = value; }
+        }
+
+        public TcpClient TcpClient
+        {
+            get { return tcpclient; }
+            set { tcpclient = value; }
         }
     }
 }

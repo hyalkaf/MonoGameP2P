@@ -32,7 +32,8 @@ namespace Server
         // Will use index as number of clients who want to be matched with this amount of other clients
         // then once that index has fullfilled its number we will match those in that index to a game.
         private List<ConcurrentDictionary<string, Socket>> socketsForGameRequests;
-        private List<Socket> sockets;
+        //private List<Socket> sockets;
+        private List<ClientInfo> connectedClients;
         public List<string> allPlayerNamesUsed;
         public Dictionary<string, List<string>> gameSession;
         public bool isPrimaryServer = false;
@@ -44,7 +45,9 @@ namespace Server
 
         public ServerProgram()
         {
-            sockets = new List<Socket>();
+
+            connectedClients = new List<ClientInfo>();
+            //sockets = new List<Socket>();
             socketsForGameRequests = new List<ConcurrentDictionary<string, Socket>>();
             playerQueue = new List<string>();
             allPlayerNamesUsed = new List<string>();
@@ -123,7 +126,9 @@ namespace Server
             // Socket s = tcpclient.Client;
             NetworkStream netStream = tcpclient.GetStream();
             //StringBuilder sb = new StringBuilder();
-            sockets.Add(tcpclient.Client);
+            //sockets.Add(tcpclient.Client);
+            ClientInfo newConnectedClient = new ClientInfo(tcpclient);
+            connectedClients.Add(newConnectedClient);
 
             Console.WriteLine("Connection accepted from client"); //+ ipaddr + " : " + portNumber);
 
@@ -138,8 +143,11 @@ namespace Server
             }
             catch (Exception)
             {
+                connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
                 tcpclient.Close();
-                sockets.Remove(tcpclient.Client);
+                // sockets.Remove(tcpclient.Client);
+
+
                 return;
             //    s.Close();
             //    sockets.Remove(s);
@@ -221,28 +229,27 @@ namespace Server
                 
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
-               // ASCIIEncoding asen = new ASCIIEncoding();
-
-               // byte[] b = asen.GetBytes(responseMessage + "\n\n");
-
-               // Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
-
-                // s.Send(b);
                 byte[] byteToSend = Encoding.UTF8.GetBytes(responseMessage);
                 netStream.Write(byteToSend, 0, byteToSend.Length);
 
                 Console.WriteLine("\nSent Acknowledgement");
-                if (sockets.Exists(soc => soc == tcpclient.Client))
+
+                if(connectedClients.Exists(client => client.TcpClient == tcpclient))
                 {
+                    connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
                     tcpclient.Close();
-                    sockets.Remove(tcpclient.Client);
                 }
+                //if (sockets.Exists(soc => soc == tcpclient.Client))
+                //{
+                //    tcpclient.Close();
+                //    sockets.Remove(tcpclient.Client);
+                //}
 
 
             }
             else if (requestType == REQ_PLAYERS)
             {
-                responseMessage = RESP_SUCCESS + " " + REQ_PLAYERS + "  " + sockets.Count;
+                responseMessage = RESP_SUCCESS + " " + REQ_PLAYERS + "  " + connectedClients.Count;
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
 
@@ -252,27 +259,17 @@ namespace Server
                 netStream.Write(byteToSend, 0, byteToSend.Length);
 
                 Console.WriteLine("\nSent Acknowledgement");
-                if (sockets.Exists(soc => soc == tcpclient.Client))
+
+                if (connectedClients.Exists(client => client.TcpClient == tcpclient))
                 {
+                    connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
                     tcpclient.Close();
-                    sockets.Remove(tcpclient.Client);
                 }
 
-                //ASCIIEncoding asen = new ASCIIEncoding();
-
-                //byte[] b = asen.GetBytes(responseMessage + "\n\n");
-
-                //Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
-
-
-
-                //s.Send(b);
-
-                //Console.WriteLine("\nSent Acknowledgement");
-                //if (sockets.Exists(soc => soc == s))
+                //if (sockets.Exists(soc => soc == tcpclient.Client))
                 //{
-                //    s.Close();
-                //    sockets.Remove(s);
+                //    tcpclient.Close();
+                //    sockets.Remove(tcpclient.Client);
                 //}
 
             }
@@ -290,25 +287,15 @@ namespace Server
                 netStream.Write(byteToSend, 0, byteToSend.Length);
 
                 Console.WriteLine("\nSent Acknowledgement");
-                if (sockets.Exists(soc => soc == tcpclient.Client))
+                if(connectedClients.Exists(client => client.TcpClient == tcpclient))
                 {
+                    connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
                     tcpclient.Close();
-                    sockets.Remove(tcpclient.Client);
                 }
-
-                //ASCIIEncoding asen = new ASCIIEncoding();
-
-                //byte[] b = asen.GetBytes(responseMessage + "\n\n");
-
-                //Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
-
-                //s.Send(b);
-
-                //Console.WriteLine("\nSent Acknowledgement");
-                //if (sockets.Exists(soc => soc == s))
+                //if (sockets.Exists(soc => soc == tcpclient.Client))
                 //{
-                //    s.Close();
-                //    sockets.Remove(s);
+                //    tcpclient.Close();
+                //    sockets.Remove(tcpclient.Client);
                 //}
 
             }
@@ -319,6 +306,7 @@ namespace Server
                 {
                     responseMessage = RESP_SUCCESS + " " + REQ_CHECKNAME + "  This name is not taken";
                     allPlayerNamesUsed.Add(aPlayerName);
+                    newConnectedClient.PlayerName = aPlayerName;
                 }
                 else
                 {
@@ -331,25 +319,17 @@ namespace Server
                 netStream.Write(byteToSend, 0, byteToSend.Length);
 
                 Console.WriteLine("\nSent Acknowledgement");
-                if (sockets.Exists(soc => soc == tcpclient.Client))
+
+                if(connectedClients.Exists(client => client == newConnectedClient))
                 {
+                    connectedClients.Remove(newConnectedClient);
                     tcpclient.Close();
-                    sockets.Remove(tcpclient.Client);
                 }
 
-                //ASCIIEncoding asen = new ASCIIEncoding();
-
-                //byte[] b = asen.GetBytes(responseMessage + "\n\n");
-
-                //Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
-
-                //s.Send(b);
-
-                //Console.WriteLine("\nSent Acknowledgement");
-                //if (sockets.Exists(soc => soc == s))
+                //if (sockets.Exists(soc => soc == tcpclient.Client))
                 //{
-                //    s.Close();
-                //    sockets.Remove(s);
+                //    tcpclient.Close();
+                //    sockets.Remove(tcpclient.Client);
                 //}
 
             }
@@ -442,7 +422,8 @@ namespace Server
                                 Console.WriteLine("\nSent Acknowledgement [Game Matched!]");
                                 Console.WriteLine();
                                 dicNameToSocket.Value.Close();
-                                sockets.Remove(dicNameToSocket.Value);
+                                //sockets.Remove(dicNameToSocket.Value);
+                                connectedClients.Remove(connectedClients.Where(client => client.TcpClient.Client == dicNameToSocket.Value).First());
 
                             }
 
