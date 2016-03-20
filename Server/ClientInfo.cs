@@ -10,13 +10,14 @@ namespace Server
 {
     public class ClientInfo
     {
-        private string playerName;
+        private string playerName = null;
         private TcpClient tcpclient;
         private IPAddress ipaddr;
 
         public ClientInfo(TcpClient tcpclient)
         {
             TcpClient = tcpclient;
+            IPAddr = (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address;
         }
 
         public string PlayerName {
