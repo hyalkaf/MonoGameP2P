@@ -139,10 +139,10 @@ namespace Server
             //byte[] buffer = new byte[2048];
             tcpclient.ReceiveBufferSize = 2048;
             byte[] bytes = new byte[tcpclient.ReceiveBufferSize];
-          
+
             //int bytesRead;
-            try { 
-            //   bytesRead = s.Receive(buffer);
+            try {
+                //   bytesRead = s.Receive(buffer);
                 netStream.Read(bytes, 0, (int)tcpclient.ReceiveBufferSize);
             }
             catch (Exception)
@@ -153,9 +153,9 @@ namespace Server
 
 
                 return;
-            //    s.Close();
-            //    sockets.Remove(s);
-            //    return;
+                //    s.Close();
+                //    sockets.Remove(s);
+                //    return;
             }
 
 
@@ -174,18 +174,18 @@ namespace Server
             {
                 requestType = requestMessage.Substring(0, requestMessage.IndexOf(" ")).Trim();
             }
-            
+
             requestMessage = requestMessage.Substring(requestType.Length).Trim();
             //Console.WriteLine("Recieved...");
 
             Console.WriteLine(requestMessage);
-            string responseMessage = RESP_ERROR +" Invalid Request Message";
+            string responseMessage = RESP_ERROR + " Invalid Request Message";
 
             if (requestType == REQ_GAME)
             {
                 // All the data has been read from the 
                 // client. Display it on the console.
-                
+
                 string pName = requestMessage.Substring(0, requestMessage.IndexOf(" "));
 
                 newConnectedClient.PlayerName = pName;
@@ -212,7 +212,7 @@ namespace Server
 
 
                 // Name should be unique, otherwise change it
-               // socketsForGameRequests[numberOfPeers][pName] = tcpclient.Client;
+                // socketsForGameRequests[numberOfPeers][pName] = tcpclient.Client;
                 clientsWaitingForGame[numberOfPeers].Enqueue(newConnectedClient);
 
                 // Find game match
@@ -243,7 +243,7 @@ namespace Server
                 {
                     responseMessage = RESP_FAILURE + " " + REQ_RECONN + "  No such game exists";
                 }
-                
+
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
@@ -251,7 +251,7 @@ namespace Server
 
                 Console.WriteLine("\nSent Acknowledgement");
 
-                if(connectedClients.Exists(client => client.TcpClient == tcpclient))
+                if (connectedClients.Exists(client => client.TcpClient == tcpclient))
                 {
                     connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
                     tcpclient.Close();
@@ -301,7 +301,7 @@ namespace Server
                 netStream.Write(byteToSend, 0, byteToSend.Length);
 
                 Console.WriteLine("\nSent Acknowledgement");
-                if(connectedClients.Exists(client => client.TcpClient == tcpclient))
+                if (connectedClients.Exists(client => client.TcpClient == tcpclient))
                 {
                     connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
                     tcpclient.Close();
@@ -325,7 +325,7 @@ namespace Server
                 {
                     responseMessage = RESP_FAILURE + " " + REQ_CHECKNAME + "  This name is taken";
                 }
-                
+
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
@@ -333,7 +333,7 @@ namespace Server
 
                 Console.WriteLine("\nSent Acknowledgement");
 
-                if(connectedClients.Exists(client => client == newConnectedClient))
+                if (connectedClients.Exists(client => client == newConnectedClient))
                 {
                     connectedClients.Remove(newConnectedClient);
                     tcpclient.Close();
@@ -345,15 +345,15 @@ namespace Server
                 //    sockets.Remove(tcpclient.Client);
                 //}
 
-            }else if (requestType == REQ_SERVRECONN)
+            } else if (requestType == REQ_SERVRECONN)
             {
                 var aPlayerName = requestMessage;
                 bool found = false;
-                 foreach(ConcurrentQueue<ClientInfo> q in clientsWaitingForGame) {
-                
-                    foreach(ClientInfo ci in q)
+                foreach (ConcurrentQueue<ClientInfo> q in clientsWaitingForGame) {
+
+                    foreach (ClientInfo ci in q)
                     {
-                        if(ci.PlayerName == aPlayerName)
+                        if (ci.PlayerName == aPlayerName)
                         {
                             ci.TcpClient = tcpclient;
                             ci.IPAddr = (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address;
@@ -361,12 +361,27 @@ namespace Server
                             break;
                         }
                     }
-              
+
                     if (found) break;
                 }
 
                 if (connectedClients.Exists(client => client == newConnectedClient))
                 {
+                    connectedClients.Remove(newConnectedClient);
+                    tcpclient.Close();
+                }
+            } else
+            {
+                Console.WriteLine("DEBUG: Response sent: " + responseMessage);
+
+                byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
+                netStream.Write(byteToSend, 0, byteToSend.Length);
+
+                Console.WriteLine("\nSent Acknowledgement");
+
+                if (connectedClients.Exists(client => client == newConnectedClient))
+                {
+
                     connectedClients.Remove(newConnectedClient);
                     tcpclient.Close();
                 }

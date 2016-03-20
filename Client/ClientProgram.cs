@@ -26,12 +26,13 @@ namespace Client
         public const string REQ_RECONN = "reconn";
         public const string RESP_SUCCESS = "success";
         public const string RESP_FAILURE = "failure";
-
+        public const string RESP_ERROR = "error";
         public static string SERVER_IP = "";
 
         // Holds information about other peers in the system: IPAddress, portNumber, name and ID.
         //List<Tuple<string, int, string, int, int>> peersInfo;
         List<PeerInfo> allPeersInfo;
+       
 
         /// <summary>
         /// Constructor for creating a client, it will connect to the server and prompts for unique name.
@@ -343,8 +344,11 @@ namespace Client
                     return 0;
                 }
             }
+            else if (responseMessage.StartsWith(RESP_ERROR))
+            {
+                Console.WriteLine(responseMessage);
+            }
 
-           
 
             return -1;
 
