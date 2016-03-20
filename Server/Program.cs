@@ -21,6 +21,7 @@ namespace Server
         public const string REQ_RECONN = "reconn";
         public const string RESP_SUCCESS = "success";
         public const string RESP_FAILURE = "failure";
+        public const string RESP_ERROR = "error";
 
         private ReplicationManager rm;
         public IPAddress ipAddr;
@@ -117,28 +118,41 @@ namespace Server
 
         }
 
-        void EstablishConnection(Socket s, int id)
+        void EstablishConnection(TcpClient tcpclient, int id)
         {
-            StringBuilder sb = new StringBuilder();
-            sockets.Add(s);
+            // Socket s = tcpclient.Client;
+            NetworkStream netStream = tcpclient.GetStream();
+            //StringBuilder sb = new StringBuilder();
+            sockets.Add(tcpclient.Client);
 
-            Console.WriteLine("Connection accepted from "); //+ ipaddr + " : " + portNumber);
+            Console.WriteLine("Connection accepted from client"); //+ ipaddr + " : " + portNumber);
 
-            byte[] buffer = new byte[2048];
-            int bytesRead;
+            //byte[] buffer = new byte[2048];
+            tcpclient.ReceiveBufferSize = 2048;
+            byte[] bytes = new byte[tcpclient.ReceiveBufferSize];
+           // netStream.Read(bytes, 0, (int)tcpclient.ReceiveBufferSize);
+            //int bytesRead;
             try { 
-               bytesRead = s.Receive(buffer);
+            //   bytesRead = s.Receive(buffer);
+                netStream.Read(bytes, 0, (int)tcpclient.ReceiveBufferSize);
             }
             catch (Exception)
             {
-                s.Close();
-                sockets.Remove(s);
+                tcpclient.Close();
+                sockets.Remove(tcpclient.Client);
                 return;
+            //    s.Close();
+            //    sockets.Remove(s);
+            //    return;
             }
 
-            sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
 
-            string requestMessage = sb.ToString().Trim().ToLower();
+
+            //sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
+
+            //string requestMessage = sb.ToString().Trim().ToLower();
+            string requestMessage = Encoding.ASCII.GetString(bytes).Trim();
+            requestMessage = requestMessage.Substring(0, requestMessage.IndexOf("\0")).Trim();
             string requestType = "";
             if (requestMessage.IndexOf(" ") == -1)
             {
@@ -153,7 +167,7 @@ namespace Server
             //Console.WriteLine("Recieved...");
 
             Console.WriteLine(requestMessage);
-            string responseMessage = "error I DO NOT UNDERSTAND THIS REQUEST";
+            string responseMessage = RESP_ERROR +" Invalid Request Message";
 
             if (requestType == REQ_GAME)
             {
@@ -174,7 +188,7 @@ namespace Server
                 }
 
                 // Name should be unique, otherwise change it
-                socketsForGameRequests[numberOfPeers][pName] = s;
+                socketsForGameRequests[numberOfPeers][pName] = tcpclient.Client;
 
                 // Find game match
                 MatchPeers();
@@ -207,19 +221,21 @@ namespace Server
                 
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
-                ASCIIEncoding asen = new ASCIIEncoding();
+               // ASCIIEncoding asen = new ASCIIEncoding();
 
-                byte[] b = asen.GetBytes(responseMessage + "\n\n");
+               // byte[] b = asen.GetBytes(responseMessage + "\n\n");
 
-                Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
+               // Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
 
-                s.Send(b);
+                // s.Send(b);
+                byte[] byteToSend = Encoding.UTF8.GetBytes(responseMessage);
+                netStream.Write(byteToSend, 0, byteToSend.Length);
 
                 Console.WriteLine("\nSent Acknowledgement");
-                if (sockets.Exists(soc => soc == s))
+                if (sockets.Exists(soc => soc == tcpclient.Client))
                 {
-                    s.Close();
-                    sockets.Remove(s);
+                    tcpclient.Close();
+                    sockets.Remove(tcpclient.Client);
                 }
 
 
@@ -229,20 +245,35 @@ namespace Server
                 responseMessage = RESP_SUCCESS + " " + REQ_PLAYERS + "  " + sockets.Count;
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
-                ASCIIEncoding asen = new ASCIIEncoding();
 
-                byte[] b = asen.GetBytes(responseMessage + "\n\n");
 
-                Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
 
-                s.Send(b);
+                byte[] byteToSend = Encoding.UTF8.GetBytes(responseMessage);
+                netStream.Write(byteToSend, 0, byteToSend.Length);
 
                 Console.WriteLine("\nSent Acknowledgement");
-                if (sockets.Exists(soc => soc == s))
+                if (sockets.Exists(soc => soc == tcpclient.Client))
                 {
-                    s.Close();
-                    sockets.Remove(s);
+                    tcpclient.Close();
+                    sockets.Remove(tcpclient.Client);
                 }
+
+                //ASCIIEncoding asen = new ASCIIEncoding();
+
+                //byte[] b = asen.GetBytes(responseMessage + "\n\n");
+
+                //Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
+
+
+
+                //s.Send(b);
+
+                //Console.WriteLine("\nSent Acknowledgement");
+                //if (sockets.Exists(soc => soc == s))
+                //{
+                //    s.Close();
+                //    sockets.Remove(s);
+                //}
 
             }
             else if (requestType == REQ_CANCEL)
@@ -254,20 +285,31 @@ namespace Server
                 // Echo the data back to the client.
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
-                ASCIIEncoding asen = new ASCIIEncoding();
 
-                byte[] b = asen.GetBytes(responseMessage + "\n\n");
-
-                Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
-
-                s.Send(b);
+                byte[] byteToSend = Encoding.UTF8.GetBytes(responseMessage);
+                netStream.Write(byteToSend, 0, byteToSend.Length);
 
                 Console.WriteLine("\nSent Acknowledgement");
-                if (sockets.Exists(soc => soc == s))
+                if (sockets.Exists(soc => soc == tcpclient.Client))
                 {
-                    s.Close();
-                    sockets.Remove(s);
+                    tcpclient.Close();
+                    sockets.Remove(tcpclient.Client);
                 }
+
+                //ASCIIEncoding asen = new ASCIIEncoding();
+
+                //byte[] b = asen.GetBytes(responseMessage + "\n\n");
+
+                //Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
+
+                //s.Send(b);
+
+                //Console.WriteLine("\nSent Acknowledgement");
+                //if (sockets.Exists(soc => soc == s))
+                //{
+                //    s.Close();
+                //    sockets.Remove(s);
+                //}
 
             }
             else if (requestType == REQ_CHECKNAME)
@@ -285,20 +327,30 @@ namespace Server
                 
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
-                ASCIIEncoding asen = new ASCIIEncoding();
-
-                byte[] b = asen.GetBytes(responseMessage + "\n\n");
-
-                Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
-
-                s.Send(b);
+                byte[] byteToSend = Encoding.UTF8.GetBytes(responseMessage);
+                netStream.Write(byteToSend, 0, byteToSend.Length);
 
                 Console.WriteLine("\nSent Acknowledgement");
-                if (sockets.Exists(soc => soc == s))
+                if (sockets.Exists(soc => soc == tcpclient.Client))
                 {
-                    s.Close();
-                    sockets.Remove(s);
+                    tcpclient.Close();
+                    sockets.Remove(tcpclient.Client);
                 }
+
+                //ASCIIEncoding asen = new ASCIIEncoding();
+
+                //byte[] b = asen.GetBytes(responseMessage + "\n\n");
+
+                //Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
+
+                //s.Send(b);
+
+                //Console.WriteLine("\nSent Acknowledgement");
+                //if (sockets.Exists(soc => soc == s))
+                //{
+                //    s.Close();
+                //    sockets.Remove(s);
+                //}
 
             }
 
@@ -317,13 +369,14 @@ namespace Server
             int counter = 0;
             do
             {
-                counter++;
-
-                Console.WriteLine("Waiting for a connection {0} .....", counter);
-                Socket s = listener.AcceptSocket();
+                Console.WriteLine("Waiting for a connection {0} .....", ++counter);
+                
+                TcpClient tcpclient = listener.AcceptTcpClient();
+                //Socket s = listener.AcceptSocket();
+                
 
                 new Thread(() => {
-                    EstablishConnection(s, counter);
+                    EstablishConnection(tcpclient, counter);
                 }).Start();
                
           
