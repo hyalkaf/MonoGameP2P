@@ -192,26 +192,25 @@ namespace Client
             }
 
             reqMessage += "\n\n";
-            try { 
-                Stream stm = client.GetStream();
+            try {
 
+                NetworkStream clientNetStream = client.GetStream();
+
+                //Write to server
                 ASCIIEncoding asen = new ASCIIEncoding();
                 byte[] ba = asen.GetBytes(reqMessage);
+                Console.Write("Transmitting request to the server.....");
+                clientNetStream.Write(ba, 0, ba.Length);
+                //Done Write
 
-                Console.WriteLine("Transmitting request to the server.....\n");
-                stm.Write(ba, 0, ba.Length);
-                byte[] bb = new byte[2048];
-                Console.WriteLine("Waiting for response from Server...");
-                int k = stm.Read(bb, 0, 2048);
+                //Read response from server
+                byte[] bytesRead = new byte[client.ReceiveBufferSize];
+                clientNetStream.Read(bytesRead, 0, (int)client.ReceiveBufferSize);
+                Console.WriteLine(" OK!");
+                //Done Read
 
-                string responseMessage = "";
-                char c = ' ';
-                for (int i = 0; i < k; i++)
-                {
-                    c = Convert.ToChar(bb[i]);
-                    responseMessage += c;
-                }
-
+                string responseMessage = Encoding.ASCII.GetString(bytesRead).Trim();
+                responseMessage = responseMessage.Substring(0, responseMessage.IndexOf("\0")).Trim();
 
                 if (processResponse(responseMessage) == -1)
                 {

@@ -129,7 +129,7 @@ namespace Game
 
         public override string ToString()
         {
-            string display = "";
+            string display = "\n-------------------------------\n";
 
             foreach(List<Player> players in Board)
             {
@@ -140,7 +140,7 @@ namespace Game
                 }
                 display += "\n";
             }
-
+            display += "-------------------------------\n";
             return display;
         }
 

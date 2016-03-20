@@ -138,7 +138,7 @@ namespace Server
             //byte[] buffer = new byte[2048];
             tcpclient.ReceiveBufferSize = 2048;
             byte[] bytes = new byte[tcpclient.ReceiveBufferSize];
-           // netStream.Read(bytes, 0, (int)tcpclient.ReceiveBufferSize);
+          
             //int bytesRead;
             try { 
             //   bytesRead = s.Receive(buffer);
