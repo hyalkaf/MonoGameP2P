@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Collections;
 using System.Threading;
 using System.Collections.Concurrent;
+using System.Net.NetworkInformation;
 
 namespace Server
 {
@@ -390,28 +391,68 @@ namespace Server
                 if (i != 0 && i != 1)
                 {
                     // TODO: Will not work when in index 2 there are four want 2
-                    if (i == clientsWaitingForGame[i].Count)
+                    if (i <= clientsWaitingForGame[i].Count)
                     {
-                        int playerId = 0;
+                        
+                        int stillConnected = clientsWaitingForGame[i].Count;
+
+
+                        foreach (ClientInfo client in clientsWaitingForGame[i]){
+                            byte[] testMsg = new byte[1];
+                            try { 
+                                client.TcpClient.Client.Send(testMsg, 0, 0);
+                            }
+                            catch (Exception)
+                            {
+                                stillConnected--;
+
+                                if (client.TcpClient.Client.Connected) { 
+                                    connectedClients.Remove(connectedClients.Where(c => c.TcpClient == client.TcpClient).First());
+                                    client.TcpClient.Close();
+                                }
+
+                            }
+
+
+                            Console.WriteLine("DEBUG: client " + client.PlayerName + client.IPAddr + " connected is " + client.TcpClient.Client.Connected);
+                        }
+
+                        if (stillConnected < i) return;
+
+     
+                        List<ClientInfo> readyToPlay = new List<ClientInfo>();
                         // Do match between peers
-                        foreach (ClientInfo client in clientsWaitingForGame[i])
+                        for (int playerId = 0; playerId < i; playerId++)
                         {
+                            ClientInfo client;
+                            bool dequeued;
+                            do
+                            {
+                                dequeued = clientsWaitingForGame[i].TryDequeue(out client);
+                            } while (!dequeued);
+
                             // Assign the ip address to a port
+                            if (client.TcpClient.Client.Connected) { 
+                                string clientPeerInfoMsg = client.IPAddr + " " + portNumber++ + " " + client.PlayerName + " " + playerId;
 
-                            string clientPeerInfoMsg = client.IPAddr + " " + portNumber++ + " " + client.PlayerName + " " + playerId;
+                                playersToBeSent += clientPeerInfoMsg + ",";
+                                playersToBeSentList.Add(clientPeerInfoMsg);
 
-                            playersToBeSent += clientPeerInfoMsg + ",";
-                            playersToBeSentList.Add(clientPeerInfoMsg);
-                            playerId++;
+                                readyToPlay.Add(client);
+                            }
+                            else
+                            {
+                                playerId--;
+                            }
+
                         }
 
                         responseMessage = RESP_SUCCESS + " " + REQ_GAME + " " + playersToBeSent;
+                       
+                        Object listLock = new Object();
 
-                        for(int clientNum = 0; clientNum < i; clientNum ++)
+                        Parallel.ForEach(readyToPlay, (client) =>
                         {
-                            ClientInfo client;
-                            clientsWaitingForGame[i].TryDequeue(out client);
-
                             Console.WriteLine("DEBUG: Response sent: " + responseMessage);
                             NetworkStream netStream = client.TcpClient.GetStream();
 
@@ -420,12 +461,12 @@ namespace Server
 
                             Console.WriteLine("\nSent Acknowledgement");
 
+                            lock (listLock) { 
+                                connectedClients.Remove(connectedClients.Where(c => c.TcpClient == client.TcpClient).First());
 
-                            connectedClients.Remove(connectedClients.Where(c => c.TcpClient == client.TcpClient).First());
-
-                            client.TcpClient.Close();
-                        }
-
+                                client.TcpClient.Close();
+                            }
+                        });
 
                         //  Save game session for reconnect
                         gameSession.Add(gameIdGenerate.ToString(), playersToBeSentList);

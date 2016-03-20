@@ -369,6 +369,7 @@ namespace Client
                             if(request != String.Empty) { 
 
                                 Console.WriteLine("Sending request \"{0}\"", request);
+                                //Task.Run(() => {  });
                                 SendRequest(request);
                             }
 
