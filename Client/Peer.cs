@@ -31,13 +31,14 @@ namespace Client
         public const string RESP_FAILURE = "failure";
         public const string RESP_ERROR = "error";
         public const string RESP_UNKNOWN = "unknownrequest";
-
+        
         /// <summary>
         /// 
         /// </summary>
         /// <param name="playerName"></param>
         /// <param name="peersInfo"></param>
-        public Peer(string playerName, List<PeerInfo> peersInfo)
+        /// <param name="reconnect"></param>
+        public Peer(string playerName, List<PeerInfo> peersInfo , bool reconnect = false)
         {
             
             Console.WriteLine("PEER ESTABLISHED!!");
@@ -72,6 +73,11 @@ namespace Client
 
 
             InitializeGameState();
+
+            if (reconnect)
+            {
+                SendRequestPeers(REQ_RECONNECTED + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.IPAddr);
+            }
         }
 
         private void InitializeGameState()
@@ -395,6 +401,10 @@ namespace Client
                 SendToALlPeers(msg);
 
                 Dispose();
+            }
+            else if (msg.StartsWith(REQ_RECONNECTED))
+            {
+                SendToALlPeers(msg);
             }
             else
             {
