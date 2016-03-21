@@ -15,18 +15,28 @@ namespace Client
     /// </summary>
     public class ClientProgram
     {
+
+        private class Request
+        {
+            public const string GAME = "game";
+            public const string PLAYERS = "players";
+            public const string CANCEL = "cancel";
+            public const string CHECKNAME = "checkname";
+            public const string RECONN = "reconn";
+            public const string SERVRECONN = "servreconn";
+        }
+
+        private class Response
+        {
+            public const string SUCCESS = "success";
+            public const string FAILURE = "failure";
+            public const string ERROR = "error";
+        }
+
         TcpClient client;
         private string playerName;
         public bool inGame = false;
 
-        public const string REQ_GAME = "game";
-        public const string REQ_PLAYERS = "players";
-        public const string REQ_CANCEL = "cancel";
-        public const string REQ_CHECKNAME = "checkname";
-        public const string REQ_RECONN = "reconn";
-        public const string RESP_SUCCESS = "success";
-        public const string RESP_FAILURE = "failure";
-        public const string RESP_ERROR = "error";
         public static string SERVER_IP = "";
 
         // Holds information about other peers in the system: IPAddress, portNumber, name and ID.
@@ -48,22 +58,25 @@ namespace Client
 
             // Connect to server and set unique player name 
             string pName = String.Empty;
-            bool checkNameResult = false;
+            int checkNameResult = -1;
+ 
             do
             {
                 connectToServer();
                 Console.Write("Enter Your Player Name: ");
                 pName = Console.ReadLine();
                 pName = pName.Trim().Replace(" ", "").Replace("\t", "");
-                checkNameResult = checkNameAvailable(pName);
-                if (!checkNameResult)
+
+                checkNameResult = SendRequest(Request.CHECKNAME + " " + pName);
+                if (checkNameResult == -1)
                 {
                     Console.Write("Name exists on server, is it you? (Y/N)");
                     string isityou = Console.ReadLine().Trim().ToLower();
 
                     if(isityou == "y")
                     {
-                        checkNameResult = true;
+                        checkNameResult = 0;
+                        SendRequest(Request.SERVRECONN + " " + pName);
                     }
                     else
                     {
@@ -72,7 +85,7 @@ namespace Client
                     
                 }
 
-            } while (!checkNameResult);
+            } while (checkNameResult == -1);
 
             playerName = pName;
 
@@ -111,15 +124,21 @@ namespace Client
 
         }
 
-
-        public bool checkNameAvailable(string pName)
-        {
-            if( SendRequest(REQ_CHECKNAME + " "  + pName) != -1)
+        private void MessageParser(string msg , out string type, out string rest) {
+            msg = msg.Trim();
+            rest = "";
+            if (msg.IndexOf(" ") == -1)
             {
-                return true;
+                type = msg;
             }
-            return false;
+
+            else
+            {
+                type = msg.Substring(0,msg.IndexOf(" ")).Trim();
+                rest = msg.Substring(type.Length).Trim();
+            }
         }
+
 
         /// <summary>
         /// Communication between server and client method to send requests from clients to the server.
@@ -129,14 +148,15 @@ namespace Client
         {
             
             string reqMessage = msg.Trim();
-            string[] reqMessageElem = reqMessage.Split(' ');
-            //
-            reqMessageElem = reqMessageElem.Where(elem => elem != "").ToArray();
-            string req = reqMessageElem[0];
-            if (req == REQ_GAME)
+
+            string reqType, reqMsg;
+
+            MessageParser(reqMessage, out reqType, out reqMsg);
+  
+            if (reqType == Request.GAME)
             {
                 int inttest;
-                if (reqMessageElem.Length < 2 || !int.TryParse(reqMessageElem[1], out inttest))
+                if (reqMsg == "" || !int.TryParse(reqMsg, out inttest))
                 {
                     Console.WriteLine("USAGE: game <number>");
                     client.Close();
@@ -147,26 +167,27 @@ namespace Client
                     }
                     return 0 ;
                 }
-                string numOfPeersToMatch = reqMessageElem[1];
 
-                reqMessage = req +  " " + playerName + " " + numOfPeersToMatch;
+                string numOfPeersToMatch = reqMsg;
+
+                reqMessage = reqType +  " " + playerName + " " + numOfPeersToMatch;
             }
-            else if(req == REQ_CANCEL)
+            else if(reqType == Request.CANCEL)
             {
-                reqMessage = req;
+                reqMessage = reqType;
             }
-            else if (req == REQ_PLAYERS)
+            else if (reqType == Request.PLAYERS)
             {
-                reqMessage = req;
+                reqMessage = reqType;
             }
-            else if (req == REQ_CHECKNAME)
+            else if (reqType == Request.CHECKNAME)
             {
-                reqMessage = msg;
+                reqMessage = reqType + " " + reqMsg;
             }
-            else if (req == REQ_RECONN)
+            else if (reqType == Request.RECONN)
             {
                 int inttest;
-                if (reqMessageElem.Length < 2 || !int.TryParse(reqMessageElem[1], out inttest))
+                if (reqMsg == "" || !int.TryParse(reqMsg, out inttest))
                 {
                     Console.WriteLine("USAGE: reconn <gameId>");
                     client.Close();
@@ -177,9 +198,13 @@ namespace Client
                     }
                     return 0;
                 }
-                string gameId = reqMessageElem[1];
+                string gameId = reqMsg;
 
-                reqMessage = req + " " + gameId;
+                reqMessage = reqType + " " + gameId;
+            }
+            else if (reqType == Request.SERVRECONN)
+            {
+                reqMessage = reqType + " " + reqMsg;
             }
             else
             {
@@ -200,7 +225,7 @@ namespace Client
                 //Write to server
                 ASCIIEncoding asen = new ASCIIEncoding();
                 byte[] ba = asen.GetBytes(reqMessage);
-                Console.Write("Transmitting request to the server.....");
+                Console.Write("Transmitting\n\t" + reqMessage + "\nto the server.....");
                 clientNetStream.Write(ba, 0, ba.Length);
                 //Done Write
 
@@ -244,22 +269,28 @@ namespace Client
         /// <returns></returns>
         private int processResponse(string responseMessage)
         {
+            
+            string respType;
+            string respMsg;
+            MessageParser(responseMessage, out respType, out respMsg);
 
-            responseMessage = responseMessage.Trim();
-
-            if (responseMessage.StartsWith(RESP_SUCCESS) /*&& responseMessage.EndsWith("\n\n")*/)
+            if (respType == Response.SUCCESS)
             {
-                responseMessage = responseMessage.Substring(RESP_SUCCESS.Length).Trim();
+               // responseMessage = responseMessage.Substring(Response.SUCCESS.Length).Trim();
 
-                string requestType = responseMessage.Substring(0, responseMessage.IndexOf(" ")).Trim();
-                responseMessage = responseMessage.Substring(requestType.Length);
+                string reqType;
 
-                Console.WriteLine("\nDEBUG: " + requestType + "\n");
-                if (requestType == REQ_GAME)
+                MessageParser(respMsg, out reqType, out respMsg);
+
+                //string requestType = responseMessage.Substring(0, responseMessage.IndexOf(" ")).Trim();
+               // responseMessage = responseMessage.Substring(requestType.Length);
+
+                Console.WriteLine("\nDEBUG: " + reqType + "\n");
+                if (reqType == Request.GAME)
                 {
                     allPeersInfo = new List<PeerInfo>();
                     //peersInfo = new List<Tuple<string, int, string, int, int>>();
-                    IEnumerable<string> temp = responseMessage.Split(',');
+                    IEnumerable<string> temp = respMsg.Split(',');
                     allPeersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
                     {
                         string[] parsedInfo = info.Trim().Split(' ');
@@ -280,11 +311,11 @@ namespace Client
                     inGame = true;
                     return 0;
                 }
-                else if (requestType == REQ_RECONN)
+                else if (reqType == Request.RECONN)
                 {
                     allPeersInfo = new List<PeerInfo>();
                     //peersInfo = new List<Tuple<string, int, string, int, int>>();
-                    IEnumerable<string> temp = responseMessage.Split(',');
+                    IEnumerable<string> temp = respMsg.Split(',');
                     allPeersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
                     {
                         string[] parsedInfo = info.Trim().Split(' ');
@@ -305,48 +336,69 @@ namespace Client
                     inGame = true;
                     return 0;
                 }
-                else if (requestType == REQ_PLAYERS)
+                else if (reqType == Request.PLAYERS)
                 {
                     // DISPLAY playernum ON GUI
-                    string playernum = responseMessage;
+                    string playernum = respMsg;
                     Console.WriteLine("\nNum of Players on server now: " + playernum);
                     return 0;
                 }
-                else if (requestType == REQ_CANCEL)
+                else if (reqType == Request.CANCEL)
                 {
                     // INDICATES THAT THE USER HAVE CANCELED 
                     Console.WriteLine("\nYou have CANCELED your match making.");
                     return 0;
                 }
-                else if (requestType == REQ_CHECKNAME)
+                else if (reqType == Request.CHECKNAME)
                 {
                     Console.WriteLine("\nName is available!");
                     return 0;
+                }else if (reqType == Request.SERVRECONN)
+                {
+                    if(respMsg != "") {
+                        string reconnRespReqType;
+                        MessageParser(respMsg, out reconnRespReqType, out respMsg);
+                        if(reconnRespReqType == Request.GAME)
+                        {
+                            string playerNum = respMsg;
+                            Console.WriteLine("You were in Queue for matchmaking for " + playerNum);
+                            
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("Welcome back");
+                    }
+                    return 0;
                 }
 
             }
-            else if (responseMessage.StartsWith(RESP_FAILURE))
+            else if (respType == Response.FAILURE)
             {
 
-                responseMessage = responseMessage.Substring(RESP_FAILURE.Length).Trim();
-                string requestType = responseMessage.Substring(0, responseMessage.IndexOf(" ")).Trim();
-                responseMessage = responseMessage.Substring(requestType.Length);
+                string reqType;
 
-                Console.WriteLine("\nDEBUG: " + requestType + "\n");
+                MessageParser(respMsg, out reqType, out respMsg);
 
-                if (requestType == REQ_CHECKNAME)
+                Console.WriteLine("\nDEBUG: " + reqType + "\n");
+
+                if (reqType == Request.CHECKNAME)
                 {
                     Console.WriteLine("\nName is not available!");
                     return -1;
-                }else if(requestType == REQ_RECONN)
+                }else if(reqType == Request.RECONN)
                 {
-                    Console.WriteLine(responseMessage);
+                    Console.WriteLine(respMsg);
                     return 0;
                 }
             }
-            else if (responseMessage.StartsWith(RESP_ERROR))
+            else if (respType == Response.ERROR)
             {
-                Console.WriteLine(responseMessage);
+                Console.WriteLine(respMsg);
+            }
+            else
+            {
+                Console.WriteLine(respType + " " + respMsg);
             }
 
 

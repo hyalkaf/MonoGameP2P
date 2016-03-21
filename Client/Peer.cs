@@ -15,22 +15,30 @@ namespace Client
     /// </summary>
     public class Peer : IDisposable
     {
+
+        private static class Request
+        {
+            public const string TURN = "turn";
+            public const string QUIT = "quit";
+            public const string RECONNECTED = "reconnected";
+            public const string STRIKE = "strike";
+        }
+
+        private static class Response
+        {
+            public const string SUCCESS = "success";
+            public const string FAILURE = "failure";
+            public const string ERROR = "error";
+            public const string UNKNOWN = "unknownrequest";
+        }
+
         private PeerInfo myPeerInfo;
         private List<PeerInfo> allPeersInfo;
         private Game.Game game;
         // Initalize variables for peer(client) connecting to other peers(clients)
 
         private TcpListener _peerListener;
-        
-        public const string REQ_TURN = "turn";
-        public const string REQ_QUIT = "quit";
-        public const string REQ_RECONNECTED = "reconnected";
-        public const string REQ_STRIKE = "strike";
 
-        public const string RESP_SUCCESS = "success";
-        public const string RESP_FAILURE = "failure";
-        public const string RESP_ERROR = "error";
-        public const string RESP_UNKNOWN = "unknownrequest";
         
         /// <summary>
         /// 
@@ -41,20 +49,14 @@ namespace Client
         public Peer(string playerName, List<PeerInfo> peersInfo , bool reconnect = false)
         {
             
-            Console.WriteLine("PEER ESTABLISHED!!");
+            Console.WriteLine("PEER ESTABLISHED For {0}", playerName);
 
             allPeersInfo = peersInfo;
-            
-            Console.WriteLine("For " + playerName);
 
             // Check if peersInfo is populated
             if (allPeersInfo.Count > 0)
             {
-               
-
                 // Get this peerInfo
-                // TODO: deal with empty or not existent peer
-               
                 myPeerInfo = allPeersInfo.Where(peer => peer.PlayerInfo.Name == playerName).First();
 
                 string localIP = "";
@@ -71,12 +73,11 @@ namespace Client
                 _peerListener = new TcpListener(localIpAddr, myPeerInfo.Port);
             }
 
-
             InitializeGameState();
 
             if (reconnect)
             {
-                SendRequestPeers(REQ_RECONNECTED + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.IPAddr);
+                SendRequestPeers(Request.RECONNECTED + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.IPAddr);
             }
         }
 
@@ -120,7 +121,7 @@ namespace Client
                                     
                     if (SendRequestPeers(req) == -1) { Console.WriteLine("INVALID INPUT (turn or quit)"); }
 
-                    if (req == REQ_QUIT)
+                    if (req == Request.QUIT)
                     {
                         break;
                     }
@@ -134,12 +135,27 @@ namespace Client
         }
 
 
+        private void MessageParser(string msg, out string first, out string rest)
+        {
+            msg = msg.Trim();
+            rest = "";
+            if (msg.IndexOf(" ") == -1)
+            {
+                first = msg;
+            }
+            else
+            {
+                first = msg.Substring(0, msg.IndexOf(" ")).Trim();
+                rest = msg.Substring(first.Length).Trim();
+            }
+        }
+
         /// <summary>
         /// Establish incoming connections
         /// </summary>
         /// <param name="s"></param>
         /// <param name="id"></param>
-        void EstablishConnection(TcpClient tcpclient, int id)
+        void EstablishConnection(TcpClient tcpclient)
         {
 
             NetworkStream netStream = tcpclient.GetStream();
@@ -154,81 +170,62 @@ namespace Client
             requestMessage = requestMessage.Substring(0, requestMessage.IndexOf("\0")).Trim();
             Console.WriteLine("DEBUG: Request: " + requestMessage);
 
-            string responseMessage = RESP_FAILURE + " " + RESP_UNKNOWN;
+            string reqType;
+            string reqMsg;
+            MessageParser(requestMessage,out reqType,out reqMsg);
+         
+            string responseMessage = Response.FAILURE + " " + Response.UNKNOWN;
 
             // When a peer is broadcasting its turn
-            if (requestMessage.StartsWith(REQ_TURN))
+            if (reqType == Request.TURN)
             {
 
-                responseMessage = RESP_SUCCESS + " " + REQ_TURN;
+                responseMessage = Response.SUCCESS + " " + Request.TURN;
 
                 // Parse the request message
-                string trimmedMessage = requestMessage.Trim();
-                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(REQ_TURN.Length).ToList();
+                string playerName;
+                MessageParser(reqMsg, out playerName, out reqMsg);
 
+                string str_playerId;
+                MessageParser(reqMsg, out str_playerId, out reqMsg);
+                int playerId = int.Parse(str_playerId);
 
-                string playerName = new string(restOfMessageAfterTurn
-                   .SkipWhile(ch => char.IsWhiteSpace(ch))
-                   .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray());
-                   //.Aggregate((s, ch1) => s + ch1);
-
-                // Get the first number in the turn message
-                int playerId = int.Parse(new string(restOfMessageAfterTurn
-                   .SkipWhile(ch => char.IsWhiteSpace(ch))
-                   .SkipWhile(ch => !char.IsWhiteSpace(ch))
-                   .SkipWhile(ch => char.IsWhiteSpace(ch))
-                   .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray()));
-
-                // Get the second the number in the turn message
-                int diceRolled = int.Parse(new string(restOfMessageAfterTurn
-                   .SkipWhile(ch => char.IsWhiteSpace(ch))
-                   .SkipWhile(ch => !char.IsWhiteSpace(ch))
-                   .SkipWhile(ch => char.IsWhiteSpace(ch))
-                   .SkipWhile(ch => !char.IsWhiteSpace(ch))
-                   .SkipWhile(ch => char.IsWhiteSpace(ch))
-                   .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray()));
-                // Keep track of peers with their position
-                // peersIDToPosition[numberOne] += numberTwo;
+                string diceRolled = reqMsg;
 
                 Player p = allPeersInfo.Where(pInfo => pInfo.PlayerInfo.PlayerId == playerId).First().PlayerInfo;
+
+
                 if (p.Turn == 0)
                 {
-                    game.move_player(p, diceRolled);
+                    game.move_player(p, int.Parse(diceRolled));
                     Console.WriteLine(game);
                     Console.WriteLine("\nPlayer " + playerId + " (" + playerName + ") move " + diceRolled + " steps.");
                     game.UpdateTurn();
 
                     if (myPeerInfo.PlayerInfo.Turn == 0)
                     {
-                        Console.WriteLine("\n!!It is your turn now :)!!");
+                        Console.WriteLine("\nIt is your turn now :)");
                     }
                 }
                 else
                 {
-                    responseMessage = RESP_ERROR + " " + REQ_TURN + " Not your turn yet";
+                    responseMessage = Response.ERROR + " " + Request.TURN + " Hey " + playerName + ", it's not your turn yet";
                 }
                 
             }
-            else if (requestMessage.StartsWith(REQ_QUIT))
+            else if (reqType == Request.QUIT)
             {
 
-                responseMessage = RESP_SUCCESS + " " + REQ_QUIT;
+                responseMessage = Response.SUCCESS + " " + Request.QUIT;
 
                 // Parse the request message
-                string trimmedMessage = requestMessage.Trim();
-                List<char> restOfMessageAfterTurn = trimmedMessage.Substring(REQ_QUIT.Length).ToList();
 
                 // Get PlayerId
-                int playerId = int.Parse(new string(restOfMessageAfterTurn
-                   .SkipWhile(ch => char.IsWhiteSpace(ch))
-                   .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray()));
+                string str_playerId;
+                MessageParser(reqMsg, out str_playerId, out reqMsg);
+                int playerId = int.Parse(str_playerId);
 
-                // Get the second the number in the turn message
-                int turnNum = int.Parse(new string(restOfMessageAfterTurn
-                   .SkipWhile(ch => char.IsWhiteSpace(ch))
-                   .SkipWhile(ch => !char.IsWhiteSpace(ch))
-                   .SkipWhile(ch => char.IsWhiteSpace(ch))
-                   .TakeWhile(ch => !char.IsWhiteSpace(ch)).ToArray()));
+                string turnNum = reqMsg;
 
                 Console.WriteLine("\nPlayer " + playerId + " quit the game! (" + turnNum + ") ");
 
@@ -236,16 +233,19 @@ namespace Client
                 PeerInfo peerToRemove = allPeersInfo.Where(peer => peer.PlayerInfo.PlayerId == playerId).First();
                 RemovePeerFromGame(peerToRemove);
 
-            }else if (requestMessage.StartsWith(REQ_STRIKE))
+            }else if (reqType == Request.STRIKE)
             {
 
-                responseMessage = RESP_SUCCESS + " " + REQ_STRIKE;
-                string trimmedMessage = requestMessage.Trim();
-                string restOfMessageAfterStrike = trimmedMessage.Substring(REQ_STRIKE.Length);
+                responseMessage = Response.SUCCESS + " " + Request.STRIKE;
 
-                int playerId = int.Parse(restOfMessageAfterStrike.Trim());
+                string str_playerId;
+                MessageParser(reqMsg, out str_playerId, out reqMsg);
+                int playerId = int.Parse(str_playerId);
 
                 StrikePlayer(playerId);
+            }else if (reqType == Request.RECONNECTED)
+            {
+
             }
 
 
@@ -258,14 +258,14 @@ namespace Client
         /// 
         /// </summary>
         /// <param name="msg"></param>
-        private void SendToALlPeers(string msg)
+        private void SendToAllPeers(string msg)
         {
             TcpClient[] allPeerTcpClient = new TcpClient[allPeersInfo.Count];
             var responseCounterFlag = 0;
             int playerToBeStriked = -1;
-            if (msg.StartsWith(REQ_STRIKE))
+            if (msg.StartsWith(Request.STRIKE))
             {
-                playerToBeStriked = int.Parse(msg.Substring(REQ_STRIKE.Length).Trim());
+                playerToBeStriked = int.Parse(msg.Substring(Request.STRIKE.Length).Trim());
 
             }
 
@@ -301,7 +301,7 @@ namespace Client
                             {
                                 Console.WriteLine("Unable to communicate with peer " + aPeer.PlayerInfo.PlayerId);
                                 Console.WriteLine("Skip it for now...");
-                                SendRequestPeers(REQ_STRIKE + " " + aPeer.PlayerInfo.PlayerId);
+                                SendRequestPeers(Request.STRIKE + " " + aPeer.PlayerInfo.PlayerId);
 
                                 StrikePlayer(i);
 
@@ -313,12 +313,9 @@ namespace Client
 
                     Console.Write("Connected to peer " + aPeer.PlayerInfo.PlayerId + "..  ");
 
-                    string reqMessage = msg;
-
-
                     NetworkStream netStream = allPeerTcpClient[i].GetStream();
 
-                    byte[] bytesToSend = Encoding.ASCII.GetBytes(reqMessage);
+                    byte[] bytesToSend = Encoding.ASCII.GetBytes(msg);
                     Console.Write("Transmitting request to the peer {0} ...", aPeer.PlayerInfo.PlayerId);
                     netStream.Write(bytesToSend, 0, bytesToSend.Length);
 
@@ -330,27 +327,33 @@ namespace Client
                     netStream.Read(bytesRead, 0, (int)allPeerTcpClient[i].ReceiveBufferSize);
                     Console.WriteLine("... OK!");
 
-                    string responseMessage = Encoding.ASCII.GetString(bytesRead).Trim();
+                    string responseMessage = Encoding.ASCII.GetString(bytesRead);
                     responseMessage = responseMessage.Substring(0, responseMessage.IndexOf("\0")).Trim();
 
-                    if (responseMessage.StartsWith(RESP_SUCCESS))
+                    string respType;
+                    string respMsg;
+                    MessageParser(responseMessage, out respType, out respMsg);
+
+                    if (respType == Response.SUCCESS)
                     {
                         responseCounterFlag++;
-                        //Console.WriteLine("NUM OF RESPONSES " + responseCounterFlag);
-                    }else if (responseMessage.StartsWith(RESP_FAILURE))
+                        Console.WriteLine(responseMessage);
+                    }
+                    else if (respType == Response.FAILURE)
                     {
-                        if(responseMessage.Substring(RESP_FAILURE.Length).Trim() == RESP_UNKNOWN)
+                        if(respMsg == Response.UNKNOWN)
                         {
                             throw new Exception();
                         }
                     }
-                    else if (responseMessage.StartsWith(RESP_ERROR))
+                    else if (respType == Response.ERROR)
                     {
-                        string errType = responseMessage.Substring(RESP_ERROR.Length).Trim();
+                        string errType;
+                        MessageParser(respMsg, out errType, out respMsg);
 
-                        if (errType.StartsWith(REQ_TURN))
+                        if (errType == Request.TURN)
                         {
-                            string errMsg = errType.Substring(REQ_TURN.Length).TrimStart();
+                            string errMsg = respMsg;
                             Console.WriteLine(errMsg);
                         }
                     }
@@ -372,7 +375,7 @@ namespace Client
             //int playerID = peersInfo.Where(elem => elem.Item3 == playerName).First().Item4;
            // int playerID = myPeerInfo.PlayerInfo.PlayerId;
 
-            if (msg.StartsWith(REQ_TURN)) {
+            if (msg.StartsWith(Request.TURN)) {
                 Random rnd = new Random();
                 int dice = rnd.Next(1, 7);
                 msg += " " + myPeerInfo.PlayerInfo.Name + " " +
@@ -389,27 +392,27 @@ namespace Client
                     game.UpdateTurn();
                 }
              
-                SendToALlPeers(msg);
+                SendToAllPeers(msg);
             }
-            else if (msg.StartsWith(REQ_STRIKE))
+            else if (msg.StartsWith(Request.STRIKE))
             {
-                SendToALlPeers(msg);
+                SendToAllPeers(msg);
             }
-            else if (msg == REQ_QUIT)
+            else if (msg == Request.QUIT)
             {
                 msg += " " + myPeerInfo.PlayerInfo.PlayerId + " " + 0;
-                SendToALlPeers(msg);
+                SendToAllPeers(msg);
 
                 Dispose();
             }
-            else if (msg.StartsWith(REQ_RECONNECTED))
+            else if (msg.StartsWith(Request.RECONNECTED))
             {
-                SendToALlPeers(msg);
+                SendToAllPeers(msg);
             }
             else
             {
                 try { 
-                SendToALlPeers(msg);
+                SendToAllPeers(msg);
                 }
                 catch (Exception)
                 {
@@ -428,16 +431,16 @@ namespace Client
 
                 Console.WriteLine("The peer is running at port {0}...", (_peerListener.LocalEndpoint as IPEndPoint).Port);
                 Console.WriteLine("The local End point is  :" + _peerListener.LocalEndpoint);
-                int counter = 0;
+
                 do
                 {
-                    counter++;
+
                 
-                    Console.WriteLine("Waiting for a connection {0} .....", counter);
+                    Console.WriteLine("Waiting for a connection...");
                     TcpClient tcpclient = _peerListener.AcceptTcpClient();
 
                     Thread connectionThread = new Thread(() => {
-                        EstablishConnection(tcpclient, counter);
+                        EstablishConnection(tcpclient);
                     });
                     connectionThread.IsBackground = true;
                     connectionThread.Start();

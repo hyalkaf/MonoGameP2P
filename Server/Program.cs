@@ -28,31 +28,31 @@ namespace Server
         private ReplicationManager rm;
         public IPAddress ipAddr;
         private IPAddress primaryIPAddress;
-
+        private GameMatchmaker _gameMatchmaker;
 
         // Will use index as number of clients who want to be matched with this amount of other clients
         // then once that index has fullfilled its number we will match those in that index to a game.
         //private List<ConcurrentDictionary<string, Socket>> socketsForGameRequests;
 
-        private List<ConcurrentQueue<ClientInfo>> clientsWaitingForGame;
+        //private List<ConcurrentQueue<ClientInfo>> clientsWaitingForGame;
         //private List<Socket> sockets;
         private List<ClientInfo> connectedClients;
         public List<string> allPlayerNamesUsed;
         public Dictionary<string, List<string>> gameSession;
         public bool isPrimaryServer = false;
-        private int portNumber = 9000;
-        private int gameIdGenerate = 1;
+    
+        //private int gameIdGenerate = 1;
 
         private TcpListener listener;
 
 
         public ServerProgram()
         {
-
+               
             connectedClients = new List<ClientInfo>();
-            //sockets = new List<Socket>();
+            _gameMatchmaker = new GameMatchmaker();
             //socketsForGameRequests = new List<ConcurrentDictionary<string, Socket>>();
-            clientsWaitingForGame = new List<ConcurrentQueue<ClientInfo>>();
+           // clientsWaitingForGame = new List<ConcurrentQueue<ClientInfo>>();
 
             allPlayerNamesUsed = new List<string>();
             gameSession = new Dictionary<string, List<string>>();
@@ -125,7 +125,7 @@ namespace Server
 
         }
 
-        void EstablishConnection(TcpClient tcpclient, int id)
+        void EstablishConnection(TcpClient tcpclient)
         {
             // Socket s = tcpclient.Client;
             NetworkStream netStream = tcpclient.GetStream();
@@ -134,7 +134,7 @@ namespace Server
             ClientInfo newConnectedClient = new ClientInfo(tcpclient);
             connectedClients.Add(newConnectedClient);
 
-            Console.WriteLine("Connection accepted from client"); //+ ipaddr + " : " + portNumber);
+            Console.WriteLine("Connection accepted from client " + (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address); //+ ipaddr + " : " + portNumber);
 
             //byte[] buffer = new byte[2048];
             tcpclient.ReceiveBufferSize = 2048;
@@ -176,9 +176,9 @@ namespace Server
             }
 
             requestMessage = requestMessage.Substring(requestType.Length).Trim();
-            //Console.WriteLine("Recieved...");
 
-            Console.WriteLine(requestMessage);
+            Console.WriteLine("REQ: " + requestType + " " + requestMessage);
+
             string responseMessage = RESP_ERROR + " Invalid Request Message";
 
             if (requestType == REQ_GAME)
@@ -202,21 +202,32 @@ namespace Server
                 //}
 
 
-                if (numberOfPeers >= clientsWaitingForGame.Count)
-                {
-                    for (int i = clientsWaitingForGame.Count; i <= numberOfPeers; i++)
-                    {
-                        clientsWaitingForGame.Add(new ConcurrentQueue<ClientInfo>());
-                    }
-                }
+                _gameMatchmaker.AddPlayerToQueue(newConnectedClient, numberOfPeers);
 
+                
 
-                // Name should be unique, otherwise change it
                 // socketsForGameRequests[numberOfPeers][pName] = tcpclient.Client;
-                clientsWaitingForGame[numberOfPeers].Enqueue(newConnectedClient);
+                
 
                 // Find game match
-                MatchPeers();
+                _gameMatchmaker.MatchPeers(this);
+                //Legacy
+                GameSession[] sessions = _gameMatchmaker.GameSessions;
+                gameSession = new Dictionary<string, List<string>>();
+                for (int i = 1; i <= sessions.Length; i++)
+                {
+                    List<string> playerInfos = new List<string>();
+                    string[] msgs = sessions[i-1].ToMessage().Split(',');
+
+                    foreach(string m in msgs)
+                    {
+                        if (m.Trim() != String.Empty) { 
+                            playerInfos.Add(m.Trim());
+                        }
+                    }
+
+                    gameSession.Add(i.ToString(), playerInfos);
+                }
 
             }
             else if (requestType == REQ_RECONN)
@@ -224,20 +235,26 @@ namespace Server
 
 
                 string gameId = requestMessage;
-                if (gameSession.ContainsKey(gameId))
+                //if (gameSession.ContainsKey(gameId))
+                //{
+                //    responseMessage = RESP_SUCCESS + " " + REQ_RECONN + "  ";
+                //    for (int j = 0; j < gameSession[gameId].Count; j++)
+                //    {
+                //        if (j != gameSession[gameId].Count - 1)
+                //        {
+                //            responseMessage += gameSession[gameId][j] + ",";
+                //        }
+                //        else
+                //        {
+                //            responseMessage += gameSession[gameId][j];
+                //        }
+                //    }
+                //}
+                GameSession gSession = _gameMatchmaker.GetGameSession(int.Parse(gameId));
+                if (gSession != null)
                 {
-                    responseMessage = RESP_SUCCESS + " " + REQ_RECONN + "  ";
-                    for (int j = 0; j < gameSession[gameId].Count; j++)
-                    {
-                        if (j != gameSession[gameId].Count - 1)
-                        {
-                            responseMessage += gameSession[gameId][j] + ",";
-                        }
-                        else
-                        {
-                            responseMessage += gameSession[gameId][j];
-                        }
-                    }
+                    responseMessage = RESP_SUCCESS + " " + REQ_RECONN + " ";
+                    responseMessage += gSession.ToMessage();
                 }
                 else
                 {
@@ -248,8 +265,6 @@ namespace Server
 
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
                 netStream.Write(byteToSend, 0, byteToSend.Length);
-
-                Console.WriteLine("\nSent Acknowledgement");
 
                 if (connectedClients.Exists(client => client.TcpClient == tcpclient))
                 {
@@ -271,8 +286,6 @@ namespace Server
 
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
                 netStream.Write(byteToSend, 0, byteToSend.Length);
-
-                Console.WriteLine("\nSent Acknowledgement");
 
                 if (connectedClients.Exists(client => client.TcpClient == tcpclient))
                 {
@@ -300,7 +313,6 @@ namespace Server
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
                 netStream.Write(byteToSend, 0, byteToSend.Length);
 
-                Console.WriteLine("\nSent Acknowledgement");
                 if (connectedClients.Exists(client => client.TcpClient == tcpclient))
                 {
                     connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
@@ -331,8 +343,6 @@ namespace Server
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
                 netStream.Write(byteToSend, 0, byteToSend.Length);
 
-                Console.WriteLine("\nSent Acknowledgement");
-
                 if (connectedClients.Exists(client => client == newConnectedClient))
                 {
                     connectedClients.Remove(newConnectedClient);
@@ -347,23 +357,21 @@ namespace Server
 
             } else if (requestType == REQ_SERVRECONN)
             {
+                responseMessage = RESP_SUCCESS + " " + REQ_SERVRECONN;
                 var aPlayerName = requestMessage;
-                bool found = false;
-                foreach (ConcurrentQueue<ClientInfo> q in clientsWaitingForGame) {
 
-                    foreach (ClientInfo ci in q)
-                    {
-                        if (ci.PlayerName == aPlayerName)
-                        {
-                            ci.TcpClient = tcpclient;
-                            ci.IPAddr = (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address;
-                            found = true;
-                            break;
-                        }
-                    }
+           
+                int qNum  = _gameMatchmaker.IsInQueue(aPlayerName, newConnectedClient);
 
-                    if (found) break;
+                if (qNum != -1)
+                {
+                    responseMessage += " " + REQ_GAME + " " + qNum;
                 }
+
+                Console.WriteLine("DEBUG: Response sent: " + responseMessage);
+
+                byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
+                netStream.Write(byteToSend, 0, byteToSend.Length);
 
                 if (connectedClients.Exists(client => client == newConnectedClient))
                 {
@@ -376,8 +384,6 @@ namespace Server
 
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
                 netStream.Write(byteToSend, 0, byteToSend.Length);
-
-                Console.WriteLine("\nSent Acknowledgement");
 
                 if (connectedClients.Exists(client => client == newConnectedClient))
                 {
@@ -409,7 +415,7 @@ namespace Server
                 
 
                 new Thread(() => {
-                    EstablishConnection(tcpclient, counter);
+                    EstablishConnection(tcpclient);
                 }).Start();
                
           
@@ -418,104 +424,40 @@ namespace Server
 
           
         }
-        private void MatchPeers()
+
+        public bool TestAndRemoveDisconnectedClients(ClientInfo c)
         {
-            string responseMessage = string.Empty;
-            string playersToBeSent = "";
-            List<string> playersToBeSentList = new List<string>();
-            for (int i = 0; i < clientsWaitingForGame.Count; i++)
+            byte[] testMsg = new byte[1];
+            int timeToTry = 2;
+            TcpClient tcpclient = c.TcpClient;
+            do
             {
-                // bypass first and second index since there are no matches with 0 or 1 player
-                if (i != 0 && i != 1)
+                try
                 {
-                    // TODO: Will not work when in index 2 there are four want 2
-                    if (i <= clientsWaitingForGame[i].Count)
+                    tcpclient.Client.Send(testMsg, 0, 0);
+
+                }
+                catch (Exception)
+                {
+                    if (timeToTry <= 0)
                     {
-                        
-                        // First, test if the 'connected' queued players are still online
-                        int stillConnected = clientsWaitingForGame[i].Count;
-                        foreach (ClientInfo client in clientsWaitingForGame[i]){
-                            byte[] testMsg = new byte[1];
-                            int timeToTry = 2;
-                            do {
-                                try {
-                                    client.TcpClient.Client.Send(testMsg, 0, 0);
-                                    
-                                }
-                                catch (Exception)
-                                {
-                                    if (timeToTry <= 0) { 
-                                    stillConnected--;
-
-                                        if (client.TcpClient.Client.Connected) {
-                                            connectedClients.Remove(connectedClients.Where(c => c.TcpClient == client.TcpClient).First());
-                                            client.TcpClient.Close();
-                                        }
-                                    }
-                                }
-
-                                break;
-                            } while (timeToTry > 0);
-                            Console.WriteLine("DEBUG: client " + client.PlayerName + client.IPAddr + " connected is " + client.TcpClient.Client.Connected);
-                        }
-                        // If amount of current connected players is not sufficient to form a game, returns.
-                        if (stillConnected < i) return;
-
-                        // Place active players in to a list for message sending.
-                        //      and remove disconnected players.
-                        List<ClientInfo> readyToPlay = new List<ClientInfo>();
-                        for (int playerId = 0; playerId < i; playerId++)
+                        if (tcpclient.Client.Connected)
                         {
-                            ClientInfo client;
-                            bool dequeued;
-                            do
-                            {
-                                dequeued = clientsWaitingForGame[i].TryDequeue(out client);
-                            } while (!dequeued);
-
-                            // Assign the ip address to a port
-                            if (client.TcpClient.Client.Connected) { 
-                                string clientPeerInfoMsg = client.IPAddr + " " + portNumber++ + " " + client.PlayerName + " " + playerId;
-
-                                playersToBeSent += clientPeerInfoMsg + ",";
-                                playersToBeSentList.Add(clientPeerInfoMsg);
-
-                                readyToPlay.Add(client);
-                            }
-                            else
-                            {
-                                playerId--;
-                            }
-
+                            connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
+                            tcpclient.Close();
+                            return false;
                         }
-
-                        // Lastly, multicast the success response with game player data to the clients
-                        responseMessage = RESP_SUCCESS + " " + REQ_GAME + " " + playersToBeSent;
-                        Object listLock = new Object();
-                        Parallel.ForEach(readyToPlay, (client) =>
-                        {
-                            Console.WriteLine("DEBUG: Response sent: " + responseMessage);
-                            NetworkStream netStream = client.TcpClient.GetStream();
-
-                            byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
-                            netStream.Write(byteToSend, 0, byteToSend.Length);
-
-                            Console.WriteLine("\nSent Acknowledgement");
-
-                            lock (listLock) { 
-                                connectedClients.Remove(connectedClients.Where(c => c.TcpClient == client.TcpClient).First());
-
-                                client.TcpClient.Close();
-                            }
-                        });
-
-                        //  Save game session in case a player need to reconnect to a game
-                        gameSession.Add(gameIdGenerate.ToString(), playersToBeSentList);
-                        gameIdGenerate++;
-
                     }
                 }
-            }
+
+                break;
+            } while (timeToTry > 0);
+            return true;
+        }
+
+        private void MatchPeer()
+        {
+            
         }
         //private void MatchPeers()
         //{
@@ -589,6 +531,11 @@ namespace Server
         //        }
 
         //    }
+
+        public List<ClientInfo> ConnectedClients
+        {
+            get { return connectedClients; }
+        }
 
         static void Main(string[] args)
         {

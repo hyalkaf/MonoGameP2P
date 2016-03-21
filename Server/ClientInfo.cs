@@ -11,6 +11,9 @@ namespace Server
     public class ClientInfo
     {
         private string playerName = null;
+        private int playerId = -1;
+        private int listeningPort = -1;
+
         private TcpClient tcpclient;
         private IPAddress ipaddr;
 
@@ -24,6 +27,19 @@ namespace Server
             get { return playerName; }
             set { playerName = value; }
         }
+
+        public int PlayerId
+        {
+            get { return playerId; }
+            set { playerId = value; }
+        }
+
+        public int ListeningPort
+        {
+            get { return listeningPort; }
+            set { listeningPort = value; }
+        }
+
         public IPAddress IPAddr {
             get { return ipaddr; }
             set { ipaddr = value; }
