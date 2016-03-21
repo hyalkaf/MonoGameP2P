@@ -21,6 +21,8 @@ namespace Server
         public const string REQ_CHECKNAME = "checkname";
         public const string REQ_RECONN = "reconn";
         public const string REQ_SERVRECONN = "servreconn";
+
+
         public const string RESP_SUCCESS = "success";
         public const string RESP_FAILURE = "failure";
         public const string RESP_ERROR = "error";
@@ -38,10 +40,12 @@ namespace Server
         //private List<Socket> sockets;
         private List<ClientInfo> connectedClients;
         public List<string> allPlayerNamesUsed;
+        
+        // --To be removed--
         public Dictionary<string, List<string>> gameSession;
+        // -----------------
+
         public bool isPrimaryServer = false;
-    
-        //private int gameIdGenerate = 1;
 
         private TcpListener listener;
 
@@ -163,19 +167,12 @@ namespace Server
             //sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
 
             //string requestMessage = sb.ToString().Trim().ToLower();
-            string requestMessage = Encoding.ASCII.GetString(bytes).Trim();
-            requestMessage = requestMessage.Substring(0, requestMessage.IndexOf("\0")).Trim();
-            string requestType = "";
-            if (requestMessage.IndexOf(" ") == -1)
-            {
-                requestType = requestMessage;
-            }
-            else
-            {
-                requestType = requestMessage.Substring(0, requestMessage.IndexOf(" ")).Trim();
-            }
+            string incomingMessage = Encoding.ASCII.GetString(bytes).Trim();
+            incomingMessage = incomingMessage.Substring(0, incomingMessage.IndexOf("\0")).Trim();
 
-            requestMessage = requestMessage.Substring(requestType.Length).Trim();
+            string requestType;
+            string requestMessage;
+            MessageParser.ParseNext(incomingMessage, out requestType, out requestMessage);
 
             Console.WriteLine("REQ: " + requestType + " " + requestMessage);
 
@@ -186,11 +183,13 @@ namespace Server
                 // All the data has been read from the 
                 // client. Display it on the console.
 
-                string pName = requestMessage.Substring(0, requestMessage.IndexOf(" "));
+                string pName;
+                MessageParser.ParseNext(requestMessage, out pName, out requestMessage);
 
                 newConnectedClient.PlayerName = pName;
 
-                int numberOfPeers = int.Parse(requestMessage.Substring(pName.Length));
+                string numberOfPeers;
+                MessageParser.ParseNext(requestMessage, out numberOfPeers, out requestMessage);
 
                 // Add this socket to the match making list of list of sockets
                 //if (numberOfPeers >= socketsForGameRequests.Count)
@@ -202,7 +201,7 @@ namespace Server
                 //}
 
 
-                _gameMatchmaker.AddPlayerToQueue(newConnectedClient, numberOfPeers);
+                _gameMatchmaker.AddPlayerToQueue(newConnectedClient, int.Parse(numberOfPeers));
 
                 
 
@@ -212,7 +211,7 @@ namespace Server
                 // Find game match
                 _gameMatchmaker.MatchPeers(this);
                 
-                // Legacy functionality
+                // Legacy functionality: copy GameSessions to Dictionary
                 GameSession[] sessions = _gameMatchmaker.GameSessions;
                 gameSession = new Dictionary<string, List<string>>();
                 for (int i = 1; i <= sessions.Length; i++)
@@ -234,32 +233,19 @@ namespace Server
             else if (requestType == REQ_RECONN)
             {
 
+                string playername,  gameId;
 
-                string gameId = requestMessage;
-                //if (gameSession.ContainsKey(gameId))
-                //{
-                //    responseMessage = RESP_SUCCESS + " " + REQ_RECONN + "  ";
-                //    for (int j = 0; j < gameSession[gameId].Count; j++)
-                //    {
-                //        if (j != gameSession[gameId].Count - 1)
-                //        {
-                //            responseMessage += gameSession[gameId][j] + ",";
-                //        }
-                //        else
-                //        {
-                //            responseMessage += gameSession[gameId][j];
-                //        }
-                //    }
-                //}
+                MessageParser.ParseNext(requestMessage, out playername, out gameId);
+
                 GameSession gSession = _gameMatchmaker.GetGameSession(int.Parse(gameId));
-                if (gSession != null)
+                if (gSession != null && gSession.ContainsPlayer(playername))
                 {
                     responseMessage = RESP_SUCCESS + " " + REQ_RECONN + " ";
                     responseMessage += gSession.ToMessage();
                 }
-                else
+                else 
                 {
-                    responseMessage = RESP_FAILURE + " " + REQ_RECONN + "  No such game exists";
+                    responseMessage = RESP_FAILURE + " " + REQ_RECONN + "  No such game exists OR You don't belong in this game";
                 }
 
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
@@ -282,7 +268,7 @@ namespace Server
             }
             else if (requestType == REQ_PLAYERS)
             {
-                responseMessage = RESP_SUCCESS + " " + REQ_PLAYERS + "  " + connectedClients.Count;
+                responseMessage = RESP_SUCCESS + " " + REQ_PLAYERS + "  " + (connectedClients.Count - _gameMatchmaker.NumOfClientsInQueue);
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);

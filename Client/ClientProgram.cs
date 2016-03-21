@@ -65,7 +65,7 @@ namespace Client
                 connectToServer();
                 Console.Write("Enter Your Player Name: ");
                 pName = Console.ReadLine();
-                pName = pName.Trim().Replace(" ", "").Replace("\t", "");
+                pName = pName.Replace(" ", "").Replace("\t", "");
 
                 checkNameResult = SendRequest(Request.CHECKNAME + " " + pName);
                 if (checkNameResult == -1)
@@ -97,7 +97,10 @@ namespace Client
         /// </summary>
         private void connectToServer()
         {
-           
+            if ((client is TcpClient) && client.Connected)
+            {
+                return;
+            }
 
             bool connected = true;
             do
@@ -119,24 +122,9 @@ namespace Client
             } while (!connected);
 
             
-            Console.WriteLine("Connected to Server at IP {0} and port {1}", SERVER_IP, 8001);
+            Console.WriteLine("Connected! Server IP: {0} Port: {1}", SERVER_IP, 8001);
 
 
-        }
-
-        private void MessageParser(string msg , out string type, out string rest) {
-            msg = msg.Trim();
-            rest = "";
-            if (msg.IndexOf(" ") == -1)
-            {
-                type = msg;
-            }
-
-            else
-            {
-                type = msg.Substring(0,msg.IndexOf(" ")).Trim();
-                rest = msg.Substring(type.Length).Trim();
-            }
         }
 
 
@@ -151,7 +139,7 @@ namespace Client
 
             string reqType, reqMsg;
 
-            MessageParser(reqMessage, out reqType, out reqMsg);
+            MessageParser.ParseNext(reqMessage, out reqType, out reqMsg);
   
             if (reqType == Request.GAME)
             {
@@ -200,7 +188,7 @@ namespace Client
                 }
                 string gameId = reqMsg;
 
-                reqMessage = reqType + " " + gameId;
+                reqMessage = reqType + " " + playerName + " " + gameId;
             }
             else if (reqType == Request.SERVRECONN)
             {
@@ -218,9 +206,10 @@ namespace Client
             }
 
             reqMessage += "\n\n";
+            TcpClient thisTcpClient = client;
             try {
-
-                NetworkStream clientNetStream = client.GetStream();
+                
+                NetworkStream clientNetStream = thisTcpClient.GetStream();
 
                 //Write to server
                 ASCIIEncoding asen = new ASCIIEncoding();
@@ -229,9 +218,9 @@ namespace Client
                 clientNetStream.Write(ba, 0, ba.Length);
                 //Done Write
 
-                //Read response from server
-                byte[] bytesRead = new byte[client.ReceiveBufferSize];
-                clientNetStream.Read(bytesRead, 0, (int)client.ReceiveBufferSize);
+                //Read response from server (Hangs here until server responds)
+                byte[] bytesRead = new byte[thisTcpClient.ReceiveBufferSize];
+                clientNetStream.Read(bytesRead, 0, (int)thisTcpClient.ReceiveBufferSize);
                 Console.WriteLine(" OK!");
                 //Done Read
 
@@ -241,12 +230,12 @@ namespace Client
                 if (processResponse(responseMessage) == -1)
                 {
                     Console.WriteLine("\nDEBUG: INVALID REQUEST/RESPONSE\n");
-                    client.Close();
+                    thisTcpClient.Close();
                     connectToServer();
                     return -1;
                 }
 
-                client.Close();
+                thisTcpClient.Close();
                 if (!inGame)
                 {
                     // Connect back to server immediately if user not in game
@@ -255,7 +244,7 @@ namespace Client
             }
             catch (Exception)
             {
-                client.Close();
+                thisTcpClient.Close();
                 connectToServer();
             }
             
@@ -272,7 +261,7 @@ namespace Client
             
             string respType;
             string respMsg;
-            MessageParser(responseMessage, out respType, out respMsg);
+            MessageParser.ParseNext(responseMessage, out respType, out respMsg);
 
             if (respType == Response.SUCCESS)
             {
@@ -280,7 +269,7 @@ namespace Client
 
                 string reqType;
 
-                MessageParser(respMsg, out reqType, out respMsg);
+                MessageParser.ParseNext(respMsg, out reqType, out respMsg);
 
                 //string requestType = responseMessage.Substring(0, responseMessage.IndexOf(" ")).Trim();
                // responseMessage = responseMessage.Substring(requestType.Length);
@@ -357,7 +346,7 @@ namespace Client
                 {
                     if(respMsg != "") {
                         string reconnRespReqType;
-                        MessageParser(respMsg, out reconnRespReqType, out respMsg);
+                        MessageParser.ParseNext(respMsg, out reconnRespReqType, out respMsg);
                         if(reconnRespReqType == Request.GAME)
                         {
                             string playerNum = respMsg;
@@ -378,7 +367,7 @@ namespace Client
 
                 string reqType;
 
-                MessageParser(respMsg, out reqType, out respMsg);
+                MessageParser.ParseNext(respMsg, out reqType, out respMsg);
 
                 Console.WriteLine("\nDEBUG: " + reqType + "\n");
 
@@ -424,8 +413,13 @@ namespace Client
                             if(request != String.Empty) { 
 
                                 Console.WriteLine("Sending request \"{0}\"", request);
-                                //Task.Run(() => {  });
-                                SendRequest(request);
+                                Thread sendThread = new Thread( () =>{
+                                   SendRequest(request);
+                                    Thread.CurrentThread.Abort();
+                                });
+
+                                sendThread.IsBackground = true;
+                                sendThread.Start();
                             }
 
                         }
@@ -437,6 +431,7 @@ namespace Client
                             break;
                         }
                     }
+
                     Peer peer;
                     using (peer = new Peer(playerName, allPeersInfo)) 
                     peer.StartPeerCommunication();

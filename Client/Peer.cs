@@ -134,22 +134,6 @@ namespace Client
             }
         }
 
-
-        private void MessageParser(string msg, out string first, out string rest)
-        {
-            msg = msg.Trim();
-            rest = "";
-            if (msg.IndexOf(" ") == -1)
-            {
-                first = msg;
-            }
-            else
-            {
-                first = msg.Substring(0, msg.IndexOf(" ")).Trim();
-                rest = msg.Substring(first.Length).Trim();
-            }
-        }
-
         /// <summary>
         /// Establish incoming connections
         /// </summary>
@@ -172,7 +156,7 @@ namespace Client
 
             string reqType;
             string reqMsg;
-            MessageParser(requestMessage,out reqType,out reqMsg);
+            MessageParser.ParseNext(requestMessage,out reqType,out reqMsg);
          
             string responseMessage = Response.FAILURE + " " + Response.UNKNOWN;
 
@@ -184,10 +168,10 @@ namespace Client
 
                 // Parse the request message
                 string playerName;
-                MessageParser(reqMsg, out playerName, out reqMsg);
+                MessageParser.ParseNext(reqMsg, out playerName, out reqMsg);
 
                 string str_playerId;
-                MessageParser(reqMsg, out str_playerId, out reqMsg);
+                MessageParser.ParseNext(reqMsg, out str_playerId, out reqMsg);
                 int playerId = int.Parse(str_playerId);
 
                 string diceRolled = reqMsg;
@@ -222,7 +206,7 @@ namespace Client
 
                 // Get PlayerId
                 string str_playerId;
-                MessageParser(reqMsg, out str_playerId, out reqMsg);
+                MessageParser.ParseNext(reqMsg, out str_playerId, out reqMsg);
                 int playerId = int.Parse(str_playerId);
 
                 string turnNum = reqMsg;
@@ -239,7 +223,7 @@ namespace Client
                 responseMessage = Response.SUCCESS + " " + Request.STRIKE;
 
                 string str_playerId;
-                MessageParser(reqMsg, out str_playerId, out reqMsg);
+                MessageParser.ParseNext(reqMsg, out str_playerId, out reqMsg);
                 int playerId = int.Parse(str_playerId);
 
                 StrikePlayer(playerId);
@@ -332,7 +316,7 @@ namespace Client
 
                     string respType;
                     string respMsg;
-                    MessageParser(responseMessage, out respType, out respMsg);
+                    MessageParser.ParseNext(responseMessage, out respType, out respMsg);
 
                     if (respType == Response.SUCCESS)
                     {
@@ -349,7 +333,7 @@ namespace Client
                     else if (respType == Response.ERROR)
                     {
                         string errType;
-                        MessageParser(respMsg, out errType, out respMsg);
+                        MessageParser.ParseNext(respMsg, out errType, out respMsg);
 
                         if (errType == Request.TURN)
                         {

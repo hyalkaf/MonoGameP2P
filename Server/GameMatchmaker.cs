@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,7 +35,8 @@ namespace Server
 
         public GameSession GetGameSession(int id)
         {
-            return gameSessions.Where(gs => gs.ID == id).First();
+
+            return gameSessions.Find(gs => gs.ID == id);
         }
 
         public int IsInQueue(string playername, ClientInfo clientInfo)
@@ -160,6 +162,19 @@ namespace Server
         {
             get { return clientsWaitingForGame; }
         }
+
+        public int NumOfClientsInQueue
+        {
+            get {
+                int total = 0;
+                foreach(ConcurrentQueue<ClientInfo> q in clientsWaitingForGame)
+                {
+                    total += q.Count;
+                }
+                return total;
+            }
+        }
+
         public GameSession[] GameSessions
         {
             get { return gameSessions.ToArray(); }
@@ -177,16 +192,33 @@ namespace Server
             players = new List<ClientInfo>();
         }
 
+        /// <summary>
+        /// 
+        /// 
+        /// </summary>
+        /// <param name="pName"></param>
+        /// <returns></returns>
         public bool ContainsPlayer(string pName)
         {
-            return players.Contains(GetPlayer(pName));
+            if (GetPlayer(pName) == null)
+                return false;
+
+            return true;
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="pName"></param>
         public void RemovePlayer(string pName)
         {
             players.Remove(GetPlayer(pName));
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="player"></param>
         public void AddPlayer(ClientInfo player)
         {
             players.Add(player);
@@ -194,7 +226,7 @@ namespace Server
 
         public ClientInfo GetPlayer(string pName)
         {
-            return players.Where(aplayer => aplayer.PlayerName == pName).First();
+            return players.Find(aplayer => aplayer.PlayerName == pName);
         }
 
         public string ToMessage()
