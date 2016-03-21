@@ -300,7 +300,7 @@ namespace Client
                         {
                             // TODO: deal with cases when integer can't be parsed
                             //t = new Tuple<string, int, string, int, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3]),0); 
-                            pInfo = new PeerInfo(parsedInfo[0], int.Parse(parsedInfo[1]), parsedInfo[2], int.Parse(parsedInfo[3]),0);
+                            pInfo = new PeerInfo(parsedInfo[0], int.Parse(parsedInfo[1]), parsedInfo[2], int.Parse(parsedInfo[3]), int.Parse(parsedInfo[4]));
                         }
 
                         //return t;
@@ -325,7 +325,7 @@ namespace Client
                         {
                             // TODO: deal with cases when integer can't be parsed
                             //t = new Tuple<string, int, string, int, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3]),0); 
-                            pInfo = new PeerInfo(parsedInfo[0], int.Parse(parsedInfo[1]), parsedInfo[2], int.Parse(parsedInfo[3]), 0);
+                            pInfo = new PeerInfo(parsedInfo[0], int.Parse(parsedInfo[1]), parsedInfo[2], int.Parse(parsedInfo[3]), int.Parse(parsedInfo[4]));
                         }
 
                         //return t;

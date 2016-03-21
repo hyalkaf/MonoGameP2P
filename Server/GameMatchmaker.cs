@@ -77,91 +77,81 @@ namespace Server
             string responseMessage = string.Empty;
             //string playersToBeSent = "";
             //List<string> playersToBeSentList = new List<string>();
-            for (int i = 0; i < clientsWaitingForGame.Count; i++)
+            for (int i = 2; i < clientsWaitingForGame.Count; i++)
             {
                 // bypass first and second index since there are no matches with 0 or 1 player
-                if (i != 0 && i != 1)
+               
+                // TODO: Will not work when in index 2 there are four want 2
+                if (i <= clientsWaitingForGame[i].Count)
                 {
-                    // TODO: Will not work when in index 2 there are four want 2
-                    if (i <= clientsWaitingForGame[i].Count)
+
+                    // First, test if the 'connected' queued players are still online
+                    int stillConnected = clientsWaitingForGame[i].Count;
+                    foreach (ClientInfo client in clientsWaitingForGame[i])
                     {
 
-                        // First, test if the 'connected' queued players are still online
-                        int stillConnected = clientsWaitingForGame[i].Count;
-                        foreach (ClientInfo client in clientsWaitingForGame[i])
+                        if (!server.TestAndRemoveDisconnectedClients(client))
                         {
-
-                            if (!server.TestAndRemoveDisconnectedClients(client))
-                            {
-                                stillConnected--;
-                            }
-
-                            Console.WriteLine("DEBUG: client " + client.PlayerName + client.IPAddr + " connected is " + client.TcpClient.Client.Connected);
+                            stillConnected--;
                         }
-                        // If amount of current connected players is not sufficient to form a game, returns.
-                        if (stillConnected < i) return;
 
-                        // Place active players in to a list for message sending.
-                        //      and remove disconnected players.
+                        Console.WriteLine("DEBUG: client " + client.PlayerName + client.IPAddr + " connected is " + client.TcpClient.Client.Connected);
+                    }
+                    // If amount of current connected players is not sufficient to form a game, returns.
+                    if (stillConnected < i) return;
+
+                    // Place active players in to a list for message sending.
+                    //      and remove disconnected players.
                         
-                        GameSession newGameSession = new GameSession(idCounter++);
-                        List<ClientInfo> readyToPlay = new List<ClientInfo>();
-                        for (int playerId = 0; playerId < i; playerId++)
+                    GameSession newGameSession = new GameSession(idCounter++);
+
+                    for (int playerId = 0; playerId < i; playerId++)
+                    {
+                        ClientInfo client;
+                        bool dequeued;
+                        do
                         {
-                            ClientInfo client;
-                            bool dequeued;
-                            do
-                            {
-                                dequeued = clientsWaitingForGame[i].TryDequeue(out client);
-                            } while (!dequeued);
+                            dequeued = clientsWaitingForGame[i].TryDequeue(out client);
+                        } while (!dequeued);
 
-                            // Assign the ip address to a port
-                            if (client.TcpClient.Client.Connected)
-                            {
-                                client.PlayerId = playerId;
-                                client.ListeningPort = portNumber++;
-                                //string clientPeerInfoMsg = client.IPAddr + " " + client.ListeningPort + " " + client.PlayerName + " " + client.PlayerId;
+                        // Assign the ip address to a port
+                        if (client.TcpClient.Client.Connected)
+                        {
+                            client.PlayerId = playerId;
+                            client.ListeningPort = portNumber++;
 
-                                //playersToBeSent += clientPeerInfoMsg + ",";
-                                //playersToBeSentList.Add(clientPeerInfoMsg);
-
-                                readyToPlay.Add(client);
-                                newGameSession.AddPlayer(client);
-
-                            }
-                            else
-                            {
-                                playerId--;
-                            }
+                            newGameSession.AddPlayer(client);
 
                         }
-
-                        gameSessions.Add(newGameSession);
-
-                        // Lastly, multicast the success response with game player data to the clients
-                        responseMessage = ServerProgram.RESP_SUCCESS + " " + ServerProgram.REQ_GAME + " " + newGameSession.ToMessage();
-                        Object listLock = new Object();
-                        Parallel.ForEach(readyToPlay, (client) =>
+                        else
                         {
-                            Console.WriteLine("DEBUG: Response sent: " + responseMessage);
-                            NetworkStream netStream = client.TcpClient.GetStream();
-
-                            byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
-                            netStream.Write(byteToSend, 0, byteToSend.Length);
-
-                            Console.WriteLine("\nSent Acknowledgement");
-
-                            lock (listLock)
-                            {
-                                server.ConnectedClients.Remove(server.ConnectedClients.Where(c => c.TcpClient == client.TcpClient).First());
-
-                                client.TcpClient.Close();
-                            }
-                        });
-
-                        //  Save game session in case a player need to reconnect to a game
+                            playerId--;
+                        }
 
                     }
+
+                    gameSessions.Add(newGameSession);
+
+                    // Lastly, multicast the success response with game player data to the clients
+                    responseMessage = ServerProgram.RESP_SUCCESS + " " + ServerProgram.REQ_GAME + " " + newGameSession.ToMessage();
+                    Object listLock = new Object();
+                    Parallel.ForEach(newGameSession.Players, (client) =>
+                    {
+                        Console.WriteLine("DEBUG: Response sent: " + responseMessage);
+                        NetworkStream netStream = client.TcpClient.GetStream();
+
+                        byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
+                        netStream.Write(byteToSend, 0, byteToSend.Length);
+
+                        Console.WriteLine("\nSent Acknowledgement");
+
+                        lock (listLock)
+                        {
+                            server.ConnectedClients.Remove(server.ConnectedClients.Where(c => c.TcpClient == client.TcpClient).First());
+
+                            client.TcpClient.Close();
+                        }
+                    });
                 }
             }
         }
@@ -212,7 +202,7 @@ namespace Server
             string msg = "";
             foreach (ClientInfo c in players)
             {
-                msg += c.IPAddr + " " + c.ListeningPort + " " + c.PlayerName + " " + c.PlayerId + ",";
+                msg += c.IPAddr + " " + c.ListeningPort + " " + c.PlayerName + " " + c.PlayerId + " " + ID + ",";
             }
             return msg;
         }

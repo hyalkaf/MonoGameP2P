@@ -13,6 +13,7 @@ namespace Client
         private int listeningPort; 
         private Player playerInfo;
         private int strike;
+        private int gameSessionId;
 
         /// <summary>
         ///
@@ -22,21 +23,23 @@ namespace Client
         /// <param name="playername"></param>
         /// <param name="playerId"></param>
         /// <param name="strike"></param>
-        public PeerInfo(string ip, int port, string playername, int playerId, int strike)
+        public PeerInfo(string ip, int port, string playername, int playerId, int gameSessionId)
         {
-            Initialize(ip, port, new Player(playername, playerId), strike);
+            Initialize(ip, port, new Player(playername, playerId));
+            this.gameSessionId = gameSessionId;
         }
 
-        public PeerInfo(string ip, int port, Player p, int strike)
+        public PeerInfo(string ip, int port, Player p, int gameSessionId)
         {
-            Initialize(ip,port,p,strike);
+            Initialize(ip,port,p);
+            this.gameSessionId = gameSessionId;
         }
-        private void Initialize(string ip, int port, Player p, int strike)
+        private void Initialize(string ip, int port, Player p)
         {
             playerInfo = p;
             ipaddr = IPAddress.Parse(ip);
             listeningPort = port;
-            this.strike = strike;
+            this.strike = 0;
         }
 
         public Player PlayerInfo
@@ -61,13 +64,20 @@ namespace Client
             set { listeningPort = value; }
         }
 
+        public int GameSessionId
+        {
+            get { return gameSessionId; }
+        }
+
+
         public bool IsStrikeOutOnNextAdd()
         {
             return strike+1 > 2;
         }
-        public void AddStrike()
+        public int AddStrike()
         {
             strike++;
+            return strike;
         }
         public void ResetStrike()
         {

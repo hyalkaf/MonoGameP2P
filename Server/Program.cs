@@ -211,7 +211,8 @@ namespace Server
 
                 // Find game match
                 _gameMatchmaker.MatchPeers(this);
-                //Legacy
+                
+                // Legacy functionality
                 GameSession[] sessions = _gameMatchmaker.GameSessions;
                 gameSession = new Dictionary<string, List<string>>();
                 for (int i = 1; i <= sessions.Length; i++)
@@ -455,10 +456,6 @@ namespace Server
             return true;
         }
 
-        private void MatchPeer()
-        {
-            
-        }
         //private void MatchPeers()
         //{
         //    string responseMessage = string.Empty;

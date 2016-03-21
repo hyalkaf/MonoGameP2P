@@ -470,19 +470,38 @@ namespace Client
             }
             else {
 
-                playerToBeStriked.AddStrike();
+                int strikeNum = playerToBeStriked.AddStrike();
 
-                Console.WriteLine("Player " + playerId + " strike " + playerToBeStriked);
+                Console.WriteLine("Player " + playerToBeStriked + " strike " + strikeNum);
             }
         }
 
         private void RemovePeerFromGame(PeerInfo peerToBeRemoved)
         {
+            
+
             allPeersInfo.Remove(peerToBeRemoved);
 
             game.RemovePlayer(peerToBeRemoved.PlayerInfo);
            
             Console.WriteLine(game);
+
+            bool iAmLeader = true;
+            foreach (PeerInfo p in allPeersInfo)
+            {
+                if (p.PlayerInfo.PlayerId < myPeerInfo.PlayerInfo.PlayerId)
+                {
+                    iAmLeader = false;
+                    break;
+                }
+            }
+
+            if (iAmLeader)
+            {
+                TcpClient toServerClient = new TcpClient();
+                /*TODO Send to server to update game session*/
+                
+            }
         }
 
         public void Dispose()
