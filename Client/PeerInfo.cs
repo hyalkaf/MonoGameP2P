@@ -9,7 +9,6 @@ namespace Client
 {
     public class PeerInfo
     {
-        private IPAddress ipaddr;
         private int listeningPort; 
         private Player playerInfo;
         private int strike;
@@ -37,7 +36,7 @@ namespace Client
         private void Initialize(string ip, int port, Player p)
         {
             playerInfo = p;
-            ipaddr = IPAddress.Parse(ip);
+            IPAddr = IPAddress.Parse(ip);
             listeningPort = port;
             this.strike = 0;
         }
@@ -50,8 +49,8 @@ namespace Client
 
         public IPAddress IPAddr
         {
-            get { return ipaddr; }
-            set { ipaddr = value; }
+            get;
+            set;
         }
 
         public override string ToString()

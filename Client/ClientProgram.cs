@@ -33,12 +33,19 @@ namespace Client
             public const string ERROR = "error";
         }
 
+        enum GameConnectType
+        {
+           NewGame,Reconnect 
+        }
+
+
         TcpClient client;
+        TcpClient stayConnectedClient;
         private string playerName;
         public bool inGame = false;
-
+        private bool gameRequested = false;
         public static string SERVER_IP = "";
-
+        private GameConnectType connectType;
         // Holds information about other peers in the system: IPAddress, portNumber, name and ID.
         //List<Tuple<string, int, string, int, int>> peersInfo;
         List<PeerInfo> allPeersInfo;
@@ -97,10 +104,10 @@ namespace Client
         /// </summary>
         private void connectToServer()
         {
-            if ((client is TcpClient) && client.Connected)
-            {
-                return;
-            }
+            //if ((client is TcpClient) && client.Connected)
+            //{
+            //    return;
+            //}
 
             bool connected = true;
             do
@@ -140,14 +147,17 @@ namespace Client
             string reqType, reqMsg;
 
             MessageParser.ParseNext(reqMessage, out reqType, out reqMsg);
-  
+
+            TcpClient thisTcpClient = client;
+
             if (reqType == Request.GAME)
             {
+         
                 int inttest;
                 if (reqMsg == "" || !int.TryParse(reqMsg, out inttest))
                 {
                     Console.WriteLine("USAGE: game <number>");
-                    client.Close();
+                    thisTcpClient.Close();
                     if (!inGame)
                     {
                         // Connect back to server immediately if user not in game
@@ -159,6 +169,7 @@ namespace Client
                 string numOfPeersToMatch = reqMsg;
 
                 reqMessage = reqType +  " " + playerName + " " + numOfPeersToMatch;
+
             }
             else if(reqType == Request.CANCEL)
             {
@@ -206,7 +217,7 @@ namespace Client
             }
 
             reqMessage += "\n\n";
-            TcpClient thisTcpClient = client;
+            
             try {
                 
                 NetworkStream clientNetStream = thisTcpClient.GetStream();
@@ -229,7 +240,7 @@ namespace Client
 
                 if (processResponse(responseMessage) == -1)
                 {
-                    Console.WriteLine("\nDEBUG: INVALID REQUEST/RESPONSE\n");
+                    //Console.WriteLine("\nDEBUG: INVALID REQUEST/RESPONSE\n");
                     thisTcpClient.Close();
                     connectToServer();
                     return -1;
@@ -288,8 +299,13 @@ namespace Client
                         if (!string.IsNullOrEmpty(info))
                         {
                             // TODO: deal with cases when integer can't be parsed
-                            //t = new Tuple<string, int, string, int, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3]),0); 
-                            pInfo = new PeerInfo(parsedInfo[0], int.Parse(parsedInfo[1]), parsedInfo[2], int.Parse(parsedInfo[3]), int.Parse(parsedInfo[4]));
+                            string ip = parsedInfo[0];
+                            int port = int.Parse(parsedInfo[1]);
+                            string pName = parsedInfo[2];
+                            int playerId = int.Parse(parsedInfo[3]);
+                            int gameSessionId = int.Parse(parsedInfo[4]);
+                            // TODO: deal with cases when integer can't be parsed
+                            pInfo = new PeerInfo(ip, port, pName, playerId, gameSessionId);
                         }
 
                         //return t;
@@ -298,31 +314,38 @@ namespace Client
                     }).ToList();
 
                     inGame = true;
+                    connectType = GameConnectType.NewGame;
                     return 0;
                 }
                 else if (reqType == Request.RECONN)
                 {
                     allPeersInfo = new List<PeerInfo>();
-                    //peersInfo = new List<Tuple<string, int, string, int, int>>();
+                
                     IEnumerable<string> temp = respMsg.Split(',');
                     allPeersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
                     {
                         string[] parsedInfo = info.Trim().Split(' ');
-                        //Tuple<string, int, string, int, int> t = null;
+                        
                         PeerInfo pInfo = null;
                         if (!string.IsNullOrEmpty(info))
                         {
+                            string ip = parsedInfo[0];
+                            int port = int.Parse(parsedInfo[1]);
+                            string pName = parsedInfo[2];
+                            int playerId = int.Parse(parsedInfo[3]);
+                            int gameSessionId = int.Parse(parsedInfo[4]);
+
                             // TODO: deal with cases when integer can't be parsed
-                            //t = new Tuple<string, int, string, int, int>(peerInfo[0], int.Parse(peerInfo[1]), peerInfo[2], int.Parse(peerInfo[3]),0); 
-                            pInfo = new PeerInfo(parsedInfo[0], int.Parse(parsedInfo[1]), parsedInfo[2], int.Parse(parsedInfo[3]), int.Parse(parsedInfo[4]));
+                            pInfo = new PeerInfo(ip, port, pName, playerId, gameSessionId);
                         }
 
-                        //return t;
+      
                         return pInfo;
 
                     }).ToList();
 
                     inGame = true;
+                    connectType = GameConnectType.Reconnect;
                     return 0;
                 }
                 else if (reqType == Request.PLAYERS)
@@ -370,24 +393,36 @@ namespace Client
                 MessageParser.ParseNext(respMsg, out reqType, out respMsg);
 
                 Console.WriteLine("\nDEBUG: " + reqType + "\n");
+                Console.WriteLine("SERVER MESSAGE: " + respMsg);
 
-                if (reqType == Request.CHECKNAME)
+                if (reqType == Request.GAME)
                 {
-                    Console.WriteLine("\nName is not available!");
+                    
+                    return 0;
+                }
+
+                else if (reqType == Request.CHECKNAME)
+                {
+
                     return -1;
                 }else if(reqType == Request.RECONN)
                 {
-                    Console.WriteLine(respMsg);
+
+                    return 0;
+                }
+                else if (reqType == Request.CANCEL)
+                {
+
                     return 0;
                 }
             }
             else if (respType == Response.ERROR)
             {
-                Console.WriteLine(respMsg);
+                Console.WriteLine("SERVER MESSAGE: Err " + respMsg);
             }
             else
             {
-                Console.WriteLine(respType + " " + respMsg);
+                Console.WriteLine("SERVER MESSAGE: " + respType + " " + respMsg);
             }
 
 
@@ -399,7 +434,7 @@ namespace Client
         {
 
             // Continously stay connected to the server
-            while (true) { 
+            while (true) {
                 try
                 {
                     while (true)
@@ -410,16 +445,17 @@ namespace Client
 
                             Console.Write("Send request (game, players, cancel, reconn): ");
                             var request = Console.ReadLine().Trim().ToLower();
-                            if(request != String.Empty) { 
+                            if (request != String.Empty) {
 
                                 Console.WriteLine("Sending request \"{0}\"", request);
-                                Thread sendThread = new Thread( () =>{
-                                   SendRequest(request);
-                                    Thread.CurrentThread.Abort();
-                                });
+                                SendRequest(request);
+                                //Thread sendThread = new Thread( () =>{
 
-                                sendThread.IsBackground = true;
-                                sendThread.Start();
+                                //    Thread.CurrentThread.Abort();
+                                //});
+
+                                //sendThread.IsBackground = true;
+                                //sendThread.Start();
                             }
 
                         }
@@ -432,8 +468,15 @@ namespace Client
                         }
                     }
 
+                    bool reconn = false;
+                    if (connectType == GameConnectType.Reconnect)
+                    {
+                        reconn = true;
+                    }
+
                     Peer peer;
-                    using (peer = new Peer(playerName, allPeersInfo)) 
+
+                    using (peer = new Peer(playerName, allPeersInfo, reconn)) 
                     peer.StartPeerCommunication();
                     
                     // Game ended connect back to server

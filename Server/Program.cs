@@ -14,18 +14,26 @@ namespace Server
 {
     public class ServerProgram
     {
-        public const string REQ_GAME = "game";
-        public const string REQ_PLAYERS = "players";
-        public const string REQ_CANCEL = "cancel";
-        public const string REQ_IP = "ip";
-        public const string REQ_CHECKNAME = "checkname";
-        public const string REQ_RECONN = "reconn";
-        public const string REQ_SERVRECONN = "servreconn";
+        public class Request
+        {
+            public const string GAME = "game";
+            public const string PLAYERS = "players";
+            public const string CANCEL = "cancel";
+            public const string IP = "ip";
+            public const string CHECKNAME = "checkname";
+            public const string RECONN = "reconn";
+            public const string SERVRECONN = "servreconn";
+        }
 
+       
+        public class Response
+        {
+            public const string SUCCESS = "success";
+            public const string FAILURE = "failure";
+            public const string ERROR = "error";
 
-        public const string RESP_SUCCESS = "success";
-        public const string RESP_FAILURE = "failure";
-        public const string RESP_ERROR = "error";
+        }
+
 
         private ReplicationManager rm;
         public IPAddress ipAddr;
@@ -135,8 +143,8 @@ namespace Server
             NetworkStream netStream = tcpclient.GetStream();
             //StringBuilder sb = new StringBuilder();
             //sockets.Add(tcpclient.Client);
-            ClientInfo newConnectedClient = new ClientInfo(tcpclient);
-            connectedClients.Add(newConnectedClient);
+            ClientInfo aConnectedClient = new ClientInfo(tcpclient);
+            connectedClients.Add(aConnectedClient);
 
             Console.WriteLine("Connection accepted from client " + (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address); //+ ipaddr + " : " + portNumber);
 
@@ -176,61 +184,62 @@ namespace Server
 
             Console.WriteLine("REQ: " + requestType + " " + requestMessage);
 
-            string responseMessage = RESP_ERROR + " Invalid Request Message";
+            string responseMessage = Response.ERROR + " Invalid Request Message";
 
-            if (requestType == REQ_GAME)
+            if (requestType == Request.GAME)
             {
-                // All the data has been read from the 
-                // client. Display it on the console.
-
+                // Get playername
                 string pName;
                 MessageParser.ParseNext(requestMessage, out pName, out requestMessage);
 
-                newConnectedClient.PlayerName = pName;
-
+                aConnectedClient.PlayerName = pName;
+                // Get number of players the player wants to be matched
                 string numberOfPeers;
                 MessageParser.ParseNext(requestMessage, out numberOfPeers, out requestMessage);
 
-                // Add this socket to the match making list of list of sockets
-                //if (numberOfPeers >= socketsForGameRequests.Count)
-                //{
-                //    for (int i = socketsForGameRequests.Count; i <= numberOfPeers; i++)
-                //    {
-                //        socketsForGameRequests.Add(new ConcurrentDictionary<string, Socket>());
-                //    }
-                //}
-
-
-                _gameMatchmaker.AddPlayerToQueue(newConnectedClient, int.Parse(numberOfPeers));
-
-                
-
-                // socketsForGameRequests[numberOfPeers][pName] = tcpclient.Client;
-                
-
-                // Find game match
-                _gameMatchmaker.MatchPeers(this);
-                
-                // Legacy functionality: copy GameSessions to Dictionary
-                GameSession[] sessions = _gameMatchmaker.GameSessions;
-                gameSession = new Dictionary<string, List<string>>();
-                for (int i = 1; i <= sessions.Length; i++)
+                if (_gameMatchmaker.IsInQueue(pName) == -1)
                 {
-                    List<string> playerInfos = new List<string>();
-                    string[] msgs = sessions[i-1].ToMessage().Split(',');
+                    _gameMatchmaker.AddPlayerToQueue(aConnectedClient, int.Parse(numberOfPeers));
+                
 
-                    foreach(string m in msgs)
+                    // Find game match
+                    _gameMatchmaker.MatchPeers(this);
+                
+                    // Legacy functionality: copy GameSessions to Dictionary
+                    GameSession[] sessions = _gameMatchmaker.GameSessions;
+                    gameSession = new Dictionary<string, List<string>>();
+                    for (int i = 1; i <= sessions.Length; i++)
                     {
-                        if (m.Trim() != String.Empty) { 
-                            playerInfos.Add(m.Trim());
-                        }
-                    }
+                        List<string> playerInfos = new List<string>();
+                        string[] msgs = sessions[i-1].ToMessage().Split(',');
 
-                    gameSession.Add(i.ToString(), playerInfos);
+                        foreach(string m in msgs)
+                        {
+                            if (m.Trim() != String.Empty) { 
+                                playerInfos.Add(m.Trim());
+                            }
+                        }
+
+                        gameSession.Add(i.ToString(), playerInfos);
+                    }
+                }
+                else
+                {
+                    responseMessage = Response.FAILURE + " You have already requested a game!";
+                    Console.WriteLine("DEBUG: Response sent: " + responseMessage);
+
+                    byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
+                    netStream.Write(byteToSend, 0, byteToSend.Length);
+
+                    if (connectedClients.Exists(client => client.TcpClient == tcpclient))
+                    {
+                        connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
+                        tcpclient.Close();
+                    }
                 }
 
             }
-            else if (requestType == REQ_RECONN)
+            else if (requestType == Request.RECONN)
             {
 
                 string playername,  gameId;
@@ -240,12 +249,19 @@ namespace Server
                 GameSession gSession = _gameMatchmaker.GetGameSession(int.Parse(gameId));
                 if (gSession != null && gSession.ContainsPlayer(playername))
                 {
-                    responseMessage = RESP_SUCCESS + " " + REQ_RECONN + " ";
+                    ClientInfo reconnectedPlayer = gSession.GetPlayer(playername);
+                    if(reconnectedPlayer.IPAddr != aConnectedClient.IPAddr)
+                    {
+                        reconnectedPlayer.IPAddr = aConnectedClient.IPAddr;
+                    }
+
+
+                    responseMessage = Response.SUCCESS + " " + Request.RECONN + " ";
                     responseMessage += gSession.ToMessage();
                 }
                 else 
                 {
-                    responseMessage = RESP_FAILURE + " " + REQ_RECONN + "  No such game exists OR You don't belong in this game";
+                    responseMessage = Response.FAILURE + " " + Request.RECONN + "  No such game exists OR You don't belong in this game";
                 }
 
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
@@ -258,17 +274,13 @@ namespace Server
                     connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
                     tcpclient.Close();
                 }
-                //if (sockets.Exists(soc => soc == tcpclient.Client))
-                //{
-                //    tcpclient.Close();
-                //    sockets.Remove(tcpclient.Client);
-                //}
-
 
             }
-            else if (requestType == REQ_PLAYERS)
+            else if (requestType == Request.PLAYERS)
             {
-                responseMessage = RESP_SUCCESS + " " + REQ_PLAYERS + "  " + (connectedClients.Count - _gameMatchmaker.NumOfClientsInQueue);
+
+
+                responseMessage = Response.SUCCESS + " " + Request.PLAYERS + "  " + (connectedClients.Count - _gameMatchmaker.NumOfClientsInQueue);
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
@@ -280,18 +292,36 @@ namespace Server
                     tcpclient.Close();
                 }
 
-                //if (sockets.Exists(soc => soc == tcpclient.Client))
-                //{
-                //    tcpclient.Close();
-                //    sockets.Remove(tcpclient.Client);
-                //}
-
             }
-            else if (requestType == REQ_CANCEL)
+            else if (requestType == Request.CANCEL)
             {
-                // All the data has been read from the 
-                // client. Display it on the console.
-                responseMessage = RESP_SUCCESS + " " + REQ_CANCEL + " YOU CANCELED your match request.";
+
+                string playername;
+                
+                MessageParser.ParseNext(requestMessage, out playername, out requestMessage);
+                int qNum = _gameMatchmaker.IsInQueue(playername);
+                if (qNum == -1)
+                {
+                    responseMessage = Response.FAILURE + " " + Request.CANCEL + " You are not in game queue.";
+                }
+                else
+                {
+                    // All the data has been read from the 
+                    // client. Display it on the console.
+                    ClientInfo playerToCancelRequest = _gameMatchmaker.Queues[qNum].Where(ci => ci.PlayerName == playername).First();
+                    TcpClient gameReqClient = playerToCancelRequest.TcpClient;
+                    NetworkStream stm = gameReqClient.GetStream();
+
+                    responseMessage = Response.SUCCESS + " " + Request.CANCEL + " YOU CANCELED your match request.";
+
+                    Console.WriteLine("DEBUG: Response sent: " + responseMessage);
+                    byte[] b = Encoding.ASCII.GetBytes(responseMessage);
+                    stm.Write(b, 0, b.Length);
+
+                    gameReqClient.Close();
+                
+                }
+
 
                 // Echo the data back to the client.
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
@@ -305,24 +335,19 @@ namespace Server
                     connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
                     tcpclient.Close();
                 }
-                //if (sockets.Exists(soc => soc == tcpclient.Client))
-                //{
-                //    tcpclient.Close();
-                //    sockets.Remove(tcpclient.Client);
-                //}
 
             }
-            else if (requestType == REQ_CHECKNAME)
+            else if (requestType == Request.CHECKNAME)
             {
                 var aPlayerName = requestMessage;
                 if (allPlayerNamesUsed.IndexOf(aPlayerName) == -1)
                 {
-                    responseMessage = RESP_SUCCESS + " " + REQ_CHECKNAME + "  This name is not taken";
+                    responseMessage = Response.SUCCESS + " " + Request.CHECKNAME + " This name is not taken";
                     allPlayerNamesUsed.Add(aPlayerName);
                 }
                 else
                 {
-                    responseMessage = RESP_FAILURE + " " + REQ_CHECKNAME + "  This name is taken";
+                    responseMessage = Response.FAILURE + " " + Request.CHECKNAME + " This name already exists";
                 }
 
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
@@ -330,29 +355,23 @@ namespace Server
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
                 netStream.Write(byteToSend, 0, byteToSend.Length);
 
-                if (connectedClients.Exists(client => client == newConnectedClient))
+                if (connectedClients.Exists(client => client == aConnectedClient))
                 {
-                    connectedClients.Remove(newConnectedClient);
+                    connectedClients.Remove(aConnectedClient);
                     tcpclient.Close();
                 }
 
-                //if (sockets.Exists(soc => soc == tcpclient.Client))
-                //{
-                //    tcpclient.Close();
-                //    sockets.Remove(tcpclient.Client);
-                //}
-
-            } else if (requestType == REQ_SERVRECONN)
+            } else if (requestType == Request.SERVRECONN)
             {
-                responseMessage = RESP_SUCCESS + " " + REQ_SERVRECONN;
+                responseMessage = Response.SUCCESS + " " + Request.SERVRECONN;
                 var aPlayerName = requestMessage;
 
            
-                int qNum  = _gameMatchmaker.IsInQueue(aPlayerName, newConnectedClient);
+                int qNum  = _gameMatchmaker.IsInQueue(aPlayerName);
 
                 if (qNum != -1)
                 {
-                    responseMessage += " " + REQ_GAME + " " + qNum;
+                    responseMessage += " " + Request.GAME + " " + qNum;
                 }
 
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
@@ -360,9 +379,9 @@ namespace Server
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
                 netStream.Write(byteToSend, 0, byteToSend.Length);
 
-                if (connectedClients.Exists(client => client == newConnectedClient))
+                if (connectedClients.Exists(client => client == aConnectedClient))
                 {
-                    connectedClients.Remove(newConnectedClient);
+                    connectedClients.Remove(aConnectedClient);
                     tcpclient.Close();
                 }
             } else
@@ -372,10 +391,10 @@ namespace Server
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
                 netStream.Write(byteToSend, 0, byteToSend.Length);
 
-                if (connectedClients.Exists(client => client == newConnectedClient))
+                if (connectedClients.Exists(client => client == aConnectedClient))
                 {
 
-                    connectedClients.Remove(newConnectedClient);
+                    connectedClients.Remove(aConnectedClient);
                     tcpclient.Close();
                 }
             }
@@ -441,79 +460,6 @@ namespace Server
             } while (timeToTry > 0);
             return true;
         }
-
-        //private void MatchPeers()
-        //{
-        //    string responseMessage = string.Empty;
-        //    string playersToBeSent = "";
-        //    List<string> playersToBeSentList = new List<string>();
-        //    List<string> playerQueue = new List<string>();
-        //    for (int i = 0; i < socketsForGameRequests.Count; i++)
-        //    {
-        //        // bypass first and second index since there are no matches with 0 or 1 player
-        //        if (i != 0 && i != 1)
-        //        {
-        //            // TODO: Will not work when in index 2 there are four want 2
-        //            if (i == socketsForGameRequests[i].Count)
-        //            {
-        //                // Do match between peers
-        //                foreach (KeyValuePair<string, Socket> dicNameToSocket in socketsForGameRequests[i])
-        //                {
-        //                    // CH : Get endpoint 
-        //                    IPEndPoint remoteIpEndPoint = dicNameToSocket.Value.RemoteEndPoint as IPEndPoint;
-
-        //                    // CH : Get ip address from the endpoint
-        //                    IPAddress ipaddr = remoteIpEndPoint.Address;
-
-        //                    // Assign the ip address to a port
-        //                    string thisClient = ipaddr + " " + portNumber++ + " " + dicNameToSocket.Key;
-
-        //                    playerQueue.Add(thisClient);
-        //                }
-
-        //                for (int z = 0; z < playerQueue.Count; z++)
-        //                {
-        //                    playersToBeSent += playerQueue[z] + " " + z;
-        //                    playersToBeSentList.Add(playerQueue[z] + " " + z);
-        //                    if (z != playerQueue.Count - 1)
-        //                    {
-        //                        playersToBeSent += ",";
-        //                    }
-        //                }
-
-        //                responseMessage = RESP_SUCCESS + " " + REQ_GAME + " " + playersToBeSent;
-
-        //                foreach (KeyValuePair<string, Socket> dicNameToSocket in socketsForGameRequests[i])
-        //                {
-        //                    Console.WriteLine("DEBUG: Response sent: " + responseMessage);
-
-        //                    ASCIIEncoding asen = new ASCIIEncoding();
-
-        //                    byte[] b = asen.GetBytes(responseMessage + "\n\n");
-
-        //                    Console.WriteLine("SIZE OF RESPONSE: " + b.Length);
-
-        //                    dicNameToSocket.Value.Send(b);
-
-        //                    Console.WriteLine("\nSent Acknowledgement [Game Matched!]");
-        //                    Console.WriteLine();
-        //                    dicNameToSocket.Value.Close();
-        //                    //sockets.Remove(dicNameToSocket.Value);
-        //                    connectedClients.Remove(connectedClients.Where(client => client.TcpClient.Client == dicNameToSocket.Value).First());
-
-        //                }
-
-        //                //  Save game session for reconnect
-        //                gameSession.Add(gameIdGenerate.ToString(), playersToBeSentList);
-        //                gameIdGenerate++;
-        //                // TODO: Find a way to remove only the ones matched
-        //                socketsForGameRequests.Remove(socketsForGameRequests[i]);
-        //                playerQueue.Clear();
-        //            }
-
-        //        }
-
-        //    }
 
         public List<ClientInfo> ConnectedClients
         {

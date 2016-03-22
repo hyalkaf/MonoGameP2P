@@ -17,6 +17,7 @@ namespace Server
         private int portNumber = 9000;
         private List<GameSession> gameSessions;
         private List<ConcurrentQueue<ClientInfo>> clientsWaitingForGame;
+        private Object queueLock = new Object();
 
         public GameMatchmaker() {
             gameSessions = new List<GameSession>();
@@ -39,7 +40,7 @@ namespace Server
             return gameSessions.Find(gs => gs.ID == id);
         }
 
-        public int IsInQueue(string playername, ClientInfo clientInfo)
+        public int IsInQueue(string playername)
         {
             for (int i = 0; i < clientsWaitingForGame.Count; i++)
             {
@@ -48,9 +49,6 @@ namespace Server
                 {
                     if (ci.PlayerName == playername)
                     {
-                        ci.TcpClient = clientInfo.TcpClient;
-                        ci.IPAddr = (clientInfo.TcpClient.Client.RemoteEndPoint as IPEndPoint).Address;
-                        
                         return i;
                     }
                 }
@@ -59,6 +57,26 @@ namespace Server
             return -1;
 
         }
+
+        //public int RemovePlayerFromQueue(string playername)
+        //{
+        //    lock (queueLock)
+        //    {
+        //        for (int i = 0; i < clientsWaitingForGame.Count; i++)
+        //        {
+        //            ConcurrentQueue<ClientInfo> q = clientsWaitingForGame[i];
+        //            List<ClientInfo> lstQueue = q.ToList();
+        //            ClientInfo aPlayer = lstQueue.Find(ci => ci.PlayerName == playername);
+        //            if (aPlayer != null) {
+        //                lstQueue.Remove(aPlayer);
+        //                clientsWaitingForGame[i] = new ConcurrentQueue<ClientInfo>(lstQueue);
+        //                return i;
+        //            }
+        //        }
+        //    }
+        //    return -1;
+
+        //}
 
         public void AddPlayerToQueue(ClientInfo player, int queueNum)
         {
@@ -135,7 +153,7 @@ namespace Server
                     gameSessions.Add(newGameSession);
 
                     // Lastly, multicast the success response with game player data to the clients
-                    responseMessage = ServerProgram.RESP_SUCCESS + " " + ServerProgram.REQ_GAME + " " + newGameSession.ToMessage();
+                    responseMessage = ServerProgram.Response.SUCCESS + " " + ServerProgram.Request.GAME + " " + newGameSession.ToMessage();
                     Object listLock = new Object();
                     Parallel.ForEach(newGameSession.Players, (client) =>
                     {

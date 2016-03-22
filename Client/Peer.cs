@@ -46,7 +46,7 @@ namespace Client
         /// <param name="playerName"></param>
         /// <param name="peersInfo"></param>
         /// <param name="reconnect"></param>
-        public Peer(string playerName, List<PeerInfo> peersInfo , bool reconnect = false)
+        public Peer(string playerName, List<PeerInfo> peersInfo , bool reconnect)
         {
             
             Console.WriteLine("PEER ESTABLISHED For {0}", playerName);
