@@ -32,6 +32,8 @@ namespace Server
         public static readonly string[] arrayOfReplicaMessages = { "replica", "name", "session" };
         // Udp client listening for broadcast messages
         private readonly UdpClient udpBroadcast = new UdpClient(15000);
+        // IP Address for broadcasting
+        IPEndPoint sendingIP = new IPEndPoint(IPAddress.Broadcast, 15000);
         IPEndPoint receivingIP = new IPEndPoint(IPAddress.Any, 0);
 
         // Request messsages between replicas and server
@@ -70,7 +72,7 @@ namespace Server
             }).Start();
 
             // TODO: Send multiple times for udp
-            //timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 10000, Timeout.Infinite);
+            timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 10000, Timeout.Infinite);
             for (int i = 0; i < 3; i++)
             {
                 Broadcast("isPrimary");
@@ -672,14 +674,11 @@ namespace Server
             UdpClient client = new UdpClient(AddressFamily.InterNetwork);
             client.EnableBroadcast = true;
 
-            // IP Address for broadcasting
-            IPEndPoint ip = new IPEndPoint(IPAddress.Broadcast, 15000);
-
             // Send a request message asking if primary exists.
             byte[] bytes = Encoding.ASCII.GetBytes(message);
 
             // Send message
-            client.Send(bytes, bytes.Length, ip);
+            client.Send(bytes, bytes.Length, sendingIP);
 
             // Close client
             client.Close();
@@ -717,7 +716,7 @@ namespace Server
             }
             else if (receivedMessage.StartsWith("primary"))
             {
-                //timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
+                timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
                 // Make this server a backup
                 thisServer.isPrimaryServer = false;
 
@@ -728,7 +727,7 @@ namespace Server
             }
             else 
             {
-                //timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
+                timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
 
                 thisServer.isPrimaryServer = true;
                 primaryServerIp = thisServer.ipAddr;
