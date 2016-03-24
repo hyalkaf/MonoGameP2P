@@ -711,6 +711,7 @@ namespace Server
             }
             else if (receivedMessage.StartsWith("primary"))
             {
+                timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
                 // Make this server a backup
                 thisServer.isPrimaryServer = false;
 
@@ -721,6 +722,8 @@ namespace Server
             }
             else 
             {
+                timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
+
                 thisServer.isPrimaryServer = true;
                 primaryServerIp = thisServer.ipAddr;
 
