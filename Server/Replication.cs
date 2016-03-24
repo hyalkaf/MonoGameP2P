@@ -733,6 +733,9 @@ namespace Server
 
         private void timerCallBackForFindingPrimary(object state)
         {
+            thisServer.isPrimaryServer = true;
+            primaryServerIp = thisServer.ipAddr; 
+
             Console.WriteLine("I'm primary");
             addReplica(thisServer);
 
