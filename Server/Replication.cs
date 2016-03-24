@@ -73,9 +73,7 @@ namespace Server
             {
                 ListenReplica();
             }).Start();
-
-            
-            
+  
         }
 
         /// <summary>
@@ -84,12 +82,6 @@ namespace Server
         /// <param name="isServerPrimary">A bool for whether server is primary or not.</param>
         public void InitializeReplication(bool isServerPrimary)
         {
-            // secondary replica sends a replica request
-            if (!isServerPrimary)
-            {
-                SendReplica(true);
-            }
-
             if (!isServerPrimary)
             {
                 // Add Primary server ip address to replica
@@ -97,10 +89,17 @@ namespace Server
 
                 // Communicate with the primary server to get info about the game
                 timer = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+                // secondary replica sends a replica request
+                SendReplica(true);
+                
             }
             else
             {
                 addReplica(thisServer);
+
+                // Make this server start listening
+                thisServer.StartListen();
             }
         }
 

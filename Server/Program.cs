@@ -476,10 +476,6 @@ namespace Server
             try
             {
                 ServerProgram svr = new ServerProgram();
-                if (svr.isPrimaryServer)
-                {
-                    svr.StartListen();
-                }
 
             }
             catch (Exception e)
