@@ -670,7 +670,7 @@ namespace Server
         private void Broadcast(string message)
         {
             // Initialize a new udp client
-            UdpClient client = new UdpClient();
+            UdpClient client = new UdpClient(AddressFamily.InterNetwork);
             client.EnableBroadcast = true;
 
             // IP Address for broadcasting
@@ -693,10 +693,11 @@ namespace Server
         {
             // receive messages
 
-            IPEndPoint ip = new IPEndPoint(IPAddress.Any, 15000);
+            IPEndPoint ip = new IPEndPoint(IPAddress.Any, 0);
             byte[] bytes = udpBroadcast.Receive(ref ip);
             string message = Encoding.ASCII.GetString(bytes);
 
+            // TODO: Disable sending messages to yourself by default
             if (!ip.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, ip);
         }
 
