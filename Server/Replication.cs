@@ -58,7 +58,7 @@ namespace Server
             thisServer = replica;
             udpBroadcast.EnableBroadcast = true;
             udpBroadcast.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            udpBroadcast.ExclusiveAddressUse = false; // only if you want to send/receive on same machine.
+            
             // Broadcast to local network trying to find if a primary exists or not.
             // Start Listening for udp broadcast messages
 
