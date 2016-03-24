@@ -32,7 +32,7 @@ namespace Server
         public static readonly string[] arrayOfReplicaMessages = { "replica", "name", "session" };
         // Udp client listening for broadcast messages
         private readonly UdpClient udpBroadcast = new UdpClient(15000);
-
+        IPEndPoint receivingIP = new IPEndPoint(IPAddress.Any, 0);
 
         // Request messsages between replicas and server
         const string REQ_REPLICA = "replica";
@@ -57,7 +57,6 @@ namespace Server
             //
             thisServer = replica;
             udpBroadcast.EnableBroadcast = true;
-            udpBroadcast.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             
             // Broadcast to local network trying to find if a primary exists or not.
             // Start Listening for udp broadcast messages
@@ -692,13 +691,12 @@ namespace Server
         private void StartListeningUDP()
         {
             // receive messages
-
-            IPEndPoint ip = new IPEndPoint(IPAddress.Any, 0);
-            byte[] bytes = udpBroadcast.Receive(ref ip);
+            
+            byte[] bytes = udpBroadcast.Receive(ref receivingIP);
             string message = Encoding.ASCII.GetString(bytes);
 
             // TODO: Disable sending messages to yourself by default
-            if (!ip.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, ip);
+            if (!receivingIP.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
         }
 
         /// <summary>
