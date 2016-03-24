@@ -56,7 +56,7 @@ namespace Server
         {
             //
             thisServer = replica;
-
+            udpBroadcast.EnableBroadcast = true;
             // Broadcast to local network trying to find if a primary exists or not.
             // Start Listening for udp broadcast messages
 
@@ -91,6 +91,7 @@ namespace Server
             if (!isServerPrimary)
             {
                 // Add Primary server ip address to replica
+                //TODO dont need this, get list update from primary
                 allReplicaAddr.Add(new Tuple<IPAddress, bool>(primaryServerIp, true));
 
                 // Timer for checking if primary is there
@@ -668,6 +669,7 @@ namespace Server
         {
             // Initialize a new udp client
             UdpClient client = new UdpClient();
+            client.EnableBroadcast = true;
 
             // IP Address for broadcasting
             IPEndPoint ip = new IPEndPoint(IPAddress.Broadcast, 15000);
@@ -688,7 +690,7 @@ namespace Server
         private void StartListeningUDP()
         {
             // receive messages
-            IPEndPoint ip = new IPEndPoint(IPAddress.Any, 15000);
+            IPEndPoint ip = new IPEndPoint(thisServer.ipAddr, 15000);
             byte[] bytes = udpBroadcast.Receive(ref ip);
             string message = Encoding.ASCII.GetString(bytes);
 
