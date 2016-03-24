@@ -33,7 +33,9 @@ namespace Client
             public const string ERROR = "error";
             public const string UNKNOWN = "unknownrequest";
         }
-
+        private Timer gameTimer;
+        private const int TIMER_START_TIME = 15;
+        private int TimerTime = TIMER_START_TIME;
         private PeerInfo myPeerInfo;
         private List<PeerInfo> allPeersInfo;
         private Game.Game game;
@@ -50,9 +52,10 @@ namespace Client
         /// <param name="reconnect"></param>
         public Peer(string playerName, List<PeerInfo> peersInfo , bool reconnect)
         {
-            
-            Console.WriteLine("PEER ESTABLISHED For {0}", playerName);
+            gameTimer = new Timer(TimesUp);
 
+            Console.WriteLine("PEER ESTABLISHED For {0}", playerName);
+            
             allPeersInfo = peersInfo;
 
             // Check if peersInfo is populated
@@ -105,7 +108,11 @@ namespace Client
                 
                 Console.WriteLine("!!You go first! It is your turn now !!");
                 
+                
             }
+
+            Thread.Sleep(500);
+            gameTimer.Change(1000, 1000);
         }
 
 
@@ -185,7 +192,7 @@ namespace Client
         /// </summary>
         /// <param name="s"></param>
         /// <param name="id"></param>
-        void EstablishConnection(TcpClient tcpclient)
+        private void EstablishConnection(TcpClient tcpclient)
         {
 
             NetworkStream netStream = tcpclient.GetStream();
@@ -209,8 +216,8 @@ namespace Client
             // When a peer is broadcasting its turn
             if (reqType == Request.TURN)
             {
-
-                responseMessage = Response.SUCCESS + " " + Request.TURN;
+                
+               
 
                 // Parse the request message
                 string playerName;
@@ -227,15 +234,21 @@ namespace Client
 
                 if (p.Turn == 0)
                 {
+                    gameTimer.Change(Timeout.Infinite, Timeout.Infinite);
                     game.move_player(p, int.Parse(diceRolled));
                     Console.WriteLine(game);
                     Console.WriteLine("\nPlayer " + playerId + " (" + playerName + ") move " + diceRolled + " steps.");
                     game.UpdateTurn();
 
+                    responseMessage = Response.SUCCESS + " " + Request.TURN;
+
                     if (myPeerInfo.PlayerInfo.Turn == 0)
                     {
                         Console.WriteLine("\nIt is your turn now :)");
+
                     }
+                    TimerTime = TIMER_START_TIME;
+                    gameTimer.Change(1000, 1000);
                 }
                 else
                 {
@@ -391,7 +404,12 @@ namespace Client
                         { 
                             allResponseMsgs[i] = respMsg;
       
+                        }else if (reqType == Request.TURN)
+                        {
+                            
                         }
+
+
                         else
                         {
                             Console.WriteLine(responseMessage);
@@ -413,6 +431,7 @@ namespace Client
                         {
                             string errMsg = respMsg;
                             Console.WriteLine(errMsg);
+
                         }
                     }
 
@@ -447,6 +466,10 @@ namespace Client
                 SyncGameState(strGameState);
                 Console.WriteLine(game);
  
+            }else if (reqType == Request.TURN)
+            {
+                TimerTime = TIMER_START_TIME;
+                gameTimer.Change(1000, 1000);
             }
 
 
@@ -528,12 +551,14 @@ namespace Client
         {
 
             //int playerID = peersInfo.Where(elem => elem.Item3 == playerName).First().Item4;
-           // int playerID = myPeerInfo.PlayerInfo.PlayerId;
+            // int playerID = myPeerInfo.PlayerInfo.PlayerId;
+            string req;
+            MessageParser.ParseNext(msg, out req, out msg);
 
-            if (msg.StartsWith(Request.TURN)) {
+            if (req == Request.TURN) {
                 Random rnd = new Random();
                 int dice = rnd.Next(1, 7);
-                msg += " " + myPeerInfo.PlayerInfo.Name + " " +
+                msg = req +  " " + myPeerInfo.PlayerInfo.Name + " " +
                    myPeerInfo.PlayerInfo.PlayerId + " " + dice;
 
                 if (myPeerInfo.PlayerInfo.Turn == 0) { 
@@ -546,73 +571,47 @@ namespace Client
                     
                     game.UpdateTurn();
                 }
-             
+                gameTimer.Change(Timeout.Infinite, Timeout.Infinite);
                 SendToAllPeers(msg);
+                
             }
-            else if (msg.StartsWith(Request.STRIKE))
+            else if (req == Request.STRIKE)
             {
-                SendToAllPeers(msg);
+                SendToAllPeers(req + " " + msg);
             }
-            else if (msg == Request.QUIT)
+            else if (req == Request.QUIT)
             {
-                msg += " " + myPeerInfo.PlayerInfo.PlayerId + " " + 0;
+                msg = req + " " + myPeerInfo.PlayerInfo.PlayerId + " " + 0;
                 SendToAllPeers(msg);
 
                 Dispose();
             }
-            else if (msg.StartsWith(Request.RECONNECTED))
+            else if (req == Request.RECONNECTED)
             {
                 
-                int status = SendToAllPeers(msg);
+                int status = SendToAllPeers(req + " " + msg);
                 return status;
                 
             }
             else
             {
                 
-                if (SendToAllPeers(msg) == -1)
+                if (SendToAllPeers(req + " " + msg) == -1)
                     return -1;
                 
             }
 
             return 0;     
         }
-        /// <summary>
-        /// Start the listener for peer
-        /// </summary>
-        public void StartListenPeers()
+        
+        public void TimesUp(object obj)
         {
-            /* Start Listeneting at the specified port */
-            try { 
-                _peerListener.Start();
-
-                Console.WriteLine("The peer is running at port {0}...", (_peerListener.LocalEndpoint as IPEndPoint).Port);
-                Console.WriteLine("The local End point is  :" + _peerListener.LocalEndpoint);
-
-                do
-                {
-
-                
-                    Console.WriteLine("Waiting for a connection...");
-                    TcpClient tcpclient = _peerListener.AcceptTcpClient();
-
-                    Thread connectionThread = new Thread(() => {
-                        EstablishConnection(tcpclient);
-                    });
-                    connectionThread.IsBackground = true;
-                    connectionThread.Start();
-                
-                } while (true);
-
-            }
-            catch (Exception)
+            Console.Write("{0} " , TimerTime--);
+            if(TimerTime <= 0)
             {
-                //Console.WriteLine(e.Message);
-                _peerListener.Stop();
-                //Console.WriteLine(e.StackTrace);
-                Console.WriteLine("You have quit the game!");
+                gameTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                TimerTime = TIMER_START_TIME;
             }
-
         }
 
         /// <summary>
@@ -681,6 +680,45 @@ namespace Client
                 respMsgFromServer = respMsgFromServer.Substring(0, respMsgFromServer.IndexOf("\0")).Trim();
                 Console.WriteLine("SERVER RESPONSE: " + respMsgFromServer);
             }
+        }
+
+        /// <summary>
+        /// Start the listener for peer
+        /// </summary>
+        public void StartListenPeers()
+        {
+            /* Start Listeneting at the specified port */
+            try
+            {
+                _peerListener.Start();
+
+                Console.WriteLine("The peer is running at port {0}...", (_peerListener.LocalEndpoint as IPEndPoint).Port);
+                Console.WriteLine("The local End point is  :" + _peerListener.LocalEndpoint);
+
+                do
+                {
+
+
+                    Console.WriteLine("Waiting for a connection...");
+                    TcpClient tcpclient = _peerListener.AcceptTcpClient();
+
+                    Thread connectionThread = new Thread(() => {
+                        EstablishConnection(tcpclient);
+                    });
+                    connectionThread.IsBackground = true;
+                    connectionThread.Start();
+
+                } while (true);
+
+            }
+            catch (Exception)
+            {
+                //Console.WriteLine(e.Message);
+                _peerListener.Stop();
+                //Console.WriteLine(e.StackTrace);
+                Console.WriteLine("You have quit the game!");
+            }
+
         }
 
         public void Dispose()
