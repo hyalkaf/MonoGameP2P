@@ -32,7 +32,9 @@ namespace Server
         public static readonly string[] arrayOfReplicaMessages = { "replica", "name", "session" };
         // Udp client listening for broadcast messages
         private readonly UdpClient udpBroadcast = new UdpClient(15000);
-
+        // IP Address for broadcasting
+        IPEndPoint sendingIP = new IPEndPoint(IPAddress.Broadcast, 15000);
+        IPEndPoint receivingIP = new IPEndPoint(IPAddress.Any, 0);
 
         // Request messsages between replicas and server
         const string REQ_REPLICA = "replica";
@@ -57,16 +59,15 @@ namespace Server
             //
             thisServer = replica;
             udpBroadcast.EnableBroadcast = true;
-            udpBroadcast.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            
+
             // Broadcast to local network trying to find if a primary exists or not.
             // Start Listening for udp broadcast messages
 
             new Thread(() =>
             {
-                while (true)
+                while(true)
                 {
-                    StartListeningUDP();
+                    StartListeningUdp();
                 }
             }).Start();
 
@@ -670,34 +671,49 @@ namespace Server
         private void Broadcast(string message)
         {
             // Initialize a new udp client
-            UdpClient client = new UdpClient();
+            UdpClient client = new UdpClient(AddressFamily.InterNetwork);
             client.EnableBroadcast = true;
-
-            // IP Address for broadcasting
-            IPEndPoint ip = new IPEndPoint(IPAddress.Broadcast, 15000);
 
             // Send a request message asking if primary exists.
             byte[] bytes = Encoding.ASCII.GetBytes(message);
 
             // Send message
-            client.Send(bytes, bytes.Length, ip);
+            client.Send(bytes, bytes.Length, sendingIP);
+
+            Console.WriteLine("I sent {0}", message);
 
             // Close client
             client.Close();
         }
 
-        /// <summary>
-        /// This method will start Listening for incoming requests to check if replica is primary or not
-        /// </summary>
-        private void StartListeningUDP()
-        {
-            // receive messages
+        //private void startlistening()
+        //{
+        //    this.udpbroadcast.beginreceive(receive, new object());
+        //}
 
-            IPEndPoint ip = new IPEndPoint(IPAddress.Any, 15000);
-            byte[] bytes = udpBroadcast.Receive(ref ip);
+        //private void receive(iasyncresult ar)
+        //{
+        //    ipendpoint ip = new ipendpoint(ipaddress.any, 0);
+        //    byte[] bytes = udpbroadcast.endreceive(ar, ref ip);
+        //    string message = encoding.ascii.getstring(bytes);
+        //    console.writeline("i received {0}", message);
+        //    if (!ip.address.equals(thisserver.ipaddr))  parsebroadcastmessages(message, ip);
+        //    startlistening();
+        //}
+
+        // <summary>
+        // this method will start listening for incoming requests to check if replica is primary or not
+        // </summary>
+        private void StartListeningUdp()
+        {
+            //receive messages
+
+
+            byte[] bytes = udpBroadcast.Receive(ref receivingIP);
             string message = Encoding.ASCII.GetString(bytes);
 
-            if (!ip.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, ip);
+            // todo: disable sending messages to yourself by default
+            if (!receivingIP.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
         }
 
         /// <summary>
