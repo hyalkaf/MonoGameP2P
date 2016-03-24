@@ -57,6 +57,8 @@ namespace Server
             //
             thisServer = replica;
             udpBroadcast.EnableBroadcast = true;
+            udpBroadcast.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            udpBroadcast.ExclusiveAddressUse = false; // only if you want to send/receive on same machine.
             // Broadcast to local network trying to find if a primary exists or not.
             // Start Listening for udp broadcast messages
 
@@ -690,7 +692,8 @@ namespace Server
         private void StartListeningUDP()
         {
             // receive messages
-            IPEndPoint ip = new IPEndPoint(thisServer.ipAddr, 15000);
+
+            IPEndPoint ip = new IPEndPoint(IPAddress.Any, 15000);
             byte[] bytes = udpBroadcast.Receive(ref ip);
             string message = Encoding.ASCII.GetString(bytes);
 
