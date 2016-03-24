@@ -24,6 +24,7 @@ namespace Client
             public const string RECONNECTED = "reconnected";
             public const string STRIKE = "strike";
             public const string RMPLAYER = "rmplayer";
+            public const string TIMEOUT = "timeout";
         }
 
         private static class Response
@@ -129,6 +130,7 @@ namespace Client
 
             while (true)
             {
+                try { 
                 if (NetworkInterface.GetIsNetworkAvailable())
                 {
                     Console.Write("Enter request (turn, quit): ");
@@ -167,6 +169,11 @@ namespace Client
                     }
 
                     
+                }
+                }
+                catch (Exception)
+                {
+                    break;
                 }
             }
         }
@@ -228,8 +235,8 @@ namespace Client
                 int playerId = int.Parse(str_playerId);
 
                 string diceRolled = reqMsg;
-
-                Player p = allPeersInfo.Where(pInfo => pInfo.PlayerInfo.PlayerId == playerId).First().PlayerInfo;
+                PeerInfo pi = allPeersInfo.Where(pInfo => pInfo.PlayerInfo.PlayerId == playerId).First();
+                Player p = pi.PlayerInfo;
 
 
                 if (p.Turn == 0)
@@ -254,7 +261,13 @@ namespace Client
                 {
                     responseMessage = Response.ERROR + " " + Request.TURN + " Hey " + playerName + ", it's not your turn yet";
                 }
-                
+
+                // UPdate IP just in case if IP changes
+                if (pi.IPAddr != (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address)
+                {
+                    pi.IPAddr = (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address;
+                }
+
             }
             else if (reqType == Request.QUIT)
             {
@@ -286,6 +299,7 @@ namespace Client
                 int playerId = int.Parse(str_playerId);
 
                 StrikePlayer(playerId);
+
             }else if (reqType == Request.RECONNECTED)
             {
                 string playerId;
@@ -302,6 +316,11 @@ namespace Client
 
                 Console.WriteLine("("+playerId+")"+reconnectedPeer.PlayerInfo.Name + " reconnected!");
 
+            }else if (reqType == Request.TIMEOUT)
+            {
+
+                responseMessage = Response.SUCCESS + " " + Request.TIMEOUT;
+                
             }
 
 
@@ -320,14 +339,13 @@ namespace Client
             string[] allResponseMsgs = new string[allPeersInfo.Count];
             string reqType = "";
             Object msgLock = new Object();
-            var responseCounterFlag = 0;
+            var responseCounterFlag = allPeersInfo.Count;
             int playerToBeStriked = -1;
-            if (msg.StartsWith(Request.STRIKE))
+            if (msg.StartsWith(Request.STRIKE) || msg.StartsWith(Request.TIMEOUT))
             {
-                playerToBeStriked = int.Parse(msg.Substring(Request.STRIKE.Length).Trim());
+                playerToBeStriked = int.Parse(msg.Substring(msg.IndexOf(" ")).Trim());
 
             }
-
 
 
             // Multicast message to all peers
@@ -365,7 +383,7 @@ namespace Client
                                 SendRequestPeers(Request.STRIKE + " " + aPeer.PlayerInfo.PlayerId);
 
                                 StrikePlayer(i);
-
+                                responseCounterFlag--;
                                 return;
                             }
                         }
@@ -397,16 +415,16 @@ namespace Client
 
                     if (respType == Response.SUCCESS)
                     {
-                        responseCounterFlag++;
+                        responseCounterFlag--;
   
                         MessageParser.ParseNext(respMsg, out reqType, out respMsg);
                         if (reqType == Request.RECONNECTED)
                         { 
                             allResponseMsgs[i] = respMsg;
       
-                        }else if (reqType == Request.TURN)
+                        }else if (reqType == Request.TIMEOUT)
                         {
-                            
+                            allResponseMsgs[i] = respMsg;
                         }
 
 
@@ -470,6 +488,29 @@ namespace Client
             {
                 TimerTime = TIMER_START_TIME;
                 gameTimer.Change(1000, 1000);
+            }
+            else if (reqType == Request.TIMEOUT)
+            {
+                int c = 0;
+                for (int m = 0; m < allResponseMsgs.Length; m++)
+                {
+                    if(allResponseMsgs[m] != null)
+                    {
+                        c++;
+                    }
+                    
+                }
+
+                if ((allPeersInfo.Count - responseCounterFlag - 2) <= c)
+                {
+                   
+                    return 0;
+                }
+                else
+                {
+                    return -1;
+                }
+
             }
 
 
@@ -593,6 +634,28 @@ namespace Client
                 return status;
                 
             }
+            else if (req == Request.TIMEOUT)
+            {
+                int status = SendToAllPeers(req + " " + msg);
+                if (status == 0)
+                {
+                    string playerId = msg;
+
+                    StrikePlayer(int.Parse(playerId));
+
+                    game.UpdateTurn();
+
+
+                }
+                try { 
+                    TimerTime = TIMER_START_TIME;
+                     gameTimer.Change(1000, 1000);
+                }
+                catch (Exception)
+                {
+                    throw new Exception();
+                }
+            }
             else
             {
                 
@@ -611,7 +674,9 @@ namespace Client
             {
                 gameTimer.Change(Timeout.Infinite, Timeout.Infinite);
                 TimerTime = TIMER_START_TIME;
-                
+
+                SendRequestPeers(Request.TIMEOUT + " " + (allPeersInfo.Find(p => p.PlayerInfo.Turn == 0)).PlayerInfo.PlayerId);
+
             }
         }
 
@@ -621,7 +686,7 @@ namespace Client
         /// <param name="playerId"></param>
         private void StrikePlayer(int playerId)
         {
-            PeerInfo playerToBeStriked = allPeersInfo.Where(peer => peer.PlayerInfo.PlayerId == playerId).First();
+            PeerInfo playerToBeStriked = allPeersInfo.Find(peer => peer.PlayerInfo.PlayerId == playerId);
 
             if (playerToBeStriked.IsStrikeOutOnNextAdd())
             {
@@ -633,7 +698,7 @@ namespace Client
 
                 int strikeNum = playerToBeStriked.AddStrike();
 
-                Console.WriteLine("Player " + playerToBeStriked + " strike " + strikeNum);
+                Console.WriteLine("\nPlayer " + playerToBeStriked + " strike " + strikeNum+"\n");
             }
         }
 
@@ -643,7 +708,13 @@ namespace Client
             allPeersInfo.Remove(peerToBeRemoved);
 
             game.RemovePlayer(peerToBeRemoved.PlayerInfo);
-           
+
+            if (peerToBeRemoved == myPeerInfo)
+            {
+                Dispose();
+                return;
+            }
+
             Console.WriteLine(game);
 
             bool iAmLeader = true;
@@ -681,6 +752,8 @@ namespace Client
                 respMsgFromServer = respMsgFromServer.Substring(0, respMsgFromServer.IndexOf("\0")).Trim();
                 Console.WriteLine("SERVER RESPONSE: " + respMsgFromServer);
             }
+
+
         }
 
         /// <summary>
@@ -725,7 +798,7 @@ namespace Client
         public void Dispose()
         {
             _peerListener.Stop();
-
+            gameTimer.Dispose();
             allPeersInfo = null;
         }
 

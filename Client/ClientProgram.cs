@@ -110,7 +110,7 @@ namespace Client
             //}
 
             bool connected = true;
-            int tryTimes = 4;
+            int tryTimes = 15;
             do
             {
                 client = new TcpClient();
