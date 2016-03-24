@@ -9,9 +9,21 @@ namespace Client
 {
     public class Player
     {
-        private string name;
-        private int id = -1;
-        private int inGamePosition = -1;
+
+        public int PlayerId { get; set; }
+        public string Name { get; set; }
+        public int Position { get; set; }
+
+        public int Turn
+        {
+            get { return inGameTurn; }
+            set
+            {
+                inGameTurn = value;
+                Console.Write("Until " + value + " is " + Name + "'s turn. ");
+            }
+        }
+
         private int inGameTurn = -1;
         /// <summary>
         /// 
@@ -20,40 +32,18 @@ namespace Client
         /// <param name="playerId"></param>
         public Player(string playername, int playerId)
         {
-            name = playername;
-            id = playerId;
+            Name = playername;
+            PlayerId = playerId;
         }
 
         public Player(string playername)
         {
-            name = playername;
+            Name = playername;
+            PlayerId = -1;
         }
 
 
-        public int PlayerId
-        {
-            get { return id; }
-            set { id = value; }
-        }
-
-        public int Position {
-            get { return inGamePosition; }
-            set { inGamePosition = value; }
-        }
-
-        public string Name {
-            get { return name; }
-            set { name = value; }
-        }
-
-        public int Turn
-        {
-            get { return inGameTurn; }
-            set {
-                inGameTurn = value;
-                Console.Write("Until " + value + " is " + Name + "'s turn. ");
-            }
-        }
+       
 
     }
 }

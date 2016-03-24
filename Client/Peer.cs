@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -74,10 +75,15 @@ namespace Client
             }
 
             InitializeGameState();
-
-            if (reconnect)
+            bool synced = false;
+            while (reconnect && !synced)
             {
-                SendRequestPeers(Request.RECONNECTED + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.IPAddr);
+                Console.WriteLine("Syncing game state...");
+                int status = SendRequestPeers(Request.RECONNECTED + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.IPAddr);
+                if(status == 0)
+                {
+                    synced = true;
+                }
             }
         }
 
@@ -101,37 +107,76 @@ namespace Client
             }
         }
 
+
+
         public void StartPeerCommunication()
         {
 
-            new Thread(() => {
+            Thread listenerThread =  new Thread(() => {
                 Console.WriteLine("\nDEBUG: Peer listener starts");
                 StartListenPeers();
-            }).Start();
+            });
+            listenerThread.IsBackground = true;
+            listenerThread.Start();
 
             while (true)
             {
-
-                Console.Write("Enter request (turn, quit): ");
-                string req = Console.ReadLine();
-                req = req.Trim().ToLower();
-
-                try
+                if (NetworkInterface.GetIsNetworkAvailable())
                 {
-                                    
-                    if (SendRequestPeers(req) == -1) { Console.WriteLine("INVALID INPUT (turn or quit)"); }
+                    Console.Write("Enter request (turn, quit): ");
+                    string req = Console.ReadLine();
+                    req = req.Trim().ToLower();
+
+                    if (NetworkInterface.GetIsNetworkAvailable())
+                    {
+                        try
+                        {
+                            if (SendRequestPeers(req) == -1) { Console.WriteLine("INVALID INPUT (turn or quit)"); }
+                        }
+                        catch (Exception)
+                        {
+                            listenerThread.Abort();
+                            break;
+                        }
+                    }
 
                     if (req == Request.QUIT)
                     {
+                        listenerThread.Abort();
                         break;
                     }
-                }
-                catch (Exception)
-                {
-                    break;
-                }
 
+                    
+                    if (!NetworkInterface.GetIsNetworkAvailable())
+                    {
+                        Console.Write("No network connection! Retry? (Y/N): ");
+                        var retry = Console.ReadLine();
+                        if (retry.Trim().ToLower() == "N")
+                        {
+                            listenerThread.Abort();
+                            break;
+                        }
+                    }
+
+                    
+                }
             }
+        }
+
+
+        private string CurrentStateString()
+        {
+            string msg = "";
+            string peerinfos = "";
+            string gamestatus = "";
+            foreach (PeerInfo pi in allPeersInfo)
+            {
+                peerinfos += pi.IPAddr + " " + pi.Port + " " + pi.PlayerInfo.Name + " " + pi.PlayerInfo.PlayerId + " " + pi.Strike + ",";
+                gamestatus += pi.PlayerInfo.PlayerId + " " + pi.PlayerInfo.Position + " " + pi.PlayerInfo.Turn + ",";
+            }
+            msg += peerinfos + "\n" + gamestatus;
+
+            return msg;
         }
 
         /// <summary>
@@ -229,6 +274,19 @@ namespace Client
                 StrikePlayer(playerId);
             }else if (reqType == Request.RECONNECTED)
             {
+                string playerId;
+
+                MessageParser.ParseNext(reqMsg, out playerId, out reqMsg);
+                PeerInfo reconnectedPeer = allPeersInfo.Find(peer => peer.PlayerInfo.PlayerId == int.Parse(playerId));
+                reconnectedPeer.ResetStrike();
+                if(reconnectedPeer.IPAddr != (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address)
+                {
+                    reconnectedPeer.IPAddr = (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address;
+                }
+
+                responseMessage = Response.SUCCESS + " " + Request.RECONNECTED + " " + CurrentStateString();
+
+                Console.WriteLine("("+playerId+")"+reconnectedPeer.PlayerInfo.Name + " reconnected!");
 
             }
 
@@ -242,9 +300,12 @@ namespace Client
         /// 
         /// </summary>
         /// <param name="msg"></param>
-        private void SendToAllPeers(string msg)
+        private int SendToAllPeers(string msg)
         {
             TcpClient[] allPeerTcpClient = new TcpClient[allPeersInfo.Count];
+            string[] allResponseMsgs = new string[allPeersInfo.Count];
+            string reqType = "";
+            Object msgLock = new Object();
             var responseCounterFlag = 0;
             int playerToBeStriked = -1;
             if (msg.StartsWith(Request.STRIKE))
@@ -253,10 +314,12 @@ namespace Client
 
             }
 
+
+
             // Multicast message to all peers
             Parallel.For(0, allPeerTcpClient.Count(), i => {
                 // Check if peersInfo is not you and then send info
-                PeerInfo aPeer = allPeersInfo[i];
+               PeerInfo aPeer = allPeersInfo[i];
                
 
                if (aPeer.PlayerInfo.Name != myPeerInfo.PlayerInfo.Name &&
@@ -321,13 +384,23 @@ namespace Client
                     if (respType == Response.SUCCESS)
                     {
                         responseCounterFlag++;
-                        Console.WriteLine(responseMessage);
+  
+                        MessageParser.ParseNext(respMsg, out reqType, out respMsg);
+                        if (reqType == Request.RECONNECTED)
+                        { 
+                            allResponseMsgs[i] = respMsg;
+      
+                        }
+                        else
+                        {
+                            Console.WriteLine(responseMessage);
+                        }
                     }
                     else if (respType == Response.FAILURE)
                     {
                         if(respMsg == Response.UNKNOWN)
                         {
-                            throw new Exception();
+                           
                         }
                     }
                     else if (respType == Response.ERROR)
@@ -346,6 +419,105 @@ namespace Client
                 }
 
             });
+
+            if (reqType == Request.RECONNECTED)
+            {
+                for (int m = 0; m < allResponseMsgs.Length; m++)
+                {
+                    for (int n = m; n < allResponseMsgs.Length; n++)
+                    {
+                        if (m != myPeerInfo.PlayerInfo.PlayerId && 
+                            n != myPeerInfo.PlayerInfo.PlayerId &&
+                            m != n)
+                        {
+                            if(allResponseMsgs[m] != allResponseMsgs[n])
+                            {
+                                Console.WriteLine("State unsynced!!");
+                                return -1;
+                            }
+                        }
+                    }
+                }
+
+                string[] messages = allResponseMsgs[0].Split('\n');
+                string strPeerInfos = messages[0];
+                string strGameState = messages[1];
+                Console.WriteLine("TEST! " + strPeerInfos);
+                Console.WriteLine("TEST! " + strGameState);
+                SyncPeersState(strPeerInfos);
+                SyncGameState(strGameState);
+                Console.WriteLine(game);
+ 
+            }
+
+
+
+            return 0;
+
+        }
+
+        /// <summary>
+        /// Sync game state
+        /// </summary>
+        /// <param name="strState"></param>
+        private void SyncGameState(string strState)
+        {
+            string[] playerInfos = strState.Split(',');
+            foreach (string info in playerInfos)
+            {
+                string pInfo = info.Trim();
+                if (pInfo != String.Empty)
+                {
+                    string id, pos, turn;
+                    MessageParser.ParseNext(pInfo, out id, out pInfo);
+                    MessageParser.ParseNext(pInfo, out pos, out turn);
+                    Player player = allPeersInfo.Find(p => p.PlayerInfo.PlayerId == int.Parse(id)).PlayerInfo;
+                    player.Position = int.Parse(pos);
+                    player.Turn = int.Parse(turn);
+
+                    game.UpdatePlayer(player);
+
+                }
+            }
+        }
+        /// <summary>
+        /// Sync peer info list 
+        /// </summary>
+        /// <param name="strState"></param>
+        private void SyncPeersState(string strState)
+        {
+            string[] peerInfos = strState.Split(',');
+     
+            foreach(string info in peerInfos)
+            {
+                string pInfo = info.Trim();
+                if (pInfo != String.Empty)
+                {
+                    string ip, port, name, id, strike;
+                    MessageParser.ParseNext(pInfo, out ip, out pInfo);
+                    MessageParser.ParseNext(pInfo, out port, out pInfo);
+                    MessageParser.ParseNext(pInfo, out name, out pInfo);
+                    MessageParser.ParseNext(pInfo, out id, out strike);
+
+                    PeerInfo aPeer = allPeersInfo.Find(p => p.PlayerInfo.PlayerId == int.Parse(id) && p.PlayerInfo.Name == name);
+                    if(aPeer != myPeerInfo) { 
+                        if(aPeer.IPAddr != IPAddress.Parse(ip))
+                        {
+                            aPeer.IPAddr = IPAddress.Parse(ip);
+
+                        }
+                        if(aPeer.Port != int.Parse(port))
+                        {
+                            aPeer.Port = int.Parse(port);
+                        }
+                        if(aPeer.Strike != int.Parse(strike))
+                        {
+                            aPeer.Strike = int.Parse(strike);
+                        }
+
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -391,22 +563,24 @@ namespace Client
             }
             else if (msg.StartsWith(Request.RECONNECTED))
             {
-                SendToAllPeers(msg);
+                
+                int status = SendToAllPeers(msg);
+                return status;
+                
             }
             else
             {
-                try { 
-                SendToAllPeers(msg);
-                }
-                catch (Exception)
-                {
+                
+                if (SendToAllPeers(msg) == -1)
                     return -1;
-                }
+                
             }
 
             return 0;     
         }
-
+        /// <summary>
+        /// Start the listener for peer
+        /// </summary>
         public void StartListenPeers()
         {
             /* Start Listeneting at the specified port */
@@ -442,6 +616,10 @@ namespace Client
 
         }
 
+        /// <summary>
+        /// Strike the player if the player is unresponsive
+        /// </summary>
+        /// <param name="playerId"></param>
         private void StrikePlayer(int playerId)
         {
             PeerInfo playerToBeStriked = allPeersInfo.Where(peer => peer.PlayerInfo.PlayerId == playerId).First();
