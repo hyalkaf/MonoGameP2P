@@ -114,14 +114,16 @@ namespace Client
             do
             {
                 client = new TcpClient();
+             
                 try
                 {
                     connected = true;
                     Console.WriteLine("Connecting to Server.....");
 
                     // Connect to the server
-                    client.Connect(SERVER_IP, 8001);
-                }catch (Exception)
+                    client.ConnectAsync(SERVER_IP, 8001).Wait(1500);
+                }
+                catch (Exception)
                 {
                     Console.WriteLine("Retrying...");
                     connected = false;
@@ -143,7 +145,7 @@ namespace Client
 
                             SERVER_IP = result;
                         }
-                        
+                        tryTimes = 4;
                     }
                 }
 

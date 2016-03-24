@@ -336,7 +336,7 @@ namespace Client
                         try
                         {
 
-                            allPeerTcpClient[i].Connect(allPeersInfo[i].IPAddr, aPeer.Port);
+                            allPeerTcpClient[i].ConnectAsync(allPeersInfo[i].IPAddr, aPeer.Port).Wait(1500);
                         }
                         catch (Exception)
                         {
@@ -443,8 +443,6 @@ namespace Client
                 string[] messages = allResponseMsgs[0].Split('\n');
                 string strPeerInfos = messages[0];
                 string strGameState = messages[1];
-                Console.WriteLine("TEST! " + strPeerInfos);
-                Console.WriteLine("TEST! " + strGameState);
                 SyncPeersState(strPeerInfos);
                 SyncGameState(strGameState);
                 Console.WriteLine(game);
