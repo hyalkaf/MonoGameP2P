@@ -69,7 +69,7 @@ namespace Server
             }).Start();
 
             // TODO: Send multiple times for udp
-            timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 1000, Timeout.Infinite);
+            timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 5000, Timeout.Infinite);
             Broadcast("isPrimary");
             
             // Run listening on its own thread
