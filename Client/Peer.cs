@@ -611,6 +611,7 @@ namespace Client
             {
                 gameTimer.Change(Timeout.Infinite, Timeout.Infinite);
                 TimerTime = TIMER_START_TIME;
+                
             }
         }
 
