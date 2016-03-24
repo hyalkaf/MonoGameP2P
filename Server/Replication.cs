@@ -687,7 +687,7 @@ namespace Server
 
         private void Receive(IAsyncResult ar)
         {
-            IPEndPoint ip = new IPEndPoint(IPAddress.Any, 15000);
+            IPEndPoint ip = new IPEndPoint(IPAddress.Any, 0);
             byte[] bytes = udpBroadcast.EndReceive(ar, ref ip);
             string message = Encoding.ASCII.GetString(bytes);
             Console.WriteLine("I received {0}", message);
