@@ -63,13 +63,7 @@ namespace Server
             // Broadcast to local network trying to find if a primary exists or not.
             // Start Listening for udp broadcast messages
 
-            new Thread(() =>
-            {
-                while (true)
-                {
-                    StartListeningUDP();
-                }
-            }).Start();
+            StartListening();
 
             // TODO: Send multiple times for udp
             timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 10000, Timeout.Infinite);
@@ -684,19 +678,34 @@ namespace Server
             client.Close();
         }
 
+        private void StartListening()
+        {
+            this.udpBroadcast.BeginReceive(Receive, new object());
+        }
+
+        private void Receive(IAsyncResult ar)
+        {
+            IPEndPoint ip = new IPEndPoint(IPAddress.Any, 15000);
+            byte[] bytes = udpBroadcast.EndReceive(ar, ref ip);
+            string message = Encoding.ASCII.GetString(bytes);
+            if (!ip.Address.Equals(thisServer.ipAddr))  ParseBroadcastMessages(message, ip);
+            StartListening();
+        }
+
         /// <summary>
         /// This method will start Listening for incoming requests to check if replica is primary or not
         /// </summary>
-        private void StartListeningUDP()
-        {
-            // receive messages
-            
-            byte[] bytes = udpBroadcast.Receive(ref receivingIP);
-            string message = Encoding.ASCII.GetString(bytes);
+        //private void StartListeningUDP()
+        //{
+        //    receive messages
 
-            // TODO: Disable sending messages to yourself by default
-            if (!receivingIP.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
-        }
+
+        //    byte[] bytes = udpBroadcast.Receive(ref receivingIP);
+        //    string message = Encoding.ASCII.GetString(bytes);
+
+        //    TODO: Disable sending messages to yourself by default
+        //    if (!receivingIP.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
+        //}
 
         /// <summary>
         /// This method will parse incoming requests that are sent using broadcase udp.
