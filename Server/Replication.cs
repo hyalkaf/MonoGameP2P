@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Server
 {
-        
+
     public class ReplicationManager
     {
         // Primary server ip address
@@ -18,7 +18,7 @@ namespace Server
         // CH: This way of storing all replicas might not be viable
         public static List<ServerProgram> listReplicas = new List<ServerProgram>();
         // CH: New way of storing replicas (IPAddress, Bool: online status)
-        public static List<Tuple<IPAddress,bool>> allReplicaAddr = new List<Tuple<IPAddress,bool>>();
+        public static List<Tuple<IPAddress, bool>> allReplicaAddr = new List<Tuple<IPAddress, bool>>();
         // replica TCP Client for sending requests to primary server
         private TcpClient replicaClient;
         // Timer for running a check agansit the primary server.
@@ -59,7 +59,7 @@ namespace Server
 
             // Broadcast to local network trying to find if a primary exists or not.
             // Start Listening for udp broadcast messages
-            
+
             new Thread(() =>
             {
                 while (true)
@@ -70,8 +70,10 @@ namespace Server
 
             // TODO: Send multiple times for udp
             timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 5000, Timeout.Infinite);
-            Broadcast("isPrimary");
-            
+            for (int i = 0; i < 3; i++)
+            {
+                Broadcast("isPrimary");
+            }
             // Run listening on its own thread
             new Thread(() =>
             {
