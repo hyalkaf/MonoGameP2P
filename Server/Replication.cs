@@ -71,7 +71,7 @@ namespace Server
             }).Start();
 
             // TODO: Send multiple times for udp
-            timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 5000, Timeout.Infinite);
+            timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 10000, Timeout.Infinite);
             for (int i = 0; i < 3; i++)
             {
                 Broadcast("isPrimary");
