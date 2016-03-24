@@ -70,7 +70,7 @@ namespace Server
             }).Start();
 
             // TODO: Send multiple times for udp
-            timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 10000, Timeout.Infinite);
+            //timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 10000, Timeout.Infinite);
             for (int i = 0; i < 3; i++)
             {
                 Broadcast("isPrimary");
@@ -717,7 +717,7 @@ namespace Server
             }
             else if (receivedMessage.StartsWith("primary"))
             {
-                timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
+                //timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
                 // Make this server a backup
                 thisServer.isPrimaryServer = false;
 
@@ -728,7 +728,7 @@ namespace Server
             }
             else 
             {
-                timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
+                //timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
 
                 thisServer.isPrimaryServer = true;
                 primaryServerIp = thisServer.ipAddr;
