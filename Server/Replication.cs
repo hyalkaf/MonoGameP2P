@@ -674,6 +674,8 @@ namespace Server
             // Send message
             client.Send(bytes, bytes.Length, sendingIP);
 
+            Console.WriteLine("I sent {0}", message);
+
             // Close client
             client.Close();
         }
@@ -688,6 +690,7 @@ namespace Server
             IPEndPoint ip = new IPEndPoint(IPAddress.Any, 15000);
             byte[] bytes = udpBroadcast.EndReceive(ar, ref ip);
             string message = Encoding.ASCII.GetString(bytes);
+            Console.WriteLine("I received {0}", message);
             if (!ip.Address.Equals(thisServer.ipAddr))  ParseBroadcastMessages(message, ip);
             StartListening();
         }
