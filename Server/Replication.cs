@@ -59,11 +59,17 @@ namespace Server
             //
             thisServer = replica;
             udpBroadcast.EnableBroadcast = true;
-            
+
             // Broadcast to local network trying to find if a primary exists or not.
             // Start Listening for udp broadcast messages
 
-            StartListening();
+            new Thread(() =>
+            {
+                while(true)
+                {
+                    StartListeningUdp();
+                }
+            }).Start();
 
             // TODO: Send multiple times for udp
             timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 10000, Timeout.Infinite);
@@ -680,35 +686,35 @@ namespace Server
             client.Close();
         }
 
-        private void StartListening()
-        {
-            this.udpBroadcast.BeginReceive(Receive, new object());
-        }
-
-        private void Receive(IAsyncResult ar)
-        {
-            IPEndPoint ip = new IPEndPoint(IPAddress.Any, 0);
-            byte[] bytes = udpBroadcast.EndReceive(ar, ref ip);
-            string message = Encoding.ASCII.GetString(bytes);
-            Console.WriteLine("I received {0}", message);
-            if (!ip.Address.Equals(thisServer.ipAddr))  ParseBroadcastMessages(message, ip);
-            StartListening();
-        }
-
-        /// <summary>
-        /// This method will start Listening for incoming requests to check if replica is primary or not
-        /// </summary>
-        //private void StartListeningUDP()
+        //private void startlistening()
         //{
-        //    receive messages
-
-
-        //    byte[] bytes = udpBroadcast.Receive(ref receivingIP);
-        //    string message = Encoding.ASCII.GetString(bytes);
-
-        //    TODO: Disable sending messages to yourself by default
-        //    if (!receivingIP.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
+        //    this.udpbroadcast.beginreceive(receive, new object());
         //}
+
+        //private void receive(iasyncresult ar)
+        //{
+        //    ipendpoint ip = new ipendpoint(ipaddress.any, 0);
+        //    byte[] bytes = udpbroadcast.endreceive(ar, ref ip);
+        //    string message = encoding.ascii.getstring(bytes);
+        //    console.writeline("i received {0}", message);
+        //    if (!ip.address.equals(thisserver.ipaddr))  parsebroadcastmessages(message, ip);
+        //    startlistening();
+        //}
+
+        // <summary>
+        // this method will start listening for incoming requests to check if replica is primary or not
+        // </summary>
+        private void StartListeningUdp()
+        {
+            //receive messages
+
+
+            byte[] bytes = udpBroadcast.Receive(ref receivingIP);
+            string message = Encoding.ASCII.GetString(bytes);
+
+            // todo: disable sending messages to yourself by default
+            if (!receivingIP.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
+        }
 
         /// <summary>
         /// This method will parse incoming requests that are sent using broadcase udp.
