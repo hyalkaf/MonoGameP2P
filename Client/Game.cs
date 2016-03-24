@@ -59,13 +59,7 @@ namespace Game
             Board[cur_loc].Remove(current_player);
             //update player loction, move and turn
             current_player.Position = new_loc;
-            //if turn is 0 set turn to max players
-            //if (current_player.Turn == 0)
-            //    current_player.Turn = MAX_PLAYERS-1;
-            ////otherwise decrement turn
-            //else
-            //    current_player.Turn -= 1;
-            //put current player on new board spac
+
             Board[new_loc].Add(current_player);
 
         }
@@ -87,7 +81,7 @@ namespace Game
         }
 
         //clear all players from all spaces, used if update is needed
-        public void clear_board()
+        public void ClearBoard()
         {
             for (int i = 0; i < Board.Length; i++)
             {
@@ -96,8 +90,16 @@ namespace Game
         }
 
         //updated player is added to correct place on board
-        public void update_player(Player p)
+        public void UpdatePlayer(Player p)
         {
+            foreach(List<Player> players in Board)
+            {
+                if (players.Remove(p))
+                {
+                    break;
+                }
+            }
+
             Board[p.Position].Add(p);
         }
 
@@ -160,5 +162,6 @@ namespace Game
             }
         }
 
+       
     }
 }

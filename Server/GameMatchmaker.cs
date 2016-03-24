@@ -58,26 +58,6 @@ namespace Server
 
         }
 
-        //public int RemovePlayerFromQueue(string playername)
-        //{
-        //    lock (queueLock)
-        //    {
-        //        for (int i = 0; i < clientsWaitingForGame.Count; i++)
-        //        {
-        //            ConcurrentQueue<ClientInfo> q = clientsWaitingForGame[i];
-        //            List<ClientInfo> lstQueue = q.ToList();
-        //            ClientInfo aPlayer = lstQueue.Find(ci => ci.PlayerName == playername);
-        //            if (aPlayer != null) {
-        //                lstQueue.Remove(aPlayer);
-        //                clientsWaitingForGame[i] = new ConcurrentQueue<ClientInfo>(lstQueue);
-        //                return i;
-        //            }
-        //        }
-        //    }
-        //    return -1;
-
-        //}
-
         public void AddPlayerToQueue(ClientInfo player, int queueNum)
         {
             if (queueNum >= clientsWaitingForGame.Count)

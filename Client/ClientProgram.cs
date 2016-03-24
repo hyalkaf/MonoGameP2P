@@ -110,6 +110,7 @@ namespace Client
             //}
 
             bool connected = true;
+            int tryTimes = 4;
             do
             {
                 client = new TcpClient();
@@ -122,8 +123,28 @@ namespace Client
                     client.Connect(SERVER_IP, 8001);
                 }catch (Exception)
                 {
+                    Console.WriteLine("Retrying...");
                     connected = false;
+                    tryTimes--;
                     client.Close();
+                    if (tryTimes < 1)
+                    {
+                        Console.Write("Did you have the wrong Server IP Address? (Press Enter or enter new IP Address: )");
+                        string result = Console.ReadLine();
+
+                        IPAddress newip;
+                        if(result.Trim() != String.Empty)
+                        {
+                            while(!IPAddress.TryParse(result,out newip))
+                            {
+                                Console.Write("Invalid IP address, Please enter again: ");
+                                result = Console.ReadLine();
+                            }
+
+                            SERVER_IP = result;
+                        }
+                        
+                    }
                 }
 
             } while (!connected);
