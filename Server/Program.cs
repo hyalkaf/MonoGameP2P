@@ -23,6 +23,7 @@ namespace Server
             public const string CHECKNAME = "checkname";
             public const string RECONN = "reconn";
             public const string SERVRECONN = "servreconn";
+            public const string RMPLAYER = "rmplayer";
         }
 
        
@@ -389,7 +390,29 @@ namespace Server
                     connectedClients.Remove(aConnectedClient);
                     tcpclient.Close();
                 }
-            } else
+            }else if (requestType == Request.RMPLAYER){
+                string playername, gameSessionId;
+
+                MessageParser.ParseNext(requestMessage, out playername, out gameSessionId);
+
+                GameSession gs = _gameMatchmaker.GetGameSession(int.Parse(gameSessionId));
+                gs.RemovePlayer(playername);
+
+                responseMessage = Response.SUCCESS + " " + Request.RMPLAYER;
+
+                Console.WriteLine("DEBUG: Response sent: " + responseMessage);
+
+                byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
+                netStream.Write(byteToSend, 0, byteToSend.Length);
+
+                if (connectedClients.Exists(client => client == aConnectedClient))
+                {
+                    connectedClients.Remove(aConnectedClient);
+                    tcpclient.Close();
+                }
+            }
+
+            else
             {
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 

@@ -23,6 +23,7 @@ namespace Client
             public const string QUIT = "quit";
             public const string RECONNECTED = "reconnected";
             public const string STRIKE = "strike";
+            public const string RMPLAYER = "rmplayer";
         }
 
         private static class Response
@@ -640,7 +641,6 @@ namespace Client
 
         private void RemovePeerFromGame(PeerInfo peerToBeRemoved)
         {
-            
 
             allPeersInfo.Remove(peerToBeRemoved);
 
@@ -660,9 +660,28 @@ namespace Client
 
             if (iAmLeader)
             {
-                TcpClient toServerClient = new TcpClient();
-                /*TODO Send to server to update game session*/
-                
+                TcpClient toServerClient ;
+
+                toServerClient = new TcpClient();
+                toServerClient.Connect(ClientProgram.SERVER_IP, 8001);
+
+                NetworkStream netStream = toServerClient.GetStream();
+
+                byte[] bytesToSend = Encoding.ASCII.GetBytes(Request.RMPLAYER + " " + peerToBeRemoved.PlayerInfo.Name + " " + peerToBeRemoved.GameSessionId);
+                Console.Write("Sending to server: Removing peer {0} from game session...", peerToBeRemoved.PlayerInfo.PlayerId);
+                netStream.Write(bytesToSend, 0, bytesToSend.Length);
+
+                //byte[] buffer = new byte[2048];
+                toServerClient.ReceiveBufferSize = 2048;
+                byte[] bytesRead = new byte[toServerClient.ReceiveBufferSize];
+
+                //   bytesRead = s.Receive(buffer);
+                netStream.Read(bytesRead, 0, (int)toServerClient.ReceiveBufferSize);
+                Console.WriteLine("... OK!");
+
+                string respMsgFromServer = Encoding.ASCII.GetString(bytesRead);
+                respMsgFromServer = respMsgFromServer.Substring(0, respMsgFromServer.IndexOf("\0")).Trim();
+                Console.WriteLine("SERVER RESPONSE: " + respMsgFromServer);
             }
         }
 
