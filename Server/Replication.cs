@@ -22,7 +22,9 @@ namespace Server
         // replica TCP Client for sending requests to primary server
         private TcpClient replicaClient;
         // Timer for running a check agansit the primary server.
-        Timer timer;
+        Timer timerForChecking;
+        // Timer for 
+        Timer timerForFindingPrimary;
         // lock object for check messages so it won't continue sending messages on different threads
         private Object thisLock = new Object();
         private Object udpLock = new Object();
@@ -66,6 +68,8 @@ namespace Server
                 }
             }).Start();
 
+            // TODO: Send multiple times for udp
+            timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 1000, Timeout.Infinite);
             Broadcast("isPrimary");
             
             // Run listening on its own thread
@@ -87,8 +91,8 @@ namespace Server
                 // Add Primary server ip address to replica
                 allReplicaAddr.Add(new Tuple<IPAddress, bool>(primaryServerIp, true));
 
-                // Communicate with the primary server to get info about the game
-                timer = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+                // Timer for checking if primary is there
+                timerForChecking = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 // secondary replica sends a replica request
                 SendReplica(true);
@@ -633,7 +637,7 @@ namespace Server
             // TODO: change this to try Parse
             // primaryServerIp = IPAddress.Parse("162.246.157.120");
             thisServer.StartListen();
-            timer.Change(Timeout.Infinite, Timeout.Infinite);
+            timerForChecking.Change(Timeout.Infinite, Timeout.Infinite);
         }
 
         public bool IsPrimary()
@@ -704,11 +708,6 @@ namespace Server
                     // Send a response back 
                     Broadcast("primary");
                 }
-                else
-                {
-                    // Send that you are not primary
-                    Broadcast("notPrimary");
-                }
             }
             else if (receivedMessage.StartsWith("primary"))
             {
@@ -720,13 +719,22 @@ namespace Server
 
                 InitializeReplication(false);
             }
-            else if (receivedMessage.StartsWith("notPrimary"))
+            else 
             {
                 thisServer.isPrimaryServer = true;
                 primaryServerIp = thisServer.ipAddr;
 
                 InitializeReplication(true);
             }
+        }
+
+        private void timerCallBackForFindingPrimary(object state)
+        {
+            Console.WriteLine("I'm primary");
+            addReplica(thisServer);
+
+            thisServer.StartListen();
+            
         }
 
     }
