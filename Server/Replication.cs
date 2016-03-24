@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Server
 {
-        
+
     public class ReplicationManager
     {
         // Primary server ip address
@@ -18,11 +18,13 @@ namespace Server
         // CH: This way of storing all replicas might not be viable
         public static List<ServerProgram> listReplicas = new List<ServerProgram>();
         // CH: New way of storing replicas (IPAddress, Bool: online status)
-        public static List<Tuple<IPAddress,bool>> allReplicaAddr = new List<Tuple<IPAddress,bool>>();
+        public static List<Tuple<IPAddress, bool>> allReplicaAddr = new List<Tuple<IPAddress, bool>>();
         // replica TCP Client for sending requests to primary server
         private TcpClient replicaClient;
         // Timer for running a check agansit the primary server.
-        Timer timer;
+        Timer timerForChecking;
+        // Timer for 
+        Timer timerForFindingPrimary;
         // lock object for check messages so it won't continue sending messages on different threads
         private Object thisLock = new Object();
         private Object udpLock = new Object();
@@ -57,7 +59,7 @@ namespace Server
 
             // Broadcast to local network trying to find if a primary exists or not.
             // Start Listening for udp broadcast messages
-            
+
             new Thread(() =>
             {
                 while (true)
@@ -66,8 +68,12 @@ namespace Server
                 }
             }).Start();
 
-            Broadcast("isPrimary");
-            
+            // TODO: Send multiple times for udp
+            timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 5000, Timeout.Infinite);
+            for (int i = 0; i < 3; i++)
+            {
+                Broadcast("isPrimary");
+            }
             // Run listening on its own thread
             new Thread(() =>
             {
@@ -87,8 +93,8 @@ namespace Server
                 // Add Primary server ip address to replica
                 allReplicaAddr.Add(new Tuple<IPAddress, bool>(primaryServerIp, true));
 
-                // Communicate with the primary server to get info about the game
-                timer = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+                // Timer for checking if primary is there
+                timerForChecking = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 // secondary replica sends a replica request
                 SendReplica(true);
@@ -633,7 +639,7 @@ namespace Server
             // TODO: change this to try Parse
             // primaryServerIp = IPAddress.Parse("162.246.157.120");
             thisServer.StartListen();
-            timer.Change(Timeout.Infinite, Timeout.Infinite);
+            timerForChecking.Change(Timeout.Infinite, Timeout.Infinite);
         }
 
         public bool IsPrimary()
@@ -704,14 +710,10 @@ namespace Server
                     // Send a response back 
                     Broadcast("primary");
                 }
-                else
-                {
-                    // Send that you are not primary
-                    Broadcast("notPrimary");
-                }
             }
             else if (receivedMessage.StartsWith("primary"))
             {
+                timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
                 // Make this server a backup
                 thisServer.isPrimaryServer = false;
 
@@ -720,13 +722,27 @@ namespace Server
 
                 InitializeReplication(false);
             }
-            else if (receivedMessage.StartsWith("notPrimary"))
+            else 
             {
+                timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
+
                 thisServer.isPrimaryServer = true;
                 primaryServerIp = thisServer.ipAddr;
 
                 InitializeReplication(true);
             }
+        }
+
+        private void timerCallBackForFindingPrimary(object state)
+        {
+            thisServer.isPrimaryServer = true;
+            primaryServerIp = thisServer.ipAddr; 
+
+            Console.WriteLine("I'm primary");
+            addReplica(thisServer);
+
+            thisServer.StartListen();
+            
         }
 
     }
