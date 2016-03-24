@@ -711,7 +711,7 @@ namespace Server
 
             byte[] bytes = udpBroadcast.Receive(ref receivingIP);
             string message = Encoding.ASCII.GetString(bytes);
-
+            Console.WriteLine("I received {0}", message);
             // todo: disable sending messages to yourself by default
             if (!receivingIP.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
         }
