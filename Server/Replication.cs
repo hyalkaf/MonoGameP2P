@@ -697,7 +697,7 @@ namespace Server
             byte[] bytes = udpBroadcast.Receive(ref ip);
             string message = Encoding.ASCII.GetString(bytes);
 
-            ParseBroadcastMessages(message, ip);
+            if (!ip.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, ip);
         }
 
         /// <summary>
