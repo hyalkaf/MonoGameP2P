@@ -19,17 +19,20 @@ namespace Server
         public static List<ServerProgram> listReplicas = new List<ServerProgram>();
         // CH: New way of storing replicas (IPAddress, Bool: online status)
         public static List<Tuple<IPAddress,bool>> allReplicaAddr = new List<Tuple<IPAddress,bool>>();
-        // 
+        // replica TCP Client for sending requests to primary server
         private TcpClient replicaClient;
-        //
+        // Timer for running a check agansit the primary server.
         Timer timer;
-        //
+        // lock object for check messages so it won't continue sending messages on different threads
         private Object thisLock = new Object();
-        //
+        private Object udpLock = new Object();
+        // Requests to be sent from replica to primary server every time a new replica is initalized.
         public static readonly string[] arrayOfReplicaMessages = { "replica", "name", "session" };
+        // Udp client listening for broadcast messages
+        private readonly UdpClient udpBroadcast = new UdpClient(15000);
 
 
-        // Request messsage between replicas and server
+        // Request messsages between replicas and server
         const string REQ_REPLICA = "replica";
         const string REQ_ADDRESS = "address";
         const string REQ_NAMES = "name";
@@ -37,19 +40,57 @@ namespace Server
         const string REQ_CHECK = "check";
         const string RESP_SUCCESS = "success";
 
-
+        // Server program assoicated with this replication manager
         private ServerProgram thisServer;
-        public ReplicationManager()
+
+        /// <summary>
+        /// Main constructor for initalization for the replication manager. It will decide whether to start 
+        /// listening or not depdening on replica being primary or not as well as send initial requests
+        /// for backup replicas.
+        /// </summary>
+        /// <param name="replica"></param>
+        /// <param name="primaryServerIPAddress"></param>
+        public ReplicationManager(ServerProgram replica)
         {
-            Console.WriteLine("Testing");
+            //
+            thisServer = replica;
+
+            // Broadcast to local network trying to find if a primary exists or not.
+            // Start Listening for udp broadcast messages
+            
+            new Thread(() =>
+            {
+                while (true)
+                {
+                    StartListeningUDP();
+                }
+            }).Start();
+
+            Broadcast("isPrimary");
+            
+            // Run listening on its own thread
+            new Thread(() =>
+            {
+                ListenReplica();
+            }).Start();
+
+            
+            
         }
 
-        public ReplicationManager(ServerProgram replica, IPAddress primaryServerIPAddress)
+        /// <summary>
+        /// This method is used to initialize replication depedning on whether it's a server.
+        /// </summary>
+        /// <param name="isServerPrimary">A bool for whether server is primary or not.</param>
+        public void InitializeReplication(bool isServerPrimary)
         {
-            
-            // rmListener = new TcpListener();
-            primaryServerIp = primaryServerIPAddress;
-            if (!replica.isPrimaryServer)
+            // secondary replica sends a replica request
+            if (!isServerPrimary)
+            {
+                SendReplica(true);
+            }
+
+            if (!isServerPrimary)
             {
                 // Add Primary server ip address to replica
                 allReplicaAddr.Add(new Tuple<IPAddress, bool>(primaryServerIp, true));
@@ -59,27 +100,19 @@ namespace Server
             }
             else
             {
-                addReplica(replica);
-            }
-
-            thisServer = replica;
-            
-            // Run listening on its own thread
-            new Thread(() =>
-            {
-                ListenReplica();
-            }).Start();
-
-            // secondary replica sends a replica request
-            if (!replica.isPrimaryServer)
-            {
-                SendReplica(true);
+                addReplica(thisServer);
             }
         }
 
+        /// <summary>
+        /// This method is responsible for taking a socket connection and reciving coming message parse it and then send a response.
+        /// </summary>
+        /// <param name="sock">Socket that was listened on</param>
         public void EstablishConnection(Socket sock)
         {
             Console.WriteLine("Establishing Connection with {0} {1}", (sock.RemoteEndPoint as IPEndPoint).Address, (sock.LocalEndPoint as IPEndPoint).Address);
+
+            // S
             StringBuilder sb = new StringBuilder();
 
             byte[] buffer = new byte[2048];
@@ -275,6 +308,15 @@ namespace Server
             }
             
             return responseMessage;
+        }
+
+        /// <summary>
+        /// This method constructs broadcasting messages.
+        /// </summary>
+        /// <returns>A string that will be send to all existing IP Addresses in the network.</returns>
+        private string ConstructBroadcastMessage()
+        {
+            return "isPrimary" + "\n" + "\n";
         }
 
         /// <summary>
@@ -595,9 +637,9 @@ namespace Server
             timer.Change(Timeout.Infinite, Timeout.Infinite);
         }
 
-        public bool IsPrimary(IPAddress ipAddr)
+        public bool IsPrimary()
         {
-            return ipAddr == primaryServerIp;
+            return thisServer.isPrimaryServer;
         }
 
         /// <summary>
@@ -612,6 +654,81 @@ namespace Server
                 SendReplica(false);
             }
         }
-        
+
+        /// <summary>
+        /// This method will broadcast a message to all ip addresses in the local newtork.
+        /// </summary>
+        /// <param name="message">Message to be broadcasted to all local network peers.</param>
+        private void Broadcast(string message)
+        {
+            // Initialize a new udp client
+            UdpClient client = new UdpClient();
+
+            // IP Address for broadcasting
+            IPEndPoint ip = new IPEndPoint(IPAddress.Broadcast, 15000);
+
+            // Send a request message asking if primary exists.
+            byte[] bytes = Encoding.ASCII.GetBytes(message);
+
+            // Send message
+            client.Send(bytes, bytes.Length, ip);
+
+            // Close client
+            client.Close();
+        }
+
+        /// <summary>
+        /// This method will start Listening for incoming requests to check if replica is primary or not
+        /// </summary>
+        private void StartListeningUDP()
+        {
+            // receive messages
+            IPEndPoint ip = new IPEndPoint(IPAddress.Any, 15000);
+            byte[] bytes = udpBroadcast.Receive(ref ip);
+            string message = Encoding.ASCII.GetString(bytes);
+
+            ParseBroadcastMessages(message, ip);
+        }
+
+        /// <summary>
+        /// This method will parse incoming requests that are sent using broadcase udp.
+        /// </summary>
+        /// <param name="receivedMessage">Message to be parsed</param>
+        private void ParseBroadcastMessages(string receivedMessage, IPEndPoint ip)
+        {
+            // Parse message received 
+            if (receivedMessage.StartsWith("isPrimary"))
+            {
+                // Check if this backup server is primary
+                if (IsPrimary())
+                {
+                    // Send a response back 
+                    Broadcast("primary");
+                }
+                else
+                {
+                    // Send that you are not primary
+                    Broadcast("notPrimary");
+                }
+            }
+            else if (receivedMessage.StartsWith("primary"))
+            {
+                // Make this server a backup
+                thisServer.isPrimaryServer = false;
+
+                // Take the ip address of 
+                primaryServerIp = ip.Address;
+
+                InitializeReplication(false);
+            }
+            else if (receivedMessage.StartsWith("notPrimary"))
+            {
+                thisServer.isPrimaryServer = true;
+                primaryServerIp = thisServer.ipAddr;
+
+                InitializeReplication(true);
+            }
+        }
+
     }
 }

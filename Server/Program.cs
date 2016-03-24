@@ -82,10 +82,10 @@ namespace Server
             ipAddr =  IPAddress.Parse(localIP);
 
             // Change ipaddress of primary in case 
-            readServerStatusFromConsole();
+            // readServerStatusFromConsole();
 
             // Initalize a replica and make it listen
-            rm = new ReplicationManager(this, primaryIPAddress);
+            rm = new ReplicationManager(this);
 
             // Initalize a listening port for replication Manager.
             // TODO: Might need to change the way this code is being called. 
@@ -93,49 +93,54 @@ namespace Server
         }
 
         /// <summary>
-        /// This method gets information from console about status of server and their IP addresses
+        /// this method gets information from console about status of server and their ip addresses
         /// </summary>
-        private void readServerStatusFromConsole()
-        {
-            // Messages to the console when server starts
-            Console.WriteLine("SERVER STARTED! This address is: " + ipAddr);
-            Console.WriteLine("Set this to primary? (Y/N)");
+        //private void readserverstatusfromconsole()
+        //{
+        //    messages to the console when server starts
+        //    console.writeline("server started! this address is: " + ipaddr);
 
-            // Get user input and for either Yes or No and deal with other inputs
-            string getInput = Console.ReadLine().Trim().ToUpper();
-            while (getInput != "Y" && getInput != "N")
-            {
-                Console.WriteLine("Input is wrong, please indicate if this is the primary server or Not by inputing Y or N? ");
-                getInput = Console.ReadLine().Trim().ToUpper();
-            }
+        //    broadcast to local network trying to find primary server
 
-            // Check that what the user has input
-            IPAddress ipaddress = ipAddr;
-            if (getInput == "Y")
-            {
-                isPrimaryServer = true;
-                ipAddr = ipaddress;
-                primaryIPAddress = ipaddress;
-            }
-            else if (getInput == "N")
-            {
-                Console.WriteLine("What is the IP address of the primary server? ");
-                string getIP = Console.ReadLine();
-                
-                while (!IPAddress.TryParse(getIP, out ipaddress))
-                {
-                    Console.WriteLine("There was a mistake in your IP address input. What is the IP address of the primary server in the form x.x.x.x? ");
-                    getIP = Console.ReadLine();
-                }
-                primaryIPAddress = ipaddress;
-            }
-            // Code shouldn't hit else part
-            else
-            {
-                Console.WriteLine("ERROR");
-            }
 
-        }
+        //    console.writeline("set this to primary? (y/n)");
+
+        //    get user input and for either yes or no and deal with other inputs
+
+        //   string getinput = console.readline().trim().toupper();
+        //    while (getinput != "y" && getinput != "n")
+        //    {
+        //        console.writeline("input is wrong, please indicate if this is the primary server or not by inputing y or n? ");
+        //        getinput = console.readline().trim().toupper();
+        //    }
+
+        //    check that what the user has input
+        //   ipaddress ipaddress = ipaddr;
+        //    if (getinput == "y")
+        //    {
+        //        isprimaryserver = true;
+        //        ipaddr = ipaddress;
+        //        primaryipaddress = ipaddress;
+        //    }
+        //    else if (getinput == "n")
+        //    {
+        //        console.writeline("what is the ip address of the primary server? ");
+        //        string getip = console.readline();
+
+        //        while (!ipaddress.tryparse(getip, out ipaddress))
+        //        {
+        //            console.writeline("there was a mistake in your ip address input. what is the ip address of the primary server in the form x.x.x.x? ");
+        //            getip = console.readline();
+        //        }
+        //        primaryipaddress = ipaddress;
+        //    }
+        //    code shouldn't hit else part
+        //    else
+        //    {
+        //        console.writeline("error");
+        //    }
+
+        //}
 
         void EstablishConnection(TcpClient tcpclient)
         {
