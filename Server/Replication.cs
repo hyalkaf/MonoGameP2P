@@ -752,7 +752,7 @@ namespace Server
                 // add required information to be sent back
                 messageToBeSent = "name" + " "; 
             }
-            else if (replicaMsg.StartsWith(REQ_QUEUE))
+            else if (replicaMsg.StartsWith(REQ_BACKUP))
             {
                 // Message to be sent 
                 messageToBeSent = "backup" + " " + thisServer.ipAddr;
