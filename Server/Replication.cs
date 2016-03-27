@@ -140,11 +140,10 @@ namespace Server
 
             string requestMessage = sb.ToString().Trim().ToLower();
 
-            
+            byte[] responseMessageForBackupOrCheck = parseRequestMessageForPrimary(requestMessage);
 
             // Here we want to send back to all backups
-            if ((requestMessage.StartsWith(REQ_BACKUP) 
-                || requestMessage.StartsWith(REQ_NAMES)
+            if ((requestMessage.StartsWith(REQ_NAMES)
                 || requestMessage.StartsWith(REQ_GAMESESSIONS)
                 || requestMessage.StartsWith(REQ_QUEUE))
                 && thisServer.isPrimaryServer)
@@ -192,8 +191,7 @@ namespace Server
                 }
             }
             // Messages receivied from primary by backup after listening
-            else if ((requestMessage.StartsWith(REQ_QUEUE)
-                    || requestMessage.StartsWith(REQ_NAMES)
+            else if ((requestMessage.StartsWith(REQ_NAMES)
                     || requestMessage.StartsWith(REQ_GAMESESSIONS)
                     || requestMessage.StartsWith(REQ_QUEUE))
                     && !thisServer.isPrimaryServer)
@@ -208,13 +206,15 @@ namespace Server
                 // TODO: Response of success
 
                 // TODO: how does socket differ from tcp client.
-                sock.Close();
+                
             }
 
-            //sock.Send(responseMessage);
+            sock.Send(responseMessageForBackupOrCheck);
 
+            sock.Close();
 
-            
+           
+
 
         }
 
