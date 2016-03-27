@@ -23,7 +23,7 @@ namespace Server
         // replica TCP Client for sending requests to primary server
         private TcpClient replicaClient;
         // Timer for running a check agansit the primary server.
-        Timer timerForChecking;
+        Timer timerForCheckingPrimaryExistence;
         // Timer for 
         Timer timerForFindingPrimary;
         // lock object for check messages so it won't continue sending messages on different threads
@@ -104,7 +104,7 @@ namespace Server
                     allReplicaAddr.Add(new Tuple<IPAddress, bool>(primaryServerIp, true));
 
                     // Timer for checking if primary is there
-                    timerForChecking = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+                    timerForCheckingPrimaryExistence = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
 
                     // secondary replica sends a replica request
                     DecideOnMessagesSendFromBackUpToServer(true);
@@ -884,7 +884,7 @@ namespace Server
             // TODO: change this to try Parse
             // primaryServerIp = IPAddress.Parse("162.246.157.120");
             thisServer.StartListen();
-            timerForChecking.Change(Timeout.Infinite, Timeout.Infinite);
+            timerForCheckingPrimaryExistence.Change(Timeout.Infinite, Timeout.Infinite);
         }
 
         public bool IsPrimary()
