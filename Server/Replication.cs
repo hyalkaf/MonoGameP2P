@@ -140,8 +140,12 @@ namespace Server
 
             string requestMessage = sb.ToString().Trim().ToLower();
 
-            byte[] responseMessageForBackupOrCheck = parseRequestMessageForPrimary(requestMessage);
+            byte[] responseMessageForBackupOrCheck = new byte[1024];
 
+            if (requestMessage.StartsWith(REQ_CHECK) || requestMessage.StartsWith(REQ_BACKUP))
+            {
+                responseMessageForBackupOrCheck = parseRequestMessageForPrimary(requestMessage);
+            }
             // Here we want to send back to all backups
             if ((requestMessage.StartsWith(REQ_NAMES)
                 || requestMessage.StartsWith(REQ_GAMESESSIONS)
@@ -206,13 +210,16 @@ namespace Server
                 // TODO: Response of success
 
                 // TODO: how does socket differ from tcp client.
-                
+
+                sock.Close();
+
             }
+            else
+            {
+                sock.Send(responseMessageForBackupOrCheck);
 
-            sock.Send(responseMessageForBackupOrCheck);
-
-            sock.Close();
-
+                sock.Close();
+            }
            
 
 
