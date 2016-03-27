@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -29,7 +30,7 @@ namespace Server
         private Object thisLock = new Object();
         private Object udpLock = new Object();
         // Requests to be sent from replica to primary server every time a new replica is initalized.
-        public static readonly string[] arrayOfReplicaMessages = { "backup", "name", "session" };
+        public static readonly string[] arrayOfReplicaMessages = { "backup", "name", "session" , "queue"};
         // Udp client listening for broadcast messages
         private readonly UdpClient udpBroadcast = new UdpClient(15000);
         // IP Address for broadcasting
@@ -37,12 +38,15 @@ namespace Server
         IPEndPoint receivingIP = new IPEndPoint(IPAddress.Any, 0);
 
         // Request messsages between replicas and server
-        const string REQ_REPLICA = "backup";
+        const string REQ_BACKUP = "backup";
         const string RES_ADDRESSES = "address";
         const string REQ_NAMES = "name";
         const string REQ_GAMESESSIONS = "session";
         const string REQ_CHECK = "check";
+        const string REQ_QUEUE = "queue";
         const string RESP_SUCCESS = "success";
+
+        const int SIZE_OF_BUFFER = 4096;
 
         // Server program assoicated with this replication manager
         private ServerProgram thisServer;
@@ -124,7 +128,7 @@ namespace Server
             // S
             StringBuilder sb = new StringBuilder();
 
-            byte[] buffer = new byte[2048];
+            byte[] buffer = new byte[SIZE_OF_BUFFER];
             int bytesRead = sock.Receive(buffer);
 
             sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
@@ -134,9 +138,10 @@ namespace Server
             string requestMessage = sb.ToString().Trim().ToLower();
 
             // Here we want to send back to all backups
-            if ((requestMessage.StartsWith(REQ_REPLICA) 
+            if ((requestMessage.StartsWith(REQ_BACKUP) 
                 || requestMessage.StartsWith(REQ_NAMES)
-                || requestMessage.StartsWith(REQ_GAMESESSIONS))
+                || requestMessage.StartsWith(REQ_GAMESESSIONS)
+                || requestMessage.StartsWith(REQ_QUEUE))
                 && thisServer.isPrimaryServer)
             {
                 // Get appeopraite response
@@ -148,37 +153,41 @@ namespace Server
                 // Send all backups updated info
                 foreach (IPAddress backupIP in IEnumerableOfBackUpIPs)
                 {
-                    TcpClient primaryClientToBackup = new TcpClient();
-                    primaryClientToBackup.Connect(backupIP, 8000);
-
-                    Console.WriteLine("Sending to every backup this {0}", requestMessage);
-
-                    Stream stm = primaryClientToBackup.GetStream();
-
-                    ASCIIEncoding asen = new ASCIIEncoding();
-
-                    stm.Write(responseMessage, 0, responseMessage.Length);
-                    byte[] responseOfBackUpToServerResponse = new byte[4096];
-
-                    // Receive response from primary
-                    int k = stm.Read(responseOfBackUpToServerResponse, 0, 4096);
-
-                    string responseOfBackUpToServerResponseStr = "";
-                    char c = ' ';
-                    for (int i = 0; i < k; i++)
+                    if (!thisServer.ipAddr.Equals(backupIP))
                     {
-                        c = Convert.ToChar(responseOfBackUpToServerResponse[i]);
-                        responseOfBackUpToServerResponseStr += c;
-                    }
+                        TcpClient primaryClientToBackup = new TcpClient();
+                        primaryClientToBackup.Connect(backupIP, 8000);
 
-                    primaryClientToBackup.Close();
-                    // TODO: Test response again.
+                        Console.WriteLine("Sending to every backup this {0}", requestMessage);
+
+                        Stream stm = primaryClientToBackup.GetStream();
+
+                        ASCIIEncoding asen = new ASCIIEncoding();
+
+                        stm.Write(responseMessage, 0, responseMessage.Length);
+                        byte[] responseOfBackUpToServerResponse = new byte[SIZE_OF_BUFFER];
+
+                        // Receive response from primary
+                        int k = stm.Read(responseOfBackUpToServerResponse, 0, SIZE_OF_BUFFER);
+
+                        string responseOfBackUpToServerResponseStr = "";
+                        char c = ' ';
+                        for (int i = 0; i < k; i++)
+                        {
+                            c = Convert.ToChar(responseOfBackUpToServerResponse[i]);
+                            responseOfBackUpToServerResponseStr += c;
+                        }
+
+                        primaryClientToBackup.Close();
+                        // TODO: Test response again.
+                    }
                 }
             }
             // Messages receivied from primary by backup after listening
-            else if ((requestMessage.StartsWith(REQ_REPLICA)
+            else if ((requestMessage.StartsWith(REQ_QUEUE)
                     || requestMessage.StartsWith(REQ_NAMES)
-                    || requestMessage.StartsWith(REQ_GAMESESSIONS))
+                    || requestMessage.StartsWith(REQ_GAMESESSIONS)
+                    || requestMessage.StartsWith(REQ_QUEUE))
                     && !thisServer.isPrimaryServer)
             {
                 Console.WriteLine("Received messages from primary of this type {0}", requestMessage);
@@ -209,7 +218,7 @@ namespace Server
             string requestType;
             string messageParam;
             string responseMessage = string.Empty;
-            byte[] b = new byte[4096];
+            byte[] b = new byte[SIZE_OF_BUFFER];
 
             // get requestType out of the request message
             if (requestMessage.IndexOf(" ") == -1)
@@ -240,7 +249,7 @@ namespace Server
             string requestType;
             string messageParam;
             string responseMessage = string.Empty;
-            byte[] b = new byte[4096];
+            byte[] b = new byte[SIZE_OF_BUFFER];
 
             // get requestType out of the request message
             if (requestMessage.IndexOf(" ") == -1)
@@ -256,7 +265,7 @@ namespace Server
             messageParam = requestMessage.Substring(requestType.Length).Trim();
 
             // Incoming message "replica" from one of the backup servers to primary server.
-            if (requestType == REQ_REPLICA)
+            if (requestType == REQ_BACKUP)
             {
                 // get IP Address of the backup server from message parameters
                 string ipAddressString = messageParam;
@@ -301,7 +310,7 @@ namespace Server
                     b = asen.GetBytes(responseMessage + "\n\n");
                 }
             }
-            else if (requestType == REQ_NAMES || requestType == REQ_GAMESESSIONS)
+            else if (requestType == REQ_NAMES || requestType == REQ_GAMESESSIONS || requestType == REQ_QUEUE)
             {
                 responseMessage = ConstructPrimaryMessageToBackupBasedOnRequestType(requestType);
 
@@ -363,7 +372,7 @@ namespace Server
                     }
                 }
             }
-            else if (responseType == REQ_NAMES || responseType == REQ_GAMESESSIONS)
+            else if (responseType == REQ_NAMES || responseType == REQ_GAMESESSIONS || responseType == REQ_QUEUE)
             {
                 if (!string.IsNullOrEmpty(messageParam))
                 {
@@ -392,8 +401,9 @@ namespace Server
         {
             // Add response Type
             string responseMessage = string.Empty;
-            List<string> names = thisServer.allPlayerNamesUsed;
-            Dictionary<string, List<string>> session = thisServer.gameSession;
+            List<string> names = thisServer.GetPlayerNames();
+            GameSession[] sessions = thisServer.GetGameSession();
+            List<ConcurrentQueue<ClientInfo>> clientsWaitingForgame = new List<ConcurrentQueue<ClientInfo>>();
 
             // based on request get the server info needed
             if (requestType.Equals(RES_ADDRESSES))
@@ -406,7 +416,11 @@ namespace Server
             }
             else if (requestType.Equals(REQ_GAMESESSIONS))
             {
-                responseMessage = ConstructPrimaryMessageSession(session);
+                responseMessage = ConstructPrimaryMessageSession(sessions);
+            }
+            else if (requestType.Equals(REQ_QUEUE))
+            {
+                responseMessage = ConstructPrimaryMessageMatch(clientsWaitingForgame);
             }
             
             return responseMessage;
@@ -436,11 +450,11 @@ namespace Server
                 // Comma shouldn't be added at the end of the message
                 if (i != names.Count - 1)
                 {
-                    responseMessage += thisServer.allPlayerNamesUsed[i] + ",";
+                    responseMessage += names[i] + ",";
                 }
                 else
                 {
-                    responseMessage += thisServer.allPlayerNamesUsed[i];
+                    responseMessage += names[i];
                 }
             }
 
@@ -450,34 +464,34 @@ namespace Server
         /// <summary>
         /// This method constructs a message that will be sent from primary to replica for session request.
         /// </summary>
-        /// <param gameSessionInfo="gameSessionInfo">Dictionary of gameIDs to list of player info to be sent from primary server to replica.</param>
+        /// <param gameSessionInfo="gameSessionInfo">GameSession Object of gameIDs to list of player info to be sent from primary server to replica.</param>
         /// <returns>Message to be sent to the replica</returns>
-        public string ConstructPrimaryMessageSession(Dictionary<string, List<string>> gameSessionInfo)
+        public string ConstructPrimaryMessageSession(GameSession[] gameSessions)
         {
             string responseMessage = "session" + " ";
             int counter = 0;
 
             // send client names on the server
-            foreach (KeyValuePair<string, List<string>> idToPlayerInfo in gameSessionInfo)
+            foreach (GameSession gameSession in gameSessions)
             {
-                responseMessage += idToPlayerInfo.Key + " ";
+                responseMessage += gameSession.ID + " ";
 
 
                 // append all players info to response message
-                for (int j = 0; j < idToPlayerInfo.Value.Count; j++)
+                for (int j = 0; j < gameSession.Players.Count(); j++)
                 {
-                    if (j != idToPlayerInfo.Value.Count() - 1)
+                    if (j != gameSession.Players.Count() - 1)
                     {
-                        responseMessage += idToPlayerInfo.Value[j] + ",";
+                        responseMessage += gameSession.Players[j].ToMessage() + ",";
                     }
                     else
                     {
-                        responseMessage += idToPlayerInfo.Value[j];
+                        responseMessage += gameSession.Players[j].ToMessage();
                     }
                 }
 
                 // Append a newline at the end
-                if (counter != gameSessionInfo.Count - 1)
+                if (counter != gameSessions.Count() - 1)
                 {
                     responseMessage += "\n";
                 }
@@ -487,6 +501,35 @@ namespace Server
 
             // Append new lines for end of message
             responseMessage += "\n\n";
+
+            return responseMessage;
+        }
+
+
+        private string ConstructPrimaryMessageMatch(List<ConcurrentQueue<ClientInfo>> clientsWaitingForGame)
+        {
+            string responseMessage = "queue" + " ";
+
+            // send client names on the server
+            for (int i = 0; i < clientsWaitingForGame.Count; i++)
+            {
+                for (int j = 0; j < clientsWaitingForGame[i].Count; j++)
+                {
+                    if (j.Equals(0))
+                    {
+                        responseMessage += i + clientsWaitingForGame[i].ElementAt(j).ToMessage() + " ";
+                    }
+                    else if (j.Equals(clientsWaitingForGame[i].Count - 1))
+                    {
+                        responseMessage += clientsWaitingForGame[i].ElementAt(j).ToMessage() + ",";
+                    }
+                    else
+                    {
+                        responseMessage += clientsWaitingForGame[i].ElementAt(j).ToMessage() + " ";
+                    }
+                }
+
+            }
 
             return responseMessage;
         }
@@ -523,15 +566,15 @@ namespace Server
                 string[] arrayOfSessions = messageParam.Split(new string[] { "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
 
                 // Temp variable for game session
-                Dictionary<string, List<string>> tempGameSession = new Dictionary<string, List<string>>();
+                List<GameSession> tempGameSession = new List<GameSession>();
 
                 // Convert IP address from string to IPAddress
                 foreach (string tempSession in arrayOfSessions)
                 {
                     // Split each game session by comma serperator
                     string[] arrayOfSpecificSession = messageParam.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
-
-                    List<string> playersInfo = new List<string>();
+                    GameSession gameSession = null;
+                    List<ClientInfo> players = new List<ClientInfo>();
                     string gameID = "";
 
                     // Use an integer to differ between string with gameID and without
@@ -544,43 +587,93 @@ namespace Server
                         // Split speicific info by spaces
                         string[] arrayOfGameSessionAndPlayerSpecificInfo = arrayOfSpecificSession[gameSessionAndPlayerInfoIndex].Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries); ;
 
-                        string playerIP = string.Empty;
-                        string playerPort = string.Empty;
-                        string playerName = string.Empty;
-                        string playerID = string.Empty;
-
+                        // TODO: Add TCP client
+                        ClientInfo player = new ClientInfo(null);
                         if (extraIndexForGameID == 1)
                         {
                             gameID = arrayOfGameSessionAndPlayerSpecificInfo[0];
+                            // TODO: TryParse
+                            gameSession = new GameSession(int.Parse(gameID));
                         }
 
                         // Check that the gameSession doesn't alreay exist on this backup server
-                        if (!thisServer.gameSession.ContainsKey(gameID))
-                        {
-                            playerIP = arrayOfGameSessionAndPlayerSpecificInfo[0 + extraIndexForGameID];
+                       // if (!thisServer.GetGameSession().All(gameSessionparam => gameSessionparam.ID.Equals(gameID)))
+                        //{
+                            // TODO: TryPArse
+                        player.IPAddr = IPAddress.Parse(arrayOfGameSessionAndPlayerSpecificInfo[0 + extraIndexForGameID]);
 
-                            playerPort = arrayOfGameSessionAndPlayerSpecificInfo[1 + extraIndexForGameID];
+                        player.ListeningPort = int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[1 + extraIndexForGameID]);
 
-                            playerName = arrayOfGameSessionAndPlayerSpecificInfo[2 + extraIndexForGameID];
+                        player.PlayerName = arrayOfGameSessionAndPlayerSpecificInfo[2 + extraIndexForGameID];
 
-                            playerID = arrayOfGameSessionAndPlayerSpecificInfo[3 + extraIndexForGameID];
-                        }
+                        player.PlayerId = int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[3 + extraIndexForGameID]);
+                        //}
 
                         // After extracting gameID, index goes back to zero.
                         extraIndexForGameID = 0;
 
-                        string playerInfoDelimitedByComma = playerIP + " " + playerPort + " " + playerName + " " + playerID;
-                        playersInfo.Add(playerInfoDelimitedByComma);
+
+                        players.Add(player);
 
                         
                     }
 
                     // Add to the gamesession
-                    tempGameSession[gameID] = playersInfo;
+                    gameSession.SetPlayers = players;
                 }
 
                 // Add to game session of server
-                thisServer.SetGameSession(tempGameSession);
+                thisServer.SetGameSession(tempGameSession.ToArray());
+            }
+            else if (responseType.Equals(REQ_QUEUE))
+            {
+                // Split game queue by delimiter comma
+                string[] arrayOfGameQueues = messageParam.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
+
+                List<ConcurrentQueue<ClientInfo>> tempQueues = new List<ConcurrentQueue<ClientInfo>>();
+
+                int gameCapacity = -1;
+
+                // Use an integer to differ between string with gameID and without
+                // First info will contain a game ID
+                int extraIndexForGameCapacity = 1;
+
+                foreach (string gameQueue in arrayOfGameQueues)
+                {
+                    
+
+                    // Extract index of gameQueue
+                    string[] arrayOfGameQueue = gameQueue.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
+
+                    if (extraIndexForGameCapacity == 1)
+                    {
+                        gameCapacity = int.Parse(arrayOfGameQueues[0]);
+                        // TODO: TryParse
+                        for (int i = tempQueues.Count; i <= gameCapacity; i++)
+                        {
+                            tempQueues.Add(new ConcurrentQueue<ClientInfo>());
+                        }
+                    }
+
+                    for (int i = 1; i < arrayOfGameQueue.Count(); i += 4)
+                    {
+                        ClientInfo player = new ClientInfo(null);
+                        // For every four enteries get the relvent info
+                        player.IPAddr = IPAddress.Parse(arrayOfGameQueue[i]);
+                        player.ListeningPort = int.Parse(arrayOfGameQueue[i + 1]);
+                        player.PlayerId = int.Parse(arrayOfGameQueue[i + 2]);
+                        player.PlayerName = arrayOfGameQueue[i + 3];
+
+                        tempQueues[gameCapacity].Enqueue(player);
+                    }
+
+
+                    // After extracting gameID, index goes back to zero.
+                    extraIndexForGameCapacity = 0;
+
+                }
+
+                thisServer.SetClientsWaitingForGame(tempQueues);
             }
         }
 
@@ -610,7 +703,7 @@ namespace Server
                 try
                 {
                     // Loop through three requests for duplicating data
-                    for (int i = 0; i < 3; i++)
+                    for (int i = 0; i < 4; i++)
                     {
                         SendFromReplicaToServerAndParseResponse(arrayOfReplicaMessages[i]);
                     }
@@ -656,10 +749,10 @@ namespace Server
                 // add required information to be sent back
                 messageToBeSent = "name" + " "; 
             }
-            else if (replicaMsg.StartsWith(REQ_REPLICA))
+            else if (replicaMsg.StartsWith(REQ_QUEUE))
             {
                 // Message to be sent 
-                messageToBeSent = "replica" + " " + thisServer.ipAddr;
+                messageToBeSent = "backup" + " " + thisServer.ipAddr;
             }
             else if (replicaMsg.StartsWith(REQ_CHECK))
             {
@@ -669,6 +762,10 @@ namespace Server
             else if (replicaMsg.StartsWith(REQ_GAMESESSIONS))
             {
                 messageToBeSent = "session" + " ";
+            }
+            else if (replicaMsg.StartsWith(REQ_QUEUE))
+            {
+                messageToBeSent = "queue" + " ";
             }
 
             return messageToBeSent;
@@ -694,10 +791,10 @@ namespace Server
             byte[] ba = asen.GetBytes(messageToBeSent);
 
             stm.Write(ba, 0, ba.Length);
-            byte[] bb = new byte[4096];
+            byte[] bb = new byte[SIZE_OF_BUFFER];
 
             // Receive response from primary
-            int k = stm.Read(bb, 0, 4096);
+            int k = stm.Read(bb, 0, SIZE_OF_BUFFER);
 
             string responseMessage = "";
             char c = ' ';
@@ -742,10 +839,10 @@ namespace Server
                 byte[] messageUpdateBytes = asen.GetBytes(messageUpdate);
 
                 stm.Write(messageUpdateBytes, 0, messageUpdateBytes.Length);
-                byte[] responseOfBackUp = new byte[4096];
+                byte[] responseOfBackUp = new byte[SIZE_OF_BUFFER];
 
                 // Receive response from primary
-                int k = stm.Read(responseOfBackUp, 0, 4096);
+                int k = stm.Read(responseOfBackUp, 0, SIZE_OF_BUFFER);
 
                 string responseOfBackUpToServerResponseStr = "";
                 char c = ' ';

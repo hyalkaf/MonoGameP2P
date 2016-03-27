@@ -48,10 +48,10 @@ namespace Server
         //private List<ConcurrentQueue<ClientInfo>> clientsWaitingForGame;
         //private List<Socket> sockets;
         private List<ClientInfo> connectedClients;
-        public List<string> allPlayerNamesUsed { get; private set; }
+        private List<string> allPlayerNamesUsed;
 
         // --To be removed--
-        public Dictionary<string, List<string>> gameSession { get; private set; }
+        //public Dictionary<string, List<string>> gameSession { get; private set; }
         //public Dictionary<string, List<string>> gameSession;
         // -----------------
 
@@ -69,7 +69,6 @@ namespace Server
            // clientsWaitingForGame = new List<ConcurrentQueue<ClientInfo>>();
 
             allPlayerNamesUsed = new List<string>();
-            gameSession = new Dictionary<string, List<string>>();
             /* Initializes the Listener */
             IPHostEntry host;
             string localIP = "";
@@ -161,7 +160,7 @@ namespace Server
                 
                     // Legacy functionality: copy GameSessions to Dictionary
                     GameSession[] sessions = _gameMatchmaker.GameSessions;
-                    gameSession = new Dictionary<string, List<string>>();
+                    // gameSession = new Dictionary<string, List<string>>();
                     for (int i = 1; i <= sessions.Length; i++)
                     {
                         List<string> playerInfos = new List<string>();
@@ -174,7 +173,7 @@ namespace Server
                             }
                         }
 
-                        gameSession.Add(i.ToString(), playerInfos);
+                        //gameSession.Add(i.ToString(), playerInfos);
                     }
                 }
                 else
@@ -442,15 +441,39 @@ namespace Server
             get { return connectedClients; }
         }
 
-        public void SetGameSession(Dictionary<string, List<string>> newGameSession)
+        /// <summary>
+        /// Getter for game sessions
+        /// </summary>
+        public GameSession[] GetGameSession()
+        {
+            return _gameMatchmaker.GameSessions;
+        }
+
+        /// <summary>
+        /// Setter for game sessions.
+        /// </summary>
+        /// <param name="newGameSessions">The updated game session</param>
+        public void SetGameSession(GameSession[] newGameSessions)
         {
             // Change game session
-            this.gameSession = newGameSession;
+            this._gameMatchmaker.GameSessions = newGameSessions;
 
             // Update all backup servers
             if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("session");
         }
 
+        /// <summary>
+        /// Getter for Player Names
+        /// </summary>
+        public List<string> GetPlayerNames()
+        {
+            return allPlayerNamesUsed;
+        }
+
+        /// <summary>
+        /// Setter for player names.
+        /// </summary>
+        /// <param name="newPlayerNames">The updated player names</param>
         public void SetPlayerNames(List<string> newPlayerNames)
         {
             allPlayerNamesUsed = newPlayerNames;
@@ -458,6 +481,28 @@ namespace Server
             // Update all backup servers
             if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("name");
         }
+
+        /// <summary>
+        /// Getter for Clients Waiting for games.
+        /// </summary>
+        public List<ConcurrentQueue<ClientInfo>> GetClientWaitingForGame()
+        {
+            return _gameMatchmaker.Queues;
+        }
+
+        /// <summary>
+        /// Setter for clients who are waiting for game to be matched.
+        /// </summary>
+        /// <param name="newClientsWaitingForGame"></param>
+        public void SetClientsWaitingForGame(List<ConcurrentQueue<ClientInfo>> newClientsWaitingForGame)
+        {
+            // Change game session
+            this._gameMatchmaker.Queues = newClientsWaitingForGame;
+
+            // Update all backup servers
+            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("match");
+        }
+        
 
         static void Main(string[] args)
         {

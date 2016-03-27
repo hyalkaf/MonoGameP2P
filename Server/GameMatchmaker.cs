@@ -140,7 +140,6 @@ namespace Server
         public string ClientsWaitingForGameToMessage()
         {
             string message = string.Empty;
-            ClientInfo clientInfoDummy;
 
             // For game requests of specific index in the list convert all info in the queue to a string
             for (int clientsWaitingIndex = 0; clientsWaitingIndex < clientsWaitingForGame.Count(); clientsWaitingIndex++)
@@ -150,25 +149,16 @@ namespace Server
                     // If element is last, then append comma to the end as a delimiter for different game capacities.
                     if (clientInQueueIndex.Equals(clientsWaitingForGame[clientsWaitingIndex].Count - 1))
                     {
-                        if (clientsWaitingForGame[clientsWaitingIndex].TryDequeue(out clientInfoDummy))
-                        {
-                            message += clientInfoDummy.ToMessage() + ",";
-                        }
+                        message += clientsWaitingForGame[clientsWaitingIndex].ElementAt(clientInQueueIndex).ToMessage() + ",";
                     }
                     // If element is first, message will have the capacity first then each player delimited by spaces.
                     else if (clientInQueueIndex.Equals(0))
                     {
-                        if (clientsWaitingForGame[clientsWaitingIndex].TryDequeue(out clientInfoDummy))
-                        {
-                            message += clientsWaitingIndex + " " + clientInfoDummy.ToMessage() + " ";
-                        }
+                        message += clientsWaitingIndex + " " + clientsWaitingForGame[clientsWaitingIndex].ElementAt(clientInQueueIndex).ToMessage() + " ";
                     }
                     else
                     {
-                        if (clientsWaitingForGame[clientsWaitingIndex].TryDequeue(out clientInfoDummy))
-                        {
-                            message += clientInfoDummy.ToMessage() + " ";
-                        }
+                        message += clientsWaitingForGame[clientsWaitingIndex].ElementAt(clientInQueueIndex).ToMessage() + " ";
                     }
 
                 }
@@ -271,6 +261,7 @@ namespace Server
         public List<ConcurrentQueue<ClientInfo>> Queues
         {
             get { return clientsWaitingForGame; }
+            set { clientsWaitingForGame = value; }
         }
 
         /// <summary>
@@ -289,12 +280,16 @@ namespace Server
         }
 
         /// <summary>
-        /// Getter for game sessions as array
+        /// Getter and setter for game sessions as array
         /// </summary>
         public GameSession[] GameSessions
         {
             get { return gameSessions.ToArray(); }
+            set { GameSessions = value; }
         }
+
+        
+
     }
 
     /// <summary>
@@ -401,6 +396,11 @@ namespace Server
         public ClientInfo[] Players
         {
             get { return players.ToArray(); }
+        }
+
+        public List<ClientInfo> SetPlayers
+        {
+            set { players = value; }
         }
 
     }
