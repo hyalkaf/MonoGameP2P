@@ -48,10 +48,11 @@ namespace Server
         //private List<ConcurrentQueue<ClientInfo>> clientsWaitingForGame;
         //private List<Socket> sockets;
         private List<ClientInfo> connectedClients;
-        public List<string> allPlayerNamesUsed;
-        
+        public List<string> allPlayerNamesUsed { get; private set; }
+
         // --To be removed--
-        public Dictionary<string, List<string>> gameSession;
+        public Dictionary<string, List<string>> gameSession { get; private set; }
+        //public Dictionary<string, List<string>> gameSession;
         // -----------------
 
         public bool isPrimaryServer = false;
@@ -82,9 +83,6 @@ namespace Server
             }
             ipAddr =  IPAddress.Parse(localIP);
 
-            // Change ipaddress of primary in case 
-            // readServerStatusFromConsole();
-
             // Initalize a replica and make it listen
             rm = new ReplicationManager(this);
 
@@ -92,56 +90,6 @@ namespace Server
             // TODO: Might need to change the way this code is being called. 
             // new Task(() => { rm.ListenReplica(); }).Start();
         }
-
-        /// <summary>
-        /// this method gets information from console about status of server and their ip addresses
-        /// </summary>
-        //private void readserverstatusfromconsole()
-        //{
-        //    messages to the console when server starts
-        //    console.writeline("server started! this address is: " + ipaddr);
-
-        //    broadcast to local network trying to find primary server
-
-
-        //    console.writeline("set this to primary? (y/n)");
-
-        //    get user input and for either yes or no and deal with other inputs
-
-        //   string getinput = console.readline().trim().toupper();
-        //    while (getinput != "y" && getinput != "n")
-        //    {
-        //        console.writeline("input is wrong, please indicate if this is the primary server or not by inputing y or n? ");
-        //        getinput = console.readline().trim().toupper();
-        //    }
-
-        //    check that what the user has input
-        //   ipaddress ipaddress = ipaddr;
-        //    if (getinput == "y")
-        //    {
-        //        isprimaryserver = true;
-        //        ipaddr = ipaddress;
-        //        primaryipaddress = ipaddress;
-        //    }
-        //    else if (getinput == "n")
-        //    {
-        //        console.writeline("what is the ip address of the primary server? ");
-        //        string getip = console.readline();
-
-        //        while (!ipaddress.tryparse(getip, out ipaddress))
-        //        {
-        //            console.writeline("there was a mistake in your ip address input. what is the ip address of the primary server in the form x.x.x.x? ");
-        //            getip = console.readline();
-        //        }
-        //        primaryipaddress = ipaddress;
-        //    }
-        //    code shouldn't hit else part
-        //    else
-        //    {
-        //        console.writeline("error");
-        //    }
-
-        //}
 
         void EstablishConnection(TcpClient tcpclient)
         {
@@ -492,6 +440,23 @@ namespace Server
         public List<ClientInfo> ConnectedClients
         {
             get { return connectedClients; }
+        }
+
+        public void SetGameSession(Dictionary<string, List<string>> newGameSession)
+        {
+            // Change game session
+            this.gameSession = newGameSession;
+
+            // Update all backup servers
+            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("session");
+        }
+
+        public void SetPlayerNames(List<string> newPlayerNames)
+        {
+            allPlayerNamesUsed = newPlayerNames;
+
+            // Update all backup servers
+            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("name");
         }
 
         static void Main(string[] args)

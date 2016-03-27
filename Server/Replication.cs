@@ -504,15 +504,17 @@ namespace Server
                 // get player names
                 string[] arrayOfPlayerNames = messageParam.Split(',');
 
+                // Add player names to a temp variable
+                List<string> tempPlayerNames = new List<string>();
+
                 // Convert IP address from string to IPAddress
                 foreach (string tempName in arrayOfPlayerNames)
                 {
-                    // Add tempIP into the list of existing ip addresses
-                    if (thisServer.allPlayerNamesUsed.All(name => !name.Equals(tempName)))
-                    {
-                        thisServer.allPlayerNamesUsed.Add(tempName);
-                    }
+                    tempPlayerNames.Add(tempName);
                 }
+
+                // Set playerNames
+                thisServer.SetPlayerNames(tempPlayerNames);
             }
 
             else if (responseType == REQ_GAMESESSIONS)
@@ -520,6 +522,8 @@ namespace Server
                 // split games sessions
                 string[] arrayOfSessions = messageParam.Split(new string[] { "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
 
+                // Temp variable for game session
+                Dictionary<string, List<string>> tempGameSession = new Dictionary<string, List<string>>();
 
                 // Convert IP address from string to IPAddress
                 foreach (string tempSession in arrayOfSessions)
@@ -572,9 +576,11 @@ namespace Server
                     }
 
                     // Add to the gamesession
-                    thisServer.gameSession[gameID] = playersInfo;
+                    tempGameSession[gameID] = playersInfo;
                 }
-                
+
+                // Add to game session of server
+                thisServer.SetGameSession(tempGameSession);
             }
         }
 
@@ -608,22 +614,6 @@ namespace Server
                     {
                         SendFromReplicaToServerAndParseResponse(arrayOfReplicaMessages[i]);
                     }
-
-                    // Print 
-                    //foreach(string tempStr in thisServer.allPlayerNamesUsed)
-                    //{
-                    //    Console.WriteLine("player name is {0} ", tempStr);
-                    //}
-
-                    //foreach (KeyValuePair<string, List<string>> tempDict in thisServer.gameSession)
-                    //{
-                    //    Console.WriteLine("The game ID is {0} ", tempDict.Key);
-
-                    //    foreach (string tempString in tempDict.Value)
-                    //    {
-                    //        Console.WriteLine("The player infor {1}", tempString);
-                    //    }
-                    //}
 
                 }
                 catch (Exception e)
@@ -723,6 +713,52 @@ namespace Server
             // TODO:
 
             replicaClient.Close();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="tempMsg"></param>
+        public void SendFromServerToBackUPSWhenStateChanges(string updateType)
+        {
+            // Construct a message to be sent based on type of update
+            string messageUpdate = ConstructPrimaryMessageToBackupBasedOnRequestType(updateType);
+
+            // Send back to all backups the new updated information
+            IEnumerable<IPAddress> IEnumerableOfBackUpIPs = allReplicaAddr.Select(tuple => tuple.Item1);
+
+            // Send all backups updated info
+            foreach (IPAddress backupIP in IEnumerableOfBackUpIPs)
+            {
+                TcpClient primaryClientToBackup = new TcpClient();
+                primaryClientToBackup.Connect(backupIP, 8000);
+
+                Console.WriteLine("Sending to every backup this {0}", messageUpdate);
+
+                Stream stm = primaryClientToBackup.GetStream();
+
+                ASCIIEncoding asen = new ASCIIEncoding();
+
+                byte[] messageUpdateBytes = asen.GetBytes(messageUpdate);
+
+                stm.Write(messageUpdateBytes, 0, messageUpdateBytes.Length);
+                byte[] responseOfBackUp = new byte[4096];
+
+                // Receive response from primary
+                int k = stm.Read(responseOfBackUp, 0, 4096);
+
+                string responseOfBackUpToServerResponseStr = "";
+                char c = ' ';
+                for (int i = 0; i < k; i++)
+                {
+                    c = Convert.ToChar(responseOfBackUp[i]);
+                    responseOfBackUpToServerResponseStr += c;
+                }
+
+                // TODO: Check if response has success
+
+                primaryClientToBackup.Close();
+            }
         }
 
         /// <summary>
