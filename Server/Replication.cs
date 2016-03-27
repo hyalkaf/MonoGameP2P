@@ -97,15 +97,18 @@ namespace Server
         {
             if (!isServerPrimary)
             {
-                // Add Primary server ip address to replica
-                //TODO dont need this, get list update from primary
-                allReplicaAddr.Add(new Tuple<IPAddress, bool>(primaryServerIp, true));
+                if (!allReplicaAddr.All(e => e.Item1.Equals(primaryServerIp)))
+                { 
+                    // Add Primary server ip address to replica
+                    //TODO dont need this, get list update from primary
+                    allReplicaAddr.Add(new Tuple<IPAddress, bool>(primaryServerIp, true));
 
-                // Timer for checking if primary is there
-                timerForChecking = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+                    // Timer for checking if primary is there
+                    timerForChecking = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
-                // secondary replica sends a replica request
-                DecideOnMessagesSendFromBackUpToServer(true);
+                    // secondary replica sends a replica request
+                    DecideOnMessagesSendFromBackUpToServer(true);
+                }
                 
             }
             else
