@@ -395,10 +395,6 @@ namespace Server
                 {
                     ParseServerResponseMessageToBackUpForGameInfo(responseType, messageParam);
                 }
-                else
-                {
-                    Console.WriteLine("There was a mistake in the response message coming from primary to backup about player names which is: {0}", messageParam);
-                }
                 
             }
 
