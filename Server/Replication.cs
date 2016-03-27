@@ -97,7 +97,7 @@ namespace Server
         {
             if (!isServerPrimary)
             {
-                if (!allReplicaAddr.All(e => e.Item1.Equals(primaryServerIp)))
+                if (!allReplicaAddr.Exists(e => e.Item1.Equals(primaryServerIp)))
                 { 
                     // Add Primary server ip address to replica
                     //TODO dont need this, get list update from primary
