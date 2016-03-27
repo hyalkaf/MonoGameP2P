@@ -140,6 +140,8 @@ namespace Server
 
             string requestMessage = sb.ToString().Trim().ToLower();
 
+            
+
             // Here we want to send back to all backups
             if ((requestMessage.StartsWith(REQ_BACKUP) 
                 || requestMessage.StartsWith(REQ_NAMES)
@@ -147,8 +149,8 @@ namespace Server
                 || requestMessage.StartsWith(REQ_QUEUE))
                 && thisServer.isPrimaryServer)
             {
-                // Get appeopraite response
-                byte[] responseMessage = parseRequestMessageForPrimary(requestMessage);
+                // TODO: how does socket differ from tcp client.
+                sock.Close();
 
                 // Send back to all backups the new updated information
                 IEnumerable<IPAddress> IEnumerableOfBackUpIPs = allReplicaAddr.Select(tuple => tuple.Item1);
@@ -158,10 +160,13 @@ namespace Server
                 {
                     if (!thisServer.ipAddr.Equals(backupIP))
                     {
+                        // Get appeopraite response
+                        byte[] responseMessage = parseRequestMessageForPrimary(requestMessage);
+
                         TcpClient primaryClientToBackup = new TcpClient();
                         primaryClientToBackup.Connect(backupIP, 8000);
 
-                        Console.WriteLine("Sending to every backup this {0}", requestMessage);
+                        Console.WriteLine("Sending to every backup this {0}", responseMessage);
 
                         Stream stm = primaryClientToBackup.GetStream();
 
@@ -201,13 +206,15 @@ namespace Server
                 parseResponseMessageForBackup(requestMessage);
 
                 // TODO: Response of success
+
+                // TODO: how does socket differ from tcp client.
+                sock.Close();
             }
 
             //sock.Send(responseMessage);
 
 
-            // TODO: how does socket differ from tcp client.
-            sock.Close();
+            
 
         }
 
