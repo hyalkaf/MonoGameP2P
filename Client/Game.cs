@@ -5,15 +5,19 @@ using System.Text;
 using System.Threading.Tasks;
 using Client;
 using System.Collections.Generic;
-using System.Timers;
+using System.Threading;
 
 namespace Game
 {
     public class Game
     {
         private List<Player>[] Board = new List<Player> [20];    //game board
-        private int MAX_PLAYERS;                              //Max PLayers in game
+
         private Player winner;                            //winner of the game
+        public int BoardSize { get{ return Board.Length; } }
+        public int MaxPlayers {  get;  set; }
+
+        public Timer TurnTimer { get; set; }
 
         //construvtor
         public Game(List<PeerInfo> players)
@@ -33,7 +37,7 @@ namespace Game
             }
 
             //set maxplayers
-            MAX_PLAYERS = players.Count;
+            MaxPlayers = players.Count;
 
             winner = null;
         }
@@ -72,7 +76,7 @@ namespace Game
                 foreach (Player p in players)
                 {
                     if (p.Turn == 0)
-                        p.Turn = MAX_PLAYERS - 1;
+                        p.Turn = MaxPlayers - 1;
                     //otherwise decrement turn
                     else
                         p.Turn -= 1;
@@ -104,11 +108,7 @@ namespace Game
             Board[p.Position].Add(p);
         }
 
-        public int MaxPlayers
-        {
-            get { return MaxPlayers; }
-            set { MAX_PLAYERS = value; }
-        }
+       
 
         public void RemovePlayer(Player pToBeRemoved)
         {
@@ -127,7 +127,7 @@ namespace Game
 
                 }
             }
-            MAX_PLAYERS--;
+            MaxPlayers--;
         }
 
         public override string ToString()
@@ -156,7 +156,7 @@ namespace Game
         {
             get { return winner; }
             internal set {
-                winner = value;
+                Winner = value;
                 Console.WriteLine("\n---------------------------------");
                 Console.WriteLine("The Winner is (" + winner.PlayerId+")"+winner.Name);
                 Console.WriteLine("---------------------------------\n");

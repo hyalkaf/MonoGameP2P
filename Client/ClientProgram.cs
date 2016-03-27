@@ -38,6 +38,7 @@ namespace Client
            NewGame,Reconnect 
         }
 
+        public const int SERVER_PORT = 8001;
 
         TcpClient client;
         TcpClient stayConnectedClient;
@@ -121,7 +122,7 @@ namespace Client
                     Console.WriteLine("Connecting to Server.....");
 
                     // Connect to the server
-                    client.ConnectAsync(SERVER_IP, 8001).Wait(1500);
+                    client.ConnectAsync(SERVER_IP, SERVER_PORT).Wait(1500);
                 }
                 catch (Exception)
                 {

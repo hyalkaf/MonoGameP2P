@@ -34,7 +34,7 @@ namespace Client
             public const string ERROR = "error";
             public const string UNKNOWN = "unknownrequest";
         }
-        private Timer gameTimer;
+       // private Timer gameTimer;
         private const int TIMER_START_TIME = 15;
         private int TimerTime = TIMER_START_TIME;
         private PeerInfo myPeerInfo;
@@ -53,7 +53,7 @@ namespace Client
         /// <param name="reconnect"></param>
         public Peer(string playerName, List<PeerInfo> peersInfo , bool reconnect)
         {
-            gameTimer = new Timer(TimesUp);
+            
 
             Console.WriteLine("PEER ESTABLISHED For {0}", playerName);
             
@@ -103,17 +103,16 @@ namespace Client
             }
 
             game = new Game.Game(allPeersInfo);
+            game.TurnTimer = new Timer(TimesUp);
             Console.WriteLine(game);
             if (myPeerInfo.PlayerInfo.Turn==0)
-            {
-                
-                Console.WriteLine("!!You go first! It is your turn now !!");
-                
-                
+            {          
+                Console.WriteLine("!!You go first! It is your turn now !!");         
             }
 
             Thread.Sleep(500);
-            gameTimer.Change(1000, 1000);
+            game.TurnTimer.Change(1000, 1000);
+            
         }
 
 
@@ -150,7 +149,7 @@ namespace Client
                         }
                     }
 
-                    if (req == Request.QUIT)
+                    if (req == Request.QUIT || !allPeersInfo.Contains(myPeerInfo))
                     {
                         listenerThread.Abort();
                         break;
@@ -202,16 +201,7 @@ namespace Client
         private void EstablishConnection(TcpClient tcpclient)
         {
 
-            NetworkStream netStream = tcpclient.GetStream();
-
-            tcpclient.ReceiveBufferSize = 2048;
-            byte[] bytes = new byte[tcpclient.ReceiveBufferSize];
-           
-            netStream.Read(bytes, 0, (int)tcpclient.ReceiveBufferSize);
-
-
-            string requestMessage = Encoding.ASCII.GetString(bytes).Trim();
-            requestMessage = requestMessage.Substring(0, requestMessage.IndexOf("\0")).Trim();
+            string requestMessage = TCPMessageHandler.RecieveMessage(tcpclient);
             Console.WriteLine("DEBUG: Request: " + requestMessage);
 
             string reqType;
@@ -223,8 +213,6 @@ namespace Client
             // When a peer is broadcasting its turn
             if (reqType == Request.TURN)
             {
-                
-               
 
                 // Parse the request message
                 string playerName;
@@ -241,7 +229,8 @@ namespace Client
 
                 if (p.Turn == 0)
                 {
-                    gameTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                    pi.ResetStrike();
+                    game.TurnTimer.Change(Timeout.Infinite, Timeout.Infinite);
                     game.move_player(p, int.Parse(diceRolled));
                     Console.WriteLine(game);
                     Console.WriteLine("\nPlayer " + playerId + " (" + playerName + ") move " + diceRolled + " steps.");
@@ -255,7 +244,7 @@ namespace Client
 
                     }
                     TimerTime = TIMER_START_TIME;
-                    gameTimer.Change(1000, 1000);
+                    game.TurnTimer.Change(1000, 1000);
                 }
                 else
                 {
@@ -286,7 +275,7 @@ namespace Client
                 Console.WriteLine("\nPlayer " + playerId + " quit the game! (" + turnNum + ") ");
 
                 //Remove player from the list
-                PeerInfo peerToRemove = allPeersInfo.Where(peer => peer.PlayerInfo.PlayerId == playerId).First();
+                PeerInfo peerToRemove = allPeersInfo.Find(peer => peer.PlayerInfo.PlayerId == playerId);
                 RemovePeerFromGame(peerToRemove);
 
             }else if (reqType == Request.STRIKE)
@@ -323,9 +312,9 @@ namespace Client
                 
             }
 
+            TCPMessageHandler.SendResponse(responseMessage + "\n\n", tcpclient);
 
-            byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage + "\n\n");
-            netStream.Write(byteToSend, 0, byteToSend.Length);
+            
         }
 
         /// <summary>
@@ -335,7 +324,7 @@ namespace Client
         /// <param name="msg"></param>
         private int SendToAllPeers(string msg)
         {
-            TcpClient[] allPeerTcpClient = new TcpClient[allPeersInfo.Count];
+           // TcpClient[] allPeerTcpClient = new TcpClient[allPeersInfo.Count];
             string[] allResponseMsgs = new string[allPeersInfo.Count];
             string reqType = "";
             Object msgLock = new Object();
@@ -349,10 +338,10 @@ namespace Client
 
 
             // Multicast message to all peers
-            Parallel.For(0, allPeerTcpClient.Count(), i => {
+            Parallel.For(0, allPeersInfo.Count, i => {
                 // Check if peersInfo is not you and then send info
                PeerInfo aPeer = allPeersInfo[i];
-               
+                TcpClient aClient;
 
                if (aPeer.PlayerInfo.Name != myPeerInfo.PlayerInfo.Name &&
                 aPeer.PlayerInfo.PlayerId != playerToBeStriked)
@@ -361,28 +350,28 @@ namespace Client
                     int numOfTries = 2;
                     do
                     {
-                        allPeerTcpClient[i] = new TcpClient();
-                        allPeerTcpClient[i].SendTimeout = 5000;
+                        aClient = new TcpClient();
+                        aClient.SendTimeout = 5000;
                         succPeerConnect = true;
                         try
                         {
 
-                            allPeerTcpClient[i].ConnectAsync(allPeersInfo[i].IPAddr, aPeer.Port).Wait(1500);
+                            aClient.ConnectAsync(allPeersInfo[i].IPAddr, aPeer.Port).Wait(3000);
                         }
                         catch (Exception)
                         {
-                            Console.WriteLine("Can't connect to peer " + aPeer.PlayerInfo.PlayerId);
-                            Console.WriteLine("Trying... Times to try: " + numOfTries);
-                            allPeerTcpClient[i].Close();
+                            Console.Write("Can't connect to peer {0}..  ", aPeer.PlayerInfo.PlayerId);
+                            Console.WriteLine("Trying {0} more times... ", numOfTries);
+                            aClient.Close();
                             succPeerConnect = false;
                             numOfTries--;
                             if (numOfTries == 0)
                             {
                                 Console.WriteLine("Unable to communicate with peer " + aPeer.PlayerInfo.PlayerId);
                                 Console.WriteLine("Skip it for now...");
-                                SendRequestPeers(Request.STRIKE + " " + aPeer.PlayerInfo.PlayerId);
+                                //SendRequestPeers(Request.STRIKE + " " + aPeer.PlayerInfo.PlayerId);
 
-                                StrikePlayer(i);
+                               // StrikePlayer(i);
                                 responseCounterFlag--;
                                 return;
                             }
@@ -392,22 +381,9 @@ namespace Client
 
                     Console.Write("Connected to peer " + aPeer.PlayerInfo.PlayerId + "..  ");
 
-                    NetworkStream netStream = allPeerTcpClient[i].GetStream();
-
-                    byte[] bytesToSend = Encoding.ASCII.GetBytes(msg);
                     Console.Write("Transmitting request to the peer {0} ...", aPeer.PlayerInfo.PlayerId);
-                    netStream.Write(bytesToSend, 0, bytesToSend.Length);
-
-                    //byte[] buffer = new byte[2048];
-                    allPeerTcpClient[i].ReceiveBufferSize = 2048;
-                    byte[] bytesRead = new byte[allPeerTcpClient[i].ReceiveBufferSize];
-
-                    //   bytesRead = s.Receive(buffer);
-                    netStream.Read(bytesRead, 0, (int)allPeerTcpClient[i].ReceiveBufferSize);
-                    Console.WriteLine("... OK!");
-
-                    string responseMessage = Encoding.ASCII.GetString(bytesRead);
-                    responseMessage = responseMessage.Substring(0, responseMessage.IndexOf("\0")).Trim();
+                    
+                    string responseMessage = TCPMessageHandler.SendMessage(msg, aClient);
 
                     string respType;
                     string respMsg;
@@ -444,16 +420,16 @@ namespace Client
                     {
                         string errType;
                         MessageParser.ParseNext(respMsg, out errType, out respMsg);
-
+                        Console.WriteLine(respMsg);
                         if (errType == Request.TURN)
                         {
                             string errMsg = respMsg;
-                            Console.WriteLine(errMsg);
+                            
 
                         }
                     }
 
-                    allPeerTcpClient[i].Close();
+                    aClient.Close();
                 }
 
             });
@@ -487,7 +463,7 @@ namespace Client
             }else if (reqType == Request.TURN)
             {
                 TimerTime = TIMER_START_TIME;
-                gameTimer.Change(1000, 1000);
+                game.TurnTimer.Change(1000, 1000);
             }
             else if (reqType == Request.TIMEOUT)
             {
@@ -501,7 +477,7 @@ namespace Client
                     
                 }
 
-                if ((allPeersInfo.Count - responseCounterFlag - 2) <= c)
+                if ((allPeersInfo.Count - responseCounterFlag) <= c)
                 {
                    
                     return 0;
@@ -602,9 +578,9 @@ namespace Client
                 msg = req +  " " + myPeerInfo.PlayerInfo.Name + " " +
                    myPeerInfo.PlayerInfo.PlayerId + " " + dice;
 
-                if (myPeerInfo.PlayerInfo.Turn == 0) { 
-                    
+                if (myPeerInfo.PlayerInfo.Turn == 0) {
 
+                    myPeerInfo.ResetStrike();
                     game.move_player(myPeerInfo.PlayerInfo, dice);
 
                     Console.WriteLine(game);
@@ -612,7 +588,7 @@ namespace Client
                     
                     game.UpdateTurn();
                 }
-                gameTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                game.TurnTimer.Change(Timeout.Infinite, Timeout.Infinite);
                 SendToAllPeers(msg);
                 
             }
@@ -647,14 +623,10 @@ namespace Client
 
 
                 }
-                try { 
-                    TimerTime = TIMER_START_TIME;
-                     gameTimer.Change(1000, 1000);
-                }
-                catch (Exception)
-                {
-                    throw new Exception();
-                }
+            
+                TimerTime = TIMER_START_TIME;
+                game.TurnTimer.Change(1000, 1000);
+        
             }
             else
             {
@@ -672,10 +644,12 @@ namespace Client
             Console.Write("{0} " , TimerTime--);
             if(TimerTime <= 0)
             {
-                gameTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                game.TurnTimer.Change(Timeout.Infinite, Timeout.Infinite);
                 TimerTime = TIMER_START_TIME;
 
-                SendRequestPeers(Request.TIMEOUT + " " + (allPeersInfo.Find(p => p.PlayerInfo.Turn == 0)).PlayerInfo.PlayerId);
+                int timeOutPlayerId = (allPeersInfo.Find(p => p.PlayerInfo.Turn == 0)).PlayerInfo.PlayerId;
+
+                SendRequestPeers(Request.TIMEOUT + " " + timeOutPlayerId);
 
             }
         }
@@ -702,54 +676,52 @@ namespace Client
             }
         }
 
+        private bool IAmLeader        
+        {
+            get { 
+                foreach (PeerInfo p in allPeersInfo)
+                {
+                    if (p.PlayerInfo.PlayerId < myPeerInfo.PlayerInfo.PlayerId)
+                    {
+                        return false;
+                    
+                    }
+                }
+
+                return true;
+            }
+        }
+
         private void RemovePeerFromGame(PeerInfo peerToBeRemoved)
         {
+
+            if (peerToBeRemoved == myPeerInfo)
+            {
+                Console.WriteLine("\n\nYou have been removed from the game!\n");
+                Dispose();
+                Thread.CurrentThread.Abort();
+                return;
+            }
 
             allPeersInfo.Remove(peerToBeRemoved);
 
             game.RemovePlayer(peerToBeRemoved.PlayerInfo);
 
-            if (peerToBeRemoved == myPeerInfo)
-            {
-                Dispose();
-                return;
-            }
+            
 
             Console.WriteLine(game);
 
-            bool iAmLeader = true;
-            foreach (PeerInfo p in allPeersInfo)
-            {
-                if (p.PlayerInfo.PlayerId < myPeerInfo.PlayerInfo.PlayerId)
-                {
-                    iAmLeader = false;
-                    break;
-                }
-            }
-
-            if (iAmLeader)
+            if (IAmLeader)
             {
                 TcpClient toServerClient ;
 
                 toServerClient = new TcpClient();
-                toServerClient.Connect(ClientProgram.SERVER_IP, 8001);
+                toServerClient.Connect(ClientProgram.SERVER_IP, ClientProgram.SERVER_PORT);
 
-                NetworkStream netStream = toServerClient.GetStream();
-
-                byte[] bytesToSend = Encoding.ASCII.GetBytes(Request.RMPLAYER + " " + peerToBeRemoved.PlayerInfo.Name + " " + peerToBeRemoved.GameSessionId);
                 Console.Write("Sending to server: Removing peer {0} from game session...", peerToBeRemoved.PlayerInfo.PlayerId);
-                netStream.Write(bytesToSend, 0, bytesToSend.Length);
+               
+                string respMsgFromServer = TCPMessageHandler.SendMessage(Request.RMPLAYER + " " + peerToBeRemoved.PlayerInfo.Name + " " + peerToBeRemoved.GameSessionId, toServerClient);
 
-                //byte[] buffer = new byte[2048];
-                toServerClient.ReceiveBufferSize = 2048;
-                byte[] bytesRead = new byte[toServerClient.ReceiveBufferSize];
-
-                //   bytesRead = s.Receive(buffer);
-                netStream.Read(bytesRead, 0, (int)toServerClient.ReceiveBufferSize);
-                Console.WriteLine("... OK!");
-
-                string respMsgFromServer = Encoding.ASCII.GetString(bytesRead);
-                respMsgFromServer = respMsgFromServer.Substring(0, respMsgFromServer.IndexOf("\0")).Trim();
                 Console.WriteLine("SERVER RESPONSE: " + respMsgFromServer);
             }
 
@@ -798,7 +770,7 @@ namespace Client
         public void Dispose()
         {
             _peerListener.Stop();
-            gameTimer.Dispose();
+            game.TurnTimer.Dispose();
             allPeersInfo = null;
         }
 
