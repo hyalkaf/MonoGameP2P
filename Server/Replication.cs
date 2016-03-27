@@ -99,7 +99,7 @@ namespace Server
             {
                 // Add Primary server ip address to replica
                 //TODO dont need this, get list update from primary
-                //allReplicaAddr.Add(new Tuple<IPAddress, bool>(primaryServerIp, true));
+                allReplicaAddr.Add(new Tuple<IPAddress, bool>(primaryServerIp, true));
 
                 // Timer for checking if primary is there
                 timerForChecking = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
