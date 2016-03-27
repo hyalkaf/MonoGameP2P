@@ -261,7 +261,7 @@ namespace Server
                 {
                     // All the data has been read from the 
                     // client. Display it on the console.
-                    ClientInfo playerToCancelRequest = _gameMatchmaker.Queues[qNum].Where(ci => ci.PlayerName == playername).First();
+                    ClientInfo playerToCancelRequest = _gameMatchmaker.ClientGameQueue[qNum].Where(ci => ci.PlayerName == playername).First();
                     TcpClient gameReqClient = playerToCancelRequest.TcpClient;
                     NetworkStream stm = gameReqClient.GetStream();
 
@@ -487,7 +487,7 @@ namespace Server
         /// </summary>
         public List<ConcurrentQueue<ClientInfo>> GetClientWaitingForGame()
         {
-            return _gameMatchmaker.Queues;
+            return _gameMatchmaker.ClientGameQueue;
         }
 
         /// <summary>
@@ -497,7 +497,7 @@ namespace Server
         public void SetClientsWaitingForGame(List<ConcurrentQueue<ClientInfo>> newClientsWaitingForGame)
         {
             // Change game session
-            this._gameMatchmaker.Queues = newClientsWaitingForGame;
+            this._gameMatchmaker.ClientGameQueue = newClientsWaitingForGame;
 
             // Update all backup servers
             if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("match");

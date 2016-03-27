@@ -258,7 +258,7 @@ namespace Server
         /// <summary>
         /// Getter for list of queues of clients waiting for game.
         /// </summary>
-        public List<ConcurrentQueue<ClientInfo>> Queues
+        public List<ConcurrentQueue<ClientInfo>> ClientGameQueue
         {
             get { return clientsWaitingForGame; }
             set { clientsWaitingForGame = value; }
@@ -285,7 +285,7 @@ namespace Server
         public GameSession[] GameSessions
         {
             get { return gameSessions.ToArray(); }
-            set { GameSessions = value; }
+            set { gameSessions = value.ToList(); }
         }
 
         
