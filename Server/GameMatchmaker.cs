@@ -19,34 +19,59 @@ namespace Server
         private List<ConcurrentQueue<ClientInfo>> clientsWaitingForGame;
         private Object queueLock = new Object();
 
+        /// <summary>
+        /// Iniailize a new MatchMaker object containing Game Sessions and Clients Waiting for Games of different capacities.
+        /// </summary>
         public GameMatchmaker() {
             gameSessions = new List<GameSession>();
             clientsWaitingForGame = new List<ConcurrentQueue<ClientInfo>>();
         }
 
+        /// <summary>
+        /// Add a new Game session to the list of game sessions
+        /// </summary>
+        /// <param name="gs">Game session to be added</param>
         public void NewGameSession(GameSession gs)
         {
             gameSessions.Add(gs);
         }
 
+        /// <summary>
+        /// Remove a game session from game sessions. 
+        /// </summary>
+        /// <param name="id"></param>
         public void RemoveGameSession(int id)
         {
+            // TODO: Deal with the case when the lambda doesn't return anything -> exception will be thrown
             gameSessions.Remove(gameSessions.Where(gs => gs.ID == id).First());
         }
 
+        /// <summary>
+        /// This method returns a speific game session given the ID of that session
+        /// </summary>
+        /// <param name="id">ID of the game session passed.</param>
+        /// <returns>a specific game session with the passed id of that game session.</returns>
         public GameSession GetGameSession(int id)
         {
 
             return gameSessions.Find(gs => gs.ID == id);
         }
 
+        /// <summary>
+        /// This method finds out the index of the player in the list. 
+        /// </summary>
+        /// <param name="playername">Player name to find queue the player is in</param>
+        /// <returns>Index of the player in the List or -1 if it doesn't exist</returns>
         public int IsInQueue(string playername)
         {
+            // For every Queue in the list of clients waiting for a game
             for (int i = 0; i < clientsWaitingForGame.Count; i++)
             {
+                // For every client Info in this specific queue
                 ConcurrentQueue<ClientInfo> q = clientsWaitingForGame[i];
                 foreach (ClientInfo ci in q)
                 {
+                    // Check if player is in this queue
                     if (ci.PlayerName == playername)
                     {
                         return i;
@@ -54,12 +79,20 @@ namespace Server
                 }
                
             }
+
+            // Return -1 if player is not in the list of players waiting to get into game.
             return -1;
 
         }
 
+        /// <summary>
+        /// This method Add players to a specific queue (their game capacity).
+        /// </summary>
+        /// <param name="player">Player to be added.</param>
+        /// <param name="queueNum">Queue number (game capacity) that the player will be added to.</param>
         public void AddPlayerToQueue(ClientInfo player, int queueNum)
         {
+            // Check that queue number exists in the list else add more queues to the list equal to the queueNumber.
             if (queueNum >= clientsWaitingForGame.Count)
             {
                 for (int i = clientsWaitingForGame.Count; i <= queueNum; i++)
@@ -68,18 +101,84 @@ namespace Server
                 }
             }
 
+            // Add player to the specific queue
             clientsWaitingForGame[queueNum].Enqueue(player);
 
         }
 
+        /// <summary>
+        /// Converts Game sessions to a string delimited newlines between each game sessio, 
+        /// by spaces between player info and comma between each player's info.
+        /// </summary>
+        /// <returns>A string containing all this game session info.</returns>
+        public string GameSessionsToMessage()
+        {
+            string message = string.Empty;
+
+            // For every game session convert it to a message
+            for (int gameSessionIndex = 0; gameSessionIndex < GameSessions.Count(); gameSessionIndex++)
+            {
+                // Last game session will have two newlines after it
+                if (gameSessionIndex.Equals(GameSessions.Count() - 1))
+                {
+                    message += GameSessions[gameSessionIndex].ToMessage() + "\n\n";
+                }
+                else
+                {
+                    message += GameSessions[gameSessionIndex].ToMessage() + "\n";
+                }
+            }
+
+            return message;
+        }
+
+        /// <summary>
+        /// Converts Game sessions to a string delimited newlines between each game sessio, 
+        /// by spaces between player info and comma between each player's info.
+        /// </summary>
+        /// <returns>A string containing all this game session info.</returns>
+        public string ClientsWaitingForGameToMessage()
+        {
+            string message = string.Empty;
+
+            // For game requests of specific index in the list convert all info in the queue to a string
+            for (int clientsWaitingIndex = 0; clientsWaitingIndex < clientsWaitingForGame.Count(); clientsWaitingIndex++)
+            {
+                for (int clientInQueueIndex = 0; clientInQueueIndex < clientsWaitingForGame[clientsWaitingIndex].Count; clientInQueueIndex++)
+                {
+                    // If element is last, then append comma to the end as a delimiter for different game capacities.
+                    if (clientInQueueIndex.Equals(clientsWaitingForGame[clientsWaitingIndex].Count - 1))
+                    {
+                        message += clientsWaitingForGame[clientsWaitingIndex].ElementAt(clientInQueueIndex).ToMessage() + ",";
+                    }
+                    // If element is first, message will have the capacity first then each player delimited by spaces.
+                    else if (clientInQueueIndex.Equals(0))
+                    {
+                        message += clientsWaitingIndex + " " + clientsWaitingForGame[clientsWaitingIndex].ElementAt(clientInQueueIndex).ToMessage() + " ";
+                    }
+                    else
+                    {
+                        message += clientsWaitingForGame[clientsWaitingIndex].ElementAt(clientInQueueIndex).ToMessage() + " ";
+                    }
+
+                }
+            }
+
+            return message;
+        }
+
+        /// <summary>
+        /// This method is responsible for matching players to a game.
+        /// </summary>
+        /// <param name="server">Server Progam currently being used (primary)</param>
         public void MatchPeers(ServerProgram server)
         {
             string responseMessage = string.Empty;
-            //string playersToBeSent = "";
-            //List<string> playersToBeSentList = new List<string>();
+
+            // bypass first and second index since there are no matches with 0 or 1 player
             for (int i = 2; i < clientsWaitingForGame.Count; i++)
             {
-                // bypass first and second index since there are no matches with 0 or 1 player
+                
                
                 // TODO: Will not work when in index 2 there are four want 2
                 if (i <= clientsWaitingForGame[i].Count)
@@ -156,11 +255,18 @@ namespace Server
             }
         }
 
-        public List<ConcurrentQueue<ClientInfo>> Queues
+        /// <summary>
+        /// Getter for list of queues of clients waiting for game.
+        /// </summary>
+        public List<ConcurrentQueue<ClientInfo>> ClientGameQueue
         {
             get { return clientsWaitingForGame; }
+            set { clientsWaitingForGame = value; }
         }
 
+        /// <summary>
+        /// Number of clients waiting for game in the whole list.
+        /// </summary>
         public int NumOfClientsInQueue
         {
             get {
@@ -173,17 +279,34 @@ namespace Server
             }
         }
 
+        /// <summary>
+        /// Getter and setter for game sessions as array
+        /// </summary>
         public GameSession[] GameSessions
         {
             get { return gameSessions.ToArray(); }
+            set { gameSessions = value.ToList(); }
         }
+
+        
+
     }
 
+    /// <summary>
+    /// This class is keeping track of game sessions
+    /// These are games currently being player.
+    /// It has an ID and a list of players with their Information
+    /// This information is Player IP, Port Number, Player Name, Player ID.
+    /// </summary>
     public class GameSession
     {
         private int sessionId;
         private List<ClientInfo> players;
 
+        /// <summary>
+        /// Create a new game session with this ID.
+        /// </summary>
+        /// <param name="id"></param>
         public GameSession(int id)
         {
             sessionId = id;
@@ -191,11 +314,10 @@ namespace Server
         }
 
         /// <summary>
-        /// 
-        /// 
+        /// This method check if game session has this player or not.
         /// </summary>
-        /// <param name="pName"></param>
-        /// <returns></returns>
+        /// <param name="pName">Player to be checked against this game session</param>
+        /// <returns>False if player doesn't exist and true if it does</returns>
         public bool ContainsPlayer(string pName)
         {
             if (GetPlayer(pName) == null)
@@ -205,46 +327,80 @@ namespace Server
         }
 
         /// <summary>
-        /// 
+        /// Removes a player from this game session.
         /// </summary>
-        /// <param name="pName"></param>
+        /// <param name="pName">Player to be removed</param>
         public void RemovePlayer(string pName)
         {
             players.Remove(GetPlayer(pName));
         }
 
         /// <summary>
-        /// 
+        /// Adds a player to this game session
         /// </summary>
-        /// <param name="player"></param>
+        /// <param name="player">Player to be added</param>
         public void AddPlayer(ClientInfo player)
         {
             players.Add(player);
         }
 
+        /// <summary>
+        /// This method gets a player from this game session.
+        /// </summary>
+        /// <param name="pName">Player name of the player to be returned.</param>
+        /// <returns>PlayerInfo to be returned as a ClientInfo Object.</returns>
         public ClientInfo GetPlayer(string pName)
         {
             return players.Find(aplayer => aplayer.PlayerName == pName);
         }
 
+        /// <summary>
+        /// Converts Game session to a string delimited by spaces between player info and comma between each player's info.
+        /// </summary>
+        /// <returns>A string containing all this game session info.</returns>
         public string ToMessage()
         {
             string msg = "";
-            foreach (ClientInfo c in players)
+            for (int clientInfoIndex = 0; clientInfoIndex < players.Count; clientInfoIndex++)
             {
-                msg += c.IPAddr + " " + c.ListeningPort + " " + c.PlayerName + " " + c.PlayerId + " " + ID + ",";
+                // Add ID in the first plyaer info string delimied by spaces
+                // Don't add comma at the end of the string
+                if (clientInfoIndex == 0)
+                {
+                    msg += ID + " " + players[clientInfoIndex].ToMessage() + ",";
+                }
+                else if (clientInfoIndex.Equals(players.Count - 1))
+                {
+                    msg += players[clientInfoIndex].ToMessage();
+                }
+                else
+                {
+                    msg += players[clientInfoIndex].ToMessage() + ",";
+                }
             }
+
             return msg;
         }
 
+        /// <summary>
+        /// ID of this game session.
+        /// </summary>
         public int ID
         {
             get { return sessionId; }
         }
 
+        /// <summary>
+        /// Players in this game seesion.
+        /// </summary>
         public ClientInfo[] Players
         {
             get { return players.ToArray(); }
+        }
+
+        public List<ClientInfo> SetPlayers
+        {
+            set { players = value; }
         }
 
     }

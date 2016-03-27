@@ -48,10 +48,11 @@ namespace Server
         //private List<ConcurrentQueue<ClientInfo>> clientsWaitingForGame;
         //private List<Socket> sockets;
         private List<ClientInfo> connectedClients;
-        public List<string> allPlayerNamesUsed;
-        
+        private List<string> allPlayerNamesUsed;
+
         // --To be removed--
-        public Dictionary<string, List<string>> gameSession;
+        //public Dictionary<string, List<string>> gameSession { get; private set; }
+        //public Dictionary<string, List<string>> gameSession;
         // -----------------
 
         public bool isPrimaryServer = false;
@@ -68,7 +69,6 @@ namespace Server
            // clientsWaitingForGame = new List<ConcurrentQueue<ClientInfo>>();
 
             allPlayerNamesUsed = new List<string>();
-            gameSession = new Dictionary<string, List<string>>();
             /* Initializes the Listener */
             IPHostEntry host;
             string localIP = "";
@@ -82,9 +82,6 @@ namespace Server
             }
             ipAddr =  IPAddress.Parse(localIP);
 
-            // Change ipaddress of primary in case 
-            // readServerStatusFromConsole();
-
             // Initalize a replica and make it listen
             rm = new ReplicationManager(this);
 
@@ -92,56 +89,6 @@ namespace Server
             // TODO: Might need to change the way this code is being called. 
             // new Task(() => { rm.ListenReplica(); }).Start();
         }
-
-        /// <summary>
-        /// this method gets information from console about status of server and their ip addresses
-        /// </summary>
-        //private void readserverstatusfromconsole()
-        //{
-        //    messages to the console when server starts
-        //    console.writeline("server started! this address is: " + ipaddr);
-
-        //    broadcast to local network trying to find primary server
-
-
-        //    console.writeline("set this to primary? (y/n)");
-
-        //    get user input and for either yes or no and deal with other inputs
-
-        //   string getinput = console.readline().trim().toupper();
-        //    while (getinput != "y" && getinput != "n")
-        //    {
-        //        console.writeline("input is wrong, please indicate if this is the primary server or not by inputing y or n? ");
-        //        getinput = console.readline().trim().toupper();
-        //    }
-
-        //    check that what the user has input
-        //   ipaddress ipaddress = ipaddr;
-        //    if (getinput == "y")
-        //    {
-        //        isprimaryserver = true;
-        //        ipaddr = ipaddress;
-        //        primaryipaddress = ipaddress;
-        //    }
-        //    else if (getinput == "n")
-        //    {
-        //        console.writeline("what is the ip address of the primary server? ");
-        //        string getip = console.readline();
-
-        //        while (!ipaddress.tryparse(getip, out ipaddress))
-        //        {
-        //            console.writeline("there was a mistake in your ip address input. what is the ip address of the primary server in the form x.x.x.x? ");
-        //            getip = console.readline();
-        //        }
-        //        primaryipaddress = ipaddress;
-        //    }
-        //    code shouldn't hit else part
-        //    else
-        //    {
-        //        console.writeline("error");
-        //    }
-
-        //}
 
         void EstablishConnection(TcpClient tcpclient)
         {
@@ -213,7 +160,7 @@ namespace Server
                 
                     // Legacy functionality: copy GameSessions to Dictionary
                     GameSession[] sessions = _gameMatchmaker.GameSessions;
-                    gameSession = new Dictionary<string, List<string>>();
+                    // gameSession = new Dictionary<string, List<string>>();
                     for (int i = 1; i <= sessions.Length; i++)
                     {
                         List<string> playerInfos = new List<string>();
@@ -226,7 +173,7 @@ namespace Server
                             }
                         }
 
-                        gameSession.Add(i.ToString(), playerInfos);
+                        //gameSession.Add(i.ToString(), playerInfos);
                     }
                 }
                 else
@@ -314,7 +261,7 @@ namespace Server
                 {
                     // All the data has been read from the 
                     // client. Display it on the console.
-                    ClientInfo playerToCancelRequest = _gameMatchmaker.Queues[qNum].Where(ci => ci.PlayerName == playername).First();
+                    ClientInfo playerToCancelRequest = _gameMatchmaker.ClientGameQueue[qNum].Where(ci => ci.PlayerName == playername).First();
                     TcpClient gameReqClient = playerToCancelRequest.TcpClient;
                     NetworkStream stm = gameReqClient.GetStream();
 
@@ -493,6 +440,69 @@ namespace Server
         {
             get { return connectedClients; }
         }
+
+        /// <summary>
+        /// Getter for game sessions
+        /// </summary>
+        public GameSession[] GetGameSession()
+        {
+            return _gameMatchmaker.GameSessions;
+        }
+
+        /// <summary>
+        /// Setter for game sessions.
+        /// </summary>
+        /// <param name="newGameSessions">The updated game session</param>
+        public void SetGameSession(GameSession[] newGameSessions)
+        {
+            // Change game session
+            this._gameMatchmaker.GameSessions = newGameSessions;
+
+            // Update all backup servers
+            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("session");
+        }
+
+        /// <summary>
+        /// Getter for Player Names
+        /// </summary>
+        public List<string> GetPlayerNames()
+        {
+            return allPlayerNamesUsed;
+        }
+
+        /// <summary>
+        /// Setter for player names.
+        /// </summary>
+        /// <param name="newPlayerNames">The updated player names</param>
+        public void SetPlayerNames(List<string> newPlayerNames)
+        {
+            allPlayerNamesUsed = newPlayerNames;
+
+            // Update all backup servers
+            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("name");
+        }
+
+        /// <summary>
+        /// Getter for Clients Waiting for games.
+        /// </summary>
+        public List<ConcurrentQueue<ClientInfo>> GetClientWaitingForGame()
+        {
+            return _gameMatchmaker.ClientGameQueue;
+        }
+
+        /// <summary>
+        /// Setter for clients who are waiting for game to be matched.
+        /// </summary>
+        /// <param name="newClientsWaitingForGame"></param>
+        public void SetClientsWaitingForGame(List<ConcurrentQueue<ClientInfo>> newClientsWaitingForGame)
+        {
+            // Change game session
+            this._gameMatchmaker.ClientGameQueue = newClientsWaitingForGame;
+
+            // Update all backup servers
+            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("match");
+        }
+        
 
         static void Main(string[] args)
         {
