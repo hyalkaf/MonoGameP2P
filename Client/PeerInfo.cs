@@ -7,11 +7,16 @@ using System.Threading.Tasks;
 
 namespace Client
 {
-    public class PeerInfo
+    public class PeerInfo : IComparable<PeerInfo>
     {
         private int listeningPort; 
         private Player playerInfo;
         private int gameSessionId;
+        public bool IsLeader
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         ///
@@ -25,6 +30,7 @@ namespace Client
         {
             Initialize(ip, port, new Player(playername, playerId));
             this.gameSessionId = gameSessionId;
+            
         }
 
         /// <summary>
@@ -45,6 +51,14 @@ namespace Client
             IPAddr = IPAddress.Parse(ip);
             listeningPort = port;
             Strike = 0;
+            if (PlayerInfo.PlayerId == 0)
+            {
+                IsLeader = true;
+            }
+            else
+            {
+                IsLeader = false;
+            }
         }
 
         public Player PlayerInfo
@@ -88,6 +102,12 @@ namespace Client
         {
             Strike = 0;
         }
+
+        public int CompareTo(PeerInfo other)
+        {
+            return this.PlayerInfo.PlayerId.CompareTo(other.PlayerInfo.PlayerId);
+        }
+
         public int Strike
         {
             internal set;

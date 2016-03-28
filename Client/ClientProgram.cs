@@ -306,15 +306,20 @@ namespace Client
 
                 MessageParser.ParseNext(respMsg, out reqType, out respMsg);
 
+               
                 //string requestType = responseMessage.Substring(0, responseMessage.IndexOf(" ")).Trim();
-               // responseMessage = responseMessage.Substring(requestType.Length);
+                // responseMessage = responseMessage.Substring(requestType.Length);
 
                 Console.WriteLine("\nDEBUG: " + reqType + "\n");
                 if (reqType == Request.GAME)
                 {
                     allPeersInfo = new List<PeerInfo>();
                     //peersInfo = new List<Tuple<string, int, string, int, int>>();
+                    string gameSessionId;
+                    MessageParser.ParseNext(respMsg, out gameSessionId, out respMsg);
                     IEnumerable<string> temp = respMsg.Split(',');
+
+
                     allPeersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
                     {
                         string[] parsedInfo = info.Trim().Split(' ');
@@ -327,9 +332,8 @@ namespace Client
                             int port = int.Parse(parsedInfo[1]);
                             string pName = parsedInfo[2];
                             int playerId = int.Parse(parsedInfo[3]);
-                            int gameSessionId = int.Parse(parsedInfo[4]);
                             // TODO: deal with cases when integer can't be parsed
-                            pInfo = new PeerInfo(ip, port, pName, playerId, gameSessionId);
+                            pInfo = new PeerInfo(ip, port, pName, playerId, int.Parse(gameSessionId));
                         }
 
                         //return t;

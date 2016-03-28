@@ -11,21 +11,27 @@ namespace Client
     {
         public static string SendMessage(string msg, TcpClient tcpclient)
         {
-            NetworkStream netStream = tcpclient.GetStream();
+            try { 
+                NetworkStream netStream = tcpclient.GetStream();
 
-            byte[] bytesToSend = Encoding.ASCII.GetBytes(msg);
-            netStream.Write(bytesToSend, 0, bytesToSend.Length);
+                byte[] bytesToSend = Encoding.ASCII.GetBytes(msg);
+                netStream.Write(bytesToSend, 0, bytesToSend.Length);
 
-            //byte[] buffer = new byte[2048];
-            tcpclient.ReceiveBufferSize = 4096;
-            byte[] bytesRead = new byte[tcpclient.ReceiveBufferSize];
+                //byte[] buffer = new byte[2048];
+                tcpclient.ReceiveBufferSize = 4096;
+                byte[] bytesRead = new byte[tcpclient.ReceiveBufferSize];
 
-            //   bytesRead = s.Receive(buffer);
-            netStream.Read(bytesRead, 0, (int)tcpclient.ReceiveBufferSize);
-            Console.WriteLine("... OK!");
+                //   bytesRead = s.Receive(buffer);
+                netStream.Read(bytesRead, 0, (int)tcpclient.ReceiveBufferSize);
+                Console.WriteLine("... OK!");
 
-            string responseMessage = Encoding.ASCII.GetString(bytesRead);
-            return responseMessage.Substring(0, responseMessage.IndexOf("\0")).Trim();
+                string responseMessage = Encoding.ASCII.GetString(bytesRead);
+                return responseMessage.Substring(0, responseMessage.IndexOf("\0")).Trim();
+            }
+            catch (Exception)
+            {
+                throw new Exception();
+            }
         }
 
         public static string RecieveMessage(TcpClient tcpclient)
