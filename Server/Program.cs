@@ -9,6 +9,9 @@ using System.Collections;
 using System.Threading;
 using System.Collections.Concurrent;
 using System.Net.NetworkInformation;
+using System.ComponentModel;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 
 namespace Server
 {
@@ -48,7 +51,7 @@ namespace Server
         //private List<ConcurrentQueue<ClientInfo>> clientsWaitingForGame;
         //private List<Socket> sockets;
         private List<ClientInfo> connectedClients;
-        private List<string> allPlayerNamesUsed;
+        private ObservableCollection<string> allPlayerNamesUsed;
 
         // --To be removed--
         //public Dictionary<string, List<string>> gameSession { get; private set; }
@@ -65,10 +68,12 @@ namespace Server
                
             connectedClients = new List<ClientInfo>();
             _gameMatchmaker = new GameMatchmaker();
+            _gameMatchmaker.MatchMakerWasModifiedEvent += new EventHandler((sender, e) => MatchMakerChangedEvent(sender, e, _gameMatchmaker.changedData));
             //socketsForGameRequests = new List<ConcurrentDictionary<string, Socket>>();
            // clientsWaitingForGame = new List<ConcurrentQueue<ClientInfo>>();
 
-            allPlayerNamesUsed = new List<string>();
+            allPlayerNamesUsed = new ObservableCollection<string>();
+            allPlayerNamesUsed.CollectionChanged += PlayerNamesChangedEvent;
             /* Initializes the Listener */
             IPHostEntry host;
             string localIP = "";
@@ -88,6 +93,27 @@ namespace Server
             // Initalize a listening port for replication Manager.
             // TODO: Might need to change the way this code is being called. 
             // new Task(() => { rm.ListenReplica(); }).Start();
+        }
+
+        private void MatchMakerChangedEvent(object sender, EventArgs e, string fieldThatChanged)
+        {
+            if (this.isPrimaryServer)
+            {
+                rm.SendFromServerToBackUPSWhenStateChanges(fieldThatChanged);
+            }
+        }
+
+        /// <summary>
+        /// This method is called every time a change happens in the list of player names.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void PlayerNamesChangedEvent(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (this.isPrimaryServer)
+            {
+                rm.SendFromServerToBackUPSWhenStateChanges("name");
+            }
         }
 
         void EstablishConnection(TcpClient tcpclient)
@@ -459,13 +485,13 @@ namespace Server
             this._gameMatchmaker.GameSessions = newGameSessions;
 
             // Update all backup servers
-            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("session");
+            // if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("session");
         }
 
         /// <summary>
         /// Getter for Player Names
         /// </summary>
-        public List<string> GetPlayerNames()
+        public ObservableCollection<string> GetPlayerNames()
         {
             return allPlayerNamesUsed;
         }
@@ -474,18 +500,18 @@ namespace Server
         /// Setter for player names.
         /// </summary>
         /// <param name="newPlayerNames">The updated player names</param>
-        public void SetPlayerNames(List<string> newPlayerNames)
+        public void SetPlayerNames(ObservableCollection<string> newPlayerNames)
         {
             allPlayerNamesUsed = newPlayerNames;
 
             // Update all backup servers
-            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("name");
+            // if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("name");
         }
 
         /// <summary>
         /// Getter for Clients Waiting for games.
         /// </summary>
-        public List<ConcurrentQueue<ClientInfo>> GetClientWaitingForGame()
+        public ObservableCollection<ConcurrentQueue<ClientInfo>> GetClientWaitingForGame()
         {
             return _gameMatchmaker.ClientGameQueue;
         }
@@ -494,13 +520,13 @@ namespace Server
         /// Setter for clients who are waiting for game to be matched.
         /// </summary>
         /// <param name="newClientsWaitingForGame"></param>
-        public void SetClientsWaitingForGame(List<ConcurrentQueue<ClientInfo>> newClientsWaitingForGame)
+        public void SetClientsWaitingForGame(ObservableCollection<ConcurrentQueue<ClientInfo>> newClientsWaitingForGame)
         {
             // Change game session
             this._gameMatchmaker.ClientGameQueue = newClientsWaitingForGame;
 
             // Update all backup servers
-            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("match");
+            // if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("match");
         }
         
 

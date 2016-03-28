@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -414,7 +415,7 @@ namespace Server
         {
             // Add response Type
             string responseMessage = string.Empty;
-            List<string> names = thisServer.GetPlayerNames();
+            ObservableCollection<string> names = thisServer.GetPlayerNames();
             GameSession[] sessions = thisServer.GetGameSession();
             List<ConcurrentQueue<ClientInfo>> clientsWaitingForgame = new List<ConcurrentQueue<ClientInfo>>();
 
@@ -453,7 +454,7 @@ namespace Server
         /// </summary>
         /// <param name="names">List of names of players to be sent from primary server to replica.</param>
         /// <returns>Message to be sent to the replica</returns>
-        private string ConstructPrimaryMessageNames(List<string> names)
+        private string ConstructPrimaryMessageNames(ObservableCollection<string> names)
         {
             string responseMessage = "name" + " ";
 
@@ -561,7 +562,7 @@ namespace Server
                 string[] arrayOfPlayerNames = messageParam.Split(',');
 
                 // Add player names to a temp variable
-                List<string> tempPlayerNames = new List<string>();
+                ObservableCollection<string> tempPlayerNames = new ObservableCollection<string>();
 
                 // Convert IP address from string to IPAddress
                 foreach (string tempName in arrayOfPlayerNames)
@@ -643,7 +644,7 @@ namespace Server
                 // Split game queue by delimiter comma
                 string[] arrayOfGameQueues = messageParam.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
 
-                List<ConcurrentQueue<ClientInfo>> tempQueues = new List<ConcurrentQueue<ClientInfo>>();
+                ObservableCollection<ConcurrentQueue<ClientInfo>> tempQueues = new ObservableCollection<ConcurrentQueue<ClientInfo>>();
 
                 int gameCapacity = -1;
 
