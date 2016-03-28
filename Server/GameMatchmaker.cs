@@ -2,6 +2,8 @@
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -15,16 +17,39 @@ namespace Server
         
         public static int idCounter = 1;
         private int portNumber = 9000;
-        private List<GameSession> gameSessions;
-        private List<ConcurrentQueue<ClientInfo>> clientsWaitingForGame;
+        private ObservableCollection<GameSession> gameSessions;
+        private ObservableCollection<ConcurrentQueue<ClientInfo>> clientsWaitingForGame;
+        public event EventHandler MatchMakerWasModifiedEvent;
+        public string changedData = string.Empty;
         private Object queueLock = new Object();
 
         /// <summary>
         /// Iniailize a new MatchMaker object containing Game Sessions and Clients Waiting for Games of different capacities.
         /// </summary>
         public GameMatchmaker() {
-            gameSessions = new List<GameSession>();
-            clientsWaitingForGame = new List<ConcurrentQueue<ClientInfo>>();
+            gameSessions = new ObservableCollection<GameSession>();
+            gameSessions.CollectionChanged += GameSessionChangedEvent;
+            clientsWaitingForGame = new ObservableCollection<ConcurrentQueue<ClientInfo>>();
+            clientsWaitingForGame.CollectionChanged += GameQueueChangedEvent;
+
+        }
+
+        private void GameQueueChangedEvent(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (MatchMakerWasModifiedEvent != null)
+            {
+                changedData = "match";
+                MatchMakerWasModifiedEvent(this, null);
+            }
+        }
+
+        private void GameSessionChangedEvent(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (MatchMakerWasModifiedEvent != null)
+            {
+                changedData = "session";
+                MatchMakerWasModifiedEvent(this, null);
+            }
         }
 
         /// <summary>
@@ -54,7 +79,7 @@ namespace Server
         public GameSession GetGameSession(int id)
         {
 
-            return gameSessions.Find(gs => gs.ID == id);
+            return gameSessions.Where(gs => gs.ID.Equals(id)).FirstOrDefault();
         }
 
         /// <summary>
@@ -258,7 +283,7 @@ namespace Server
         /// <summary>
         /// Getter for list of queues of clients waiting for game.
         /// </summary>
-        public List<ConcurrentQueue<ClientInfo>> ClientGameQueue
+        public ObservableCollection<ConcurrentQueue<ClientInfo>> ClientGameQueue
         {
             get { return clientsWaitingForGame; }
             set { clientsWaitingForGame = value; }
@@ -285,7 +310,7 @@ namespace Server
         public GameSession[] GameSessions
         {
             get { return gameSessions.ToArray(); }
-            set { gameSessions = value.ToList(); }
+            set { gameSessions = new ObservableCollection<GameSession>(value); }
         }
 
         
