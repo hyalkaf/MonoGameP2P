@@ -348,7 +348,10 @@ namespace Client
                 else if (reqType == Request.RECONN)
                 {
                     allPeersInfo = new List<PeerInfo>();
-                
+
+                    string gameSessionId;
+                    MessageParser.ParseNext(respMsg, out gameSessionId, out respMsg);
+
                     IEnumerable<string> temp = respMsg.Split(',');
                     allPeersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
                     {
@@ -361,10 +364,9 @@ namespace Client
                             int port = int.Parse(parsedInfo[1]);
                             string pName = parsedInfo[2];
                             int playerId = int.Parse(parsedInfo[3]);
-                            int gameSessionId = int.Parse(parsedInfo[4]);
 
                             // TODO: deal with cases when integer can't be parsed
-                            pInfo = new PeerInfo(ip, port, pName, playerId, gameSessionId);
+                            pInfo = new PeerInfo(ip, port, pName, playerId, int.Parse(gameSessionId));
                         }
 
       
