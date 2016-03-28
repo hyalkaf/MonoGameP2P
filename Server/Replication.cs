@@ -836,7 +836,7 @@ namespace Server
             string messageUpdate = ConstructPrimaryMessageToBackupBasedOnRequestType(updateType);
 
             // Send back to all backups the new updated information
-            IEnumerable<IPAddress> IEnumerableOfBackUpIPs = allReplicaAddr.Select(tuple => tuple.Item1);
+            IEnumerable<IPAddress> IEnumerableOfBackUpIPs = allReplicaAddr.Where(tuple => !tuple.Item1.Equals(thisServer.ipAddr)).Select(tuple2 => tuple2.Item1);
 
             // Send all backups updated info
             foreach (IPAddress backupIP in IEnumerableOfBackUpIPs)
