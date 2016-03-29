@@ -118,42 +118,27 @@ namespace Server
 
         void EstablishConnection(TcpClient tcpclient)
         {
-            // Socket s = tcpclient.Client;
             NetworkStream netStream = tcpclient.GetStream();
-            //StringBuilder sb = new StringBuilder();
-            //sockets.Add(tcpclient.Client);
+
             ClientInfo aConnectedClient = new ClientInfo(tcpclient);
             connectedClients.Add(aConnectedClient);
 
-            Console.WriteLine("Connection accepted from client " + (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address); //+ ipaddr + " : " + portNumber);
+            Console.WriteLine("Connection accepted from client " + aConnectedClient.IPAddr); 
 
-            //byte[] buffer = new byte[2048];
             tcpclient.ReceiveBufferSize = 2048;
             byte[] bytes = new byte[tcpclient.ReceiveBufferSize];
 
-            //int bytesRead;
             try {
-                //   bytesRead = s.Receive(buffer);
                 netStream.Read(bytes, 0, (int)tcpclient.ReceiveBufferSize);
             }
             catch (Exception)
             {
-                connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
+                connectedClients.Remove(connectedClients.Find(client => client.TcpClient == tcpclient));
                 tcpclient.Close();
-                // sockets.Remove(tcpclient.Client);
-
-
                 return;
-                //    s.Close();
-                //    sockets.Remove(s);
-                //    return;
             }
 
 
-
-            //sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
-
-            //string requestMessage = sb.ToString().Trim().ToLower();
             string incomingMessage = Encoding.ASCII.GetString(bytes).Trim();
             incomingMessage = incomingMessage.Substring(0, incomingMessage.IndexOf("\0")).Trim();
 
@@ -163,7 +148,7 @@ namespace Server
 
             Console.WriteLine("REQ: " + requestType + " " + requestMessage);
 
-            string responseMessage = Response.ERROR + " Invalid Request Message";
+            string responseMessage = Response.ERROR + " ERROR:Invalid Request Message";
 
             if (requestType == Request.GAME)
             {
@@ -183,7 +168,10 @@ namespace Server
 
                     // Find game match
                     _gameMatchmaker.MatchPeers(this);
-                
+
+
+                    connectedClients.Remove(connectedClients.Find(client => client.TcpClient.Equals(tcpclient)));
+
                     // Legacy functionality: copy GameSessions to Dictionary
                     GameSession[] sessions = _gameMatchmaker.GameSessions;
                     // gameSession = new Dictionary<string, List<string>>();
@@ -204,17 +192,16 @@ namespace Server
                 }
                 else
                 {
-                    responseMessage = Response.FAILURE + " You have already requested a game!";
+                    responseMessage = Response.FAILURE + " " + Request.GAME +" You have already requested a game!";
                     Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
                     byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
                     netStream.Write(byteToSend, 0, byteToSend.Length);
 
-                    if (connectedClients.Exists(client => client.TcpClient == tcpclient))
-                    {
-                        connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
-                        tcpclient.Close();
-                    }
+     
+                    connectedClients.Remove(connectedClients.Find(client => client.TcpClient.Equals(tcpclient)));
+                    tcpclient.Close();
+   
                 }
 
             }
@@ -259,7 +246,7 @@ namespace Server
             {
 
 
-                responseMessage = Response.SUCCESS + " " + Request.PLAYERS + "  " + (connectedClients.Count - _gameMatchmaker.NumOfClientsInQueue);
+                responseMessage = Response.SUCCESS + " " + Request.PLAYERS + "  " + (connectedClients.Count);
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
@@ -285,20 +272,8 @@ namespace Server
                 }
                 else
                 {
-                    // All the data has been read from the 
-                    // client. Display it on the console.
-                    ClientInfo playerToCancelRequest = _gameMatchmaker.ClientGameQueue[qNum].Where(ci => ci.PlayerName == playername).First();
-                    TcpClient gameReqClient = playerToCancelRequest.TcpClient;
-                    NetworkStream stm = gameReqClient.GetStream();
-
+                    _gameMatchmaker.CancelGameRequest(playername);
                     responseMessage = Response.SUCCESS + " " + Request.CANCEL + " YOU CANCELED your match request.";
-
-                    Console.WriteLine("DEBUG: Response sent: " + responseMessage);
-                    byte[] b = Encoding.ASCII.GetBytes(responseMessage);
-                    stm.Write(b, 0, b.Length);
-
-                    gameReqClient.Close();
-                
                 }
 
 
@@ -442,22 +417,24 @@ namespace Server
                 try
                 {
                     tcpclient.Client.Send(testMsg, 0, 0);
-
+                    break;
                 }
                 catch (Exception)
                 {
+                    timeToTry--;
                     if (timeToTry <= 0)
                     {
                         if (tcpclient.Client.Connected)
                         {
-                            connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
+                            //connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
                             tcpclient.Close();
-                            return false;
+                            
                         }
+                        return false;
                     }
                 }
 
-                break;
+                
             } while (timeToTry > 0);
             return true;
         }

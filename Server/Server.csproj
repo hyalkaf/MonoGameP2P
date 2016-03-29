@@ -45,6 +45,7 @@
   <ItemGroup>
     <Compile Include="ClientInfo.cs" />
     <Compile Include="GameMatchmaker.cs" />
+    <Compile Include="GameSession.cs" />
     <Compile Include="MessageParser.cs" />
     <Compile Include="Replication.cs" />
     <Compile Include="Program.cs" />

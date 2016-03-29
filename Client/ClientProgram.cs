@@ -183,11 +183,7 @@ namespace Client
                 {
                     Console.WriteLine("USAGE: game <number>");
                     thisTcpClient.Close();
-                    if (!inGame)
-                    {
-                        // Connect back to server immediately if user not in game
-                        connectToServer();
-                    }
+
                     return 0 ;
                 }
 
@@ -198,7 +194,7 @@ namespace Client
             }
             else if(reqType == Request.CANCEL)
             {
-                reqMessage = reqType;
+                reqMessage = reqType + " " + playerName;
             }
             else if (reqType == Request.PLAYERS)
             {
@@ -230,16 +226,7 @@ namespace Client
             {
                 reqMessage = reqType + " " + reqMsg;
             }
-            else
-            {
-                client.Close();
-                if (!inGame)
-                {
-                    // Connect back to server immediately if user not in game
-                    connectToServer();
-                }
-                return 0;
-            }
+            
 
             reqMessage += "\n\n";
             
@@ -258,7 +245,8 @@ namespace Client
                 }
 
                 thisTcpClient.Close();
-                if (!inGame)
+
+                if (reqType != Request.GAME)
                 {
                     // Connect back to server immediately if user not in game
                     connectToServer();
@@ -431,7 +419,7 @@ namespace Client
             }
             else if (respType == Response.ERROR)
             {
-                Console.WriteLine("SERVER MESSAGE: Err " + respMsg);
+                Console.WriteLine("\nSERVER MESSAGE: Err " + respMsg);
             }
             else
             {
