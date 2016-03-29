@@ -176,7 +176,8 @@ namespace Client
 
             if (reqType == Request.GAME)
             {
-         
+                thisTcpClient = new TcpClient();
+                thisTcpClient.Connect(SERVER_IP,SERVER_PORT);
                 int inttest;
                 if (reqMsg == "" || !int.TryParse(reqMsg, out inttest))
                 {
@@ -243,24 +244,9 @@ namespace Client
             reqMessage += "\n\n";
             
             try {
-                
-                NetworkStream clientNetStream = thisTcpClient.GetStream();
-
                 //Write to server
-                ASCIIEncoding asen = new ASCIIEncoding();
-                byte[] ba = asen.GetBytes(reqMessage);
-                Console.Write("Transmitting\n\t" + reqMessage + "\nto the server.....");
-                clientNetStream.Write(ba, 0, ba.Length);
-                //Done Write
-
-                //Read response from server (Hangs here until server responds)
-                byte[] bytesRead = new byte[thisTcpClient.ReceiveBufferSize];
-                clientNetStream.Read(bytesRead, 0, (int)thisTcpClient.ReceiveBufferSize);
-                Console.WriteLine(" OK!");
-                //Done Read
-
-                string responseMessage = Encoding.ASCII.GetString(bytesRead).Trim();
-                responseMessage = responseMessage.Substring(0, responseMessage.IndexOf("\0")).Trim();
+                string responseMessage = TCPMessageHandler.SendMessage(reqMessage,thisTcpClient);
+                //Done 
 
                 if (processResponse(responseMessage) == -1)
                 {
@@ -300,15 +286,11 @@ namespace Client
 
             if (respType == Response.SUCCESS)
             {
-               // responseMessage = responseMessage.Substring(Response.SUCCESS.Length).Trim();
-
                 string reqType;
 
                 MessageParser.ParseNext(respMsg, out reqType, out respMsg);
 
-               
-                //string requestType = responseMessage.Substring(0, responseMessage.IndexOf(" ")).Trim();
-                // responseMessage = responseMessage.Substring(requestType.Length);
+
 
                 Console.WriteLine("\nDEBUG: " + reqType + "\n");
                 if (reqType == Request.GAME)

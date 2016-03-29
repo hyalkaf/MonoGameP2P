@@ -26,6 +26,7 @@ namespace Client
             public const string RMPLAYER = "rmplayer";
             public const string ALIVE = "alive";
             public const string TIMEUPDATE = "timeupdate";
+            public const string ISLEADER = "ISLEADER";
         }
 
         private static class Response
@@ -55,7 +56,6 @@ namespace Client
         /// <param name="reconnect"></param>
         public Peer(string playerName, List<PeerInfo> peersInfo , bool reconnect)
         {
-            
 
             Console.WriteLine("PEER ESTABLISHED For {0}", playerName);
             
@@ -83,18 +83,34 @@ namespace Client
 
             InitializeGameState();
             bool synced = false;
-            while (reconnect && !synced)
-            {
-                myPeerInfo.IsLeader = false;
-
-                Console.WriteLine("Syncing game state...");
-                int status = SendRequestPeers(Request.RECONNECTED + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.IPAddr);
-                if(status == 0)
-                {
-                    synced = true;
-                }
-            }
+            int numOfTries = 3;
             
+            if (reconnect)
+            {
+                while (!synced)
+                {
+                    myPeerInfo.IsLeader = false;
+
+                    Console.WriteLine("Syncing game state...");
+                    int status = SendRequestPeers(Request.RECONNECTED + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.IPAddr);
+                    if (status == 0)
+                    {
+                        synced = true;
+                        break;
+                    }
+                    numOfTries--;
+
+                    if (numOfTries < 0)
+                    {
+                        break;
+                    }
+                    Thread.Sleep(500);
+                }
+
+                SendRequestPeers(Request.ISLEADER);
+            }
+           
+
             Thread.Sleep(100);
             game.TurnTimer.Change(1000, 1000);
         }
@@ -208,8 +224,8 @@ namespace Client
 
             string reqType;
             string reqMsg;
-            MessageParser.ParseNext(requestMessage,out reqType,out reqMsg);
-         
+            MessageParser.ParseNext(requestMessage, out reqType, out reqMsg);
+
             string responseMessage = Response.FAILURE + " " + Response.UNKNOWN;
 
             // When a peer is broadcasting its turn
@@ -238,19 +254,21 @@ namespace Client
                     game.UpdateTurn();
 
                     responseMessage = Response.SUCCESS + " " + Request.TURN;
-
+                    TCPMessageHandler.SendResponse(responseMessage + "\n\n", tcpclient);
                     if (myPeerInfo.PlayerInfo.Turn == 0)
                     {
                         Console.WriteLine("\nIt is your turn now :)");
 
                     }
                     TimerTime = TIMER_START_TIME;
-                    game.TurnTimer.Change(1000, 1000);
+                   
                 }
                 else
                 {
                     responseMessage = Response.ERROR + " " + Request.TURN + " Hey " + playerName + ", it's not your turn yet";
+                    TCPMessageHandler.SendResponse(responseMessage + "\n\n", tcpclient);
                 }
+                game.TurnTimer.Change(1000, 1000);
 
                 // UPdate IP just in case if IP changes
                 if (pi.IPAddr != (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address)
@@ -263,7 +281,7 @@ namespace Client
             {
 
                 responseMessage = Response.SUCCESS + " " + Request.QUIT;
-
+                TCPMessageHandler.SendResponse(responseMessage + "\n\n", tcpclient);
                 // Parse the request message
 
                 // Get PlayerId
@@ -279,11 +297,11 @@ namespace Client
                 PeerInfo peerToRemove = allPeersInfo.Find(peer => peer.PlayerInfo.PlayerId == playerId);
                 RemovePeerFromGame(peerToRemove);
 
-            }else if (reqType == Request.STRIKE)
+            } else if (reqType == Request.STRIKE)
             {
 
                 responseMessage = Response.SUCCESS + " " + Request.STRIKE;
-
+                TCPMessageHandler.SendResponse(responseMessage + "\n\n", tcpclient);
                 string str_playerId;
                 MessageParser.ParseNext(reqMsg, out str_playerId, out reqMsg);
                 int playerId = int.Parse(str_playerId);
@@ -292,7 +310,7 @@ namespace Client
                 game.UpdateTurn();
                 Console.WriteLine(game);
 
-            }else if (reqType == Request.RECONNECTED)
+            } else if (reqType == Request.RECONNECTED)
             {
                 lock (timerLock)
                 {
@@ -308,21 +326,37 @@ namespace Client
                     }
 
                     responseMessage = Response.SUCCESS + " " + Request.RECONNECTED + " " + CurrentStateString();
-
+                    TCPMessageHandler.SendResponse(responseMessage + "\n\n", tcpclient);
                     Console.WriteLine("(" + playerId + ")" + reconnectedPeer.PlayerInfo.Name + " reconnected!");
 
                     game.TurnTimer.Change(1000, 1000);
                 }
 
-            }else if (reqType == Request.TIMEUPDATE)
+            } else if (reqType == Request.TIMEUPDATE)
             {
                 responseMessage = Response.SUCCESS + " " + Request.TIMEUPDATE + " " + TimerTime;
-            }else if (reqType == Request.ALIVE)
+                TCPMessageHandler.SendResponse(responseMessage + "\n\n", tcpclient);
+            } else if (reqType == Request.ALIVE)
             {
                 responseMessage = Response.SUCCESS + " " + Request.ALIVE;
+                TCPMessageHandler.SendResponse(responseMessage + "\n\n", tcpclient);
+            } else if (reqType == Request.ISLEADER)
+            {
+                PeerInfo p = allPeersInfo.Find(peer => peer.IsLeader);
+                if (p == null)
+                {
+                    responseMessage = Response.SUCCESS + " " + Request.ISLEADER + " none";
+                }
+                else {
+                    responseMessage = Response.SUCCESS + " " + Request.ISLEADER + " " + p.PlayerInfo.PlayerId;
+                }
+                TCPMessageHandler.SendResponse(responseMessage + "\n\n", tcpclient);
             }
-
-            TCPMessageHandler.SendResponse(responseMessage + "\n\n", tcpclient);
+            else
+            {
+                TCPMessageHandler.SendResponse(responseMessage + "\n\n", tcpclient);
+            }
+           
 
             
         }
@@ -338,14 +372,7 @@ namespace Client
             string[] allResponseMsgs = new string[allPeersInfo.Count];
             string reqType = "";
             Object msgLock = new Object();
-            var responseCounterFlag = allPeersInfo.Count;
-            int playerToBeStriked = -1;
-            if (msg.StartsWith(Request.STRIKE) )
-            {
-                playerToBeStriked = int.Parse(msg.Substring(msg.IndexOf(" ")).Trim());
-
-            }
-
+            var numOfEmptyResponse = allPeersInfo.Count;
 
             // Multicast message to all peers
             Parallel.For(0, allPeersInfo.Count, i => {
@@ -353,8 +380,7 @@ namespace Client
                PeerInfo aPeer = allPeersInfo[i];
                 TcpClient aClient;
 
-               if (aPeer.PlayerInfo.Name != myPeerInfo.PlayerInfo.Name &&
-                aPeer.PlayerInfo.PlayerId != playerToBeStriked)
+               if (aPeer.PlayerInfo.Name != myPeerInfo.PlayerInfo.Name)
                 {
                     bool succPeerConnect = true;
                     int numOfTries = 2;
@@ -371,6 +397,7 @@ namespace Client
                         {
                             Console.Write("Can't connect to peer {0}..  ", aPeer.PlayerInfo.PlayerId);
                             Console.WriteLine("Trying {0} more times... ", numOfTries);
+                            Console.WriteLine("TRYING TO SEND " + msg);
                             aClient.Close();
                             succPeerConnect = false;
                             numOfTries--;
@@ -380,8 +407,8 @@ namespace Client
                                 Console.WriteLine("Skip it for now...");
                                 //SendRequestPeers(Request.STRIKE + " " + aPeer.PlayerInfo.PlayerId);
 
-                               // StrikePlayer(i);
-                                responseCounterFlag--;
+                                // StrikePlayer(i);
+                                //--;
                                 return;
                             }
                         }
@@ -397,16 +424,18 @@ namespace Client
                     string respType;
                     string respMsg;
                     MessageParser.ParseNext(responseMessage, out respType, out respMsg);
-
+                    numOfEmptyResponse--;
                     if (respType == Response.SUCCESS)
                     {
-                        responseCounterFlag--;
-  
+
                         MessageParser.ParseNext(respMsg, out reqType, out respMsg);
                         if (reqType == Request.RECONNECTED)
                         { 
                             allResponseMsgs[i] = respMsg;
       
+                        }else if (reqType == Request.ISLEADER)
+                        {
+                            allResponseMsgs[i] = respMsg;
                         }
 
 
@@ -440,11 +469,31 @@ namespace Client
 
             });
 
-            string data = "";
+            
             if (reqType == Request.RECONNECTED)
             {
+                string data = "";
 
-                if(allResponseMsgs.Length < 3)
+                if (allResponseMsgs.Length >= 3)
+                {
+                  for (int m = 0; m < allResponseMsgs.Length; m++){
+                     for (int n = m; n < allResponseMsgs.Length; n++)
+                        {   
+                            
+                            if (allResponseMsgs[m] != allResponseMsgs[n] && allResponseMsgs[m] != null && allResponseMsgs[n] != null)
+                            {
+                                Console.WriteLine("State unsynced!!");
+                                return -1;
+                            }
+                            else
+                            {
+                                data = allResponseMsgs[m];
+                            }
+                 
+                        }
+                    }
+                }
+                else if (allResponseMsgs.Length > 1)
                 {
                     for (int m = 0; m < allResponseMsgs.Length; m++)
                     {
@@ -455,33 +504,8 @@ namespace Client
                         }
                     }
                 }
-                else
-                {
-                  for (int m = 0; m < allResponseMsgs.Length; m++){
-                     for (int n = m; n < allResponseMsgs.Length; n++)
-                        {
-                            if (m != n)
-                            {
-                                if (m != myPeerInfo.PlayerInfo.PlayerId &&
-                                n != myPeerInfo.PlayerInfo.PlayerId)
-                                {
 
-                                    if (allResponseMsgs[m] != allResponseMsgs[n])
-                                    {
-                                        Console.WriteLine("State unsynced!!");
-                                        return -1;
-                                    }
-                                    else
-                                    {
-                                        data = allResponseMsgs[m];
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
 
-                
 
                 string[] messages = data.Split('\n');
                 string strPeerInfos = messages[0];
@@ -491,10 +515,49 @@ namespace Client
 
                 Console.WriteLine(game);
  
-            }else if (reqType == Request.TURN)
+            }
+            else if (reqType == Request.ISLEADER)
             {
-                TimerTime = TIMER_START_TIME;
-                game.TurnTimer.Change(1000, 1000);
+                string leaderId = null;
+                if (allResponseMsgs.Length >= 3)
+                {
+                    for (int m = 0; m < allResponseMsgs.Length; m++)
+                    {
+                        for (int n = m; n < allResponseMsgs.Length; n++)
+                        {
+
+                            if (allResponseMsgs[m] != allResponseMsgs[n] && allResponseMsgs[m] != null && allResponseMsgs[n] != null)
+                            {
+                                return -1;
+                            }
+                            else
+                            {
+                                leaderId = allResponseMsgs[m];
+                            }
+
+                        }
+                    }
+                }
+                else if (allResponseMsgs.Length > 1)
+                {
+                    for (int m = 0; m < allResponseMsgs.Length; m++)
+                    {
+                        if (allResponseMsgs[m] != null)
+                        {
+                            leaderId = allResponseMsgs[m];
+                            break;
+                        }
+                    }
+                }
+  
+                if(leaderId == null)
+                {
+                    myPeerInfo.IsLeader = true;
+                }
+                else
+                {
+                    allPeersInfo.Find(p => p.PlayerInfo.PlayerId == int.Parse(leaderId)).IsLeader = true;
+                }
             }
             
 
@@ -601,10 +664,13 @@ namespace Client
                     Console.WriteLine("\nYOU moved " + dice + " steps.");
                     
                     game.UpdateTurn();
+                    TimerTime = TIMER_START_TIME;
                 }
-              
                 
-                
+                game.TurnTimer.Change(1000, 1000);
+
+
+
             }
             else if (req == Request.STRIKE)
             {
@@ -675,6 +741,9 @@ namespace Client
                 }
 
 
+            }else if(req == Request.ISLEADER)
+            {
+                SendToAllPeers(req);
             }
             else
             {
@@ -691,35 +760,38 @@ namespace Client
         {
 
             lock (timerLock) { 
-            if (IAmLeader)
-            {
-                TimerTime--;
-                if (TimerTime < 0)
+                if (IAmLeader)
                 {
-                    game.TurnTimer.Change(Timeout.Infinite, Timeout.Infinite);
-                    TimerTime = TIMER_START_TIME;
+                    TimerTime--;
+                    if (TimerTime < 0)
+                    {
+                        game.TurnTimer.Change(Timeout.Infinite, Timeout.Infinite);
 
-                    int timeOutPlayerId = (allPeersInfo.Find(p => p.PlayerInfo.Turn == 0)).PlayerInfo.PlayerId;
 
-                    SendRequestPeers(Request.STRIKE + " " + timeOutPlayerId);
-                    StrikePlayer(timeOutPlayerId);
-                    game.UpdateTurn();
-                    Console.WriteLine(game);
-                    game.TurnTimer.Change(1000, 1000);
+                        TimerTime = TIMER_START_TIME;
+
+
+                        int timeOutPlayerId = (allPeersInfo.Find(p => p.PlayerInfo.Turn == 0)).PlayerInfo.PlayerId;
+
+                        SendRequestPeers(Request.STRIKE + " " + timeOutPlayerId);
+                        StrikePlayer(timeOutPlayerId);
+                        game.UpdateTurn();
+                        Console.WriteLine(game);
+                        game.TurnTimer.Change(1000, 1000);
+                    }
                 }
-            }
-            else
-            {
-                SendRequestPeers(Request.TIMEUPDATE);
-                if (TimerTime < 0)
+                else
                 {
-                    game.TurnTimer.Change(Timeout.Infinite, Timeout.Infinite);
-                    TimerTime = TIMER_START_TIME;
+                    SendRequestPeers(Request.TIMEUPDATE);
+                    if (TimerTime < 0)
+                    {
+                        game.TurnTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                        TimerTime = TIMER_START_TIME;
+                    }
                 }
-            }
 
 
-            Console.Write("{0} " , TimerTime);
+                Console.Write("{0} " , TimerTime);
             }
 
         }

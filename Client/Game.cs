@@ -156,10 +156,10 @@ namespace Game
         {
             get { return winner; }
             internal set {
-                Winner = value;
+                winner = value;
                 Console.WriteLine("\n---------------------------------");
                 Console.WriteLine("The Winner is (" + winner.PlayerId+")"+winner.Name);
-                Console.WriteLine("---------------------------------\n");
+                Console.WriteLine("---------------------------------");
             }
         }
 

@@ -9,48 +9,62 @@ namespace Client
 {
     public class TCPMessageHandler
     {
+        private static Object sendMsgLock = new object();
+        private static Object recieveMsgLock = new object();
+        private static Object sendRespLock = new object();
         public static string SendMessage(string msg, TcpClient tcpclient)
         {
-            try { 
-                NetworkStream netStream = tcpclient.GetStream();
-
-                byte[] bytesToSend = Encoding.ASCII.GetBytes(msg);
-                netStream.Write(bytesToSend, 0, bytesToSend.Length);
-
-                //byte[] buffer = new byte[2048];
-                tcpclient.ReceiveBufferSize = 4096;
-                byte[] bytesRead = new byte[tcpclient.ReceiveBufferSize];
-
-                //   bytesRead = s.Receive(buffer);
-                netStream.Read(bytesRead, 0, (int)tcpclient.ReceiveBufferSize);
-                Console.WriteLine("... OK!");
-
-                string responseMessage = Encoding.ASCII.GetString(bytesRead);
-                return responseMessage.Substring(0, responseMessage.IndexOf("\0")).Trim();
-            }
-            catch (Exception)
+            lock (sendMsgLock)
             {
-                throw new Exception();
+            
+
+                try { 
+                    NetworkStream netStream = tcpclient.GetStream();
+
+                    byte[] bytesToSend = Encoding.ASCII.GetBytes(msg);
+                    netStream.Write(bytesToSend, 0, bytesToSend.Length);
+
+                    tcpclient.ReceiveBufferSize = 4096;
+                    byte[] bytesRead = new byte[tcpclient.ReceiveBufferSize];
+
+                    netStream.Read(bytesRead, 0, (int)tcpclient.ReceiveBufferSize);
+                   // Console.WriteLine("... OK!");
+
+                    string responseMessage = Encoding.ASCII.GetString(bytesRead);
+                    return responseMessage.Substring(0, responseMessage.IndexOf("\0")).Trim();
+                }
+                catch (Exception)
+                {
+
+                    throw new Exception();
+                }
             }
         }
 
         public static string RecieveMessage(TcpClient tcpclient)
         {
-            NetworkStream netStream = tcpclient.GetStream();
+            lock (recieveMsgLock)
+            {
+            
 
-            tcpclient.ReceiveBufferSize = 4096;
-            byte[] bytes = new byte[tcpclient.ReceiveBufferSize];
+                NetworkStream netStream = tcpclient.GetStream();
 
-            netStream.Read(bytes, 0, (int)tcpclient.ReceiveBufferSize);
+                tcpclient.ReceiveBufferSize = 4096;
+                byte[] bytes = new byte[tcpclient.ReceiveBufferSize];
 
-            string requestMessage = Encoding.ASCII.GetString(bytes).Trim();
-            return requestMessage.Substring(0, requestMessage.IndexOf("\0")).Trim();
+                netStream.Read(bytes, 0, (int)tcpclient.ReceiveBufferSize);
+
+                string requestMessage = Encoding.ASCII.GetString(bytes).Trim();
+                return requestMessage.Substring(0, requestMessage.IndexOf("\0")).Trim();
+            }
         }
 
         public static void SendResponse(string msg, TcpClient tcpclient)
         {
+            lock (sendRespLock){ 
             byte[] byteToSend = Encoding.ASCII.GetBytes(msg);
             tcpclient.GetStream().Write(byteToSend, 0, byteToSend.Length);
+            }
         }
     }
 }
