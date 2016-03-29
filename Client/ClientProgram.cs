@@ -245,7 +245,8 @@ namespace Client
             
             try {
                 //Write to server
-                string responseMessage = TCPMessageHandler.SendMessage(reqMessage,thisTcpClient);
+                TCPMessageHandler msgHandler = new TCPMessageHandler();
+                string responseMessage = msgHandler.SendMessage(reqMessage,thisTcpClient);
                 //Done 
 
                 if (processResponse(responseMessage) == -1)
@@ -460,14 +461,15 @@ namespace Client
                             if (request != String.Empty) {
 
                                 Console.WriteLine("Sending request \"{0}\"", request);
-                                SendRequest(request);
-                                //Thread sendThread = new Thread( () =>{
 
-                                //    Thread.CurrentThread.Abort();
-                                //});
+                                Thread sendThread = new Thread(() =>
+                                {
+                                    SendRequest(request);
+                                    Thread.CurrentThread.Abort();
+                                });
 
-                                //sendThread.IsBackground = true;
-                                //sendThread.Start();
+                                sendThread.IsBackground = true;
+                                sendThread.Start();
                             }
 
                         }

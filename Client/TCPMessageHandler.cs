@@ -12,10 +12,13 @@ namespace Client
         private static Object sendMsgLock = new object();
         private static Object recieveMsgLock = new object();
         private static Object sendRespLock = new object();
-        public static string SendMessage(string msg, TcpClient tcpclient)
+
+       
+
+        public string SendMessage(string msg, TcpClient tcpclient)
         {
-            lock (sendMsgLock)
-            {
+            //lock (sendMsgLock)
+            //{
             
 
                 try { 
@@ -38,13 +41,13 @@ namespace Client
 
                     throw new Exception();
                 }
-            }
+           // }
         }
 
-        public static string RecieveMessage(TcpClient tcpclient)
+        public string RecieveMessage(TcpClient tcpclient)
         {
-            lock (recieveMsgLock)
-            {
+            //lock (recieveMsgLock)
+            //{
             
 
                 NetworkStream netStream = tcpclient.GetStream();
@@ -56,15 +59,15 @@ namespace Client
 
                 string requestMessage = Encoding.ASCII.GetString(bytes).Trim();
                 return requestMessage.Substring(0, requestMessage.IndexOf("\0")).Trim();
-            }
+            //}
         }
 
-        public static void SendResponse(string msg, TcpClient tcpclient)
+        public void SendResponse(string msg, TcpClient tcpclient)
         {
-            lock (sendRespLock){ 
+            //lock (sendRespLock){ 
             byte[] byteToSend = Encoding.ASCII.GetBytes(msg);
             tcpclient.GetStream().Write(byteToSend, 0, byteToSend.Length);
-            }
+            //}
         }
     }
 }
