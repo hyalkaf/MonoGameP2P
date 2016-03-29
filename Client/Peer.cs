@@ -587,6 +587,9 @@ namespace Client
                 msg = req +  " " + myPeerInfo.PlayerInfo.Name + " " +
                    myPeerInfo.PlayerInfo.PlayerId + " " + dice;
 
+
+                game.TurnTimer.Change(Timeout.Infinite, Timeout.Infinite);
+
                 SendToAllPeers(msg);
 
                 if (myPeerInfo.PlayerInfo.Turn == 0) {
@@ -599,7 +602,7 @@ namespace Client
                     
                     game.UpdateTurn();
                 }
-                game.TurnTimer.Change(Timeout.Infinite, Timeout.Infinite);
+              
                 
                 
             }
