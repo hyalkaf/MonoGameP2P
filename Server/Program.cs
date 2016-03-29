@@ -485,7 +485,7 @@ namespace Server
             this._gameMatchmaker.GameSessions = newGameSessions;
 
             // Update all backup servers
-            // if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("session");
+            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("session");
         }
 
         /// <summary>
@@ -505,7 +505,7 @@ namespace Server
             allPlayerNamesUsed = newPlayerNames;
 
             // Update all backup servers
-            // if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("name");
+            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("name");
         }
 
         /// <summary>
@@ -526,7 +526,7 @@ namespace Server
             this._gameMatchmaker.ClientGameQueue = newClientsWaitingForGame;
 
             // Update all backup servers
-            // if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("match");
+            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("match");
         }
         
 

@@ -127,7 +127,7 @@ namespace Server
         /// <param name="sock">Socket that was listened on</param>
         public void EstablishConnection(Socket sock)
         {
-            Console.WriteLine("Establishing Connection with {0} {1}", (sock.RemoteEndPoint as IPEndPoint).Address, (sock.LocalEndPoint as IPEndPoint).Address);
+            //Console.WriteLine("Establishing Connection with {0} {1}", (sock.RemoteEndPoint as IPEndPoint).Address, (sock.LocalEndPoint as IPEndPoint).Address);
 
             // S
             StringBuilder sb = new StringBuilder();
@@ -137,7 +137,7 @@ namespace Server
 
             sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
 
-            Console.WriteLine("Message that was listened to {0}", sb.ToString());
+            //Console.WriteLine("Message that was listened to {0}", sb.ToString());
 
             string requestMessage = sb.ToString().Trim().ToLower();
 
@@ -170,7 +170,7 @@ namespace Server
                         TcpClient primaryClientToBackup = new TcpClient();
                         primaryClientToBackup.Connect(backupIP, 8000);
 
-                        Console.WriteLine("Sending to every backup this {0}", responseMessage);
+                        //Console.WriteLine("Sending to every backup this {0}", responseMessage);
 
                         Stream stm = primaryClientToBackup.GetStream();
 
@@ -201,7 +201,7 @@ namespace Server
                     || requestMessage.StartsWith(REQ_QUEUE))
                     && !thisServer.isPrimaryServer)
             {
-                Console.WriteLine("Received messages from primary of this type {0}", requestMessage);
+                //Console.WriteLine("Received messages from primary of this type {0}", requestMessage);
 
                 // Update information for backup 
                 // Here we are parsing request but since method is same use same
@@ -299,7 +299,7 @@ namespace Server
                 else
                 {
                     // add information about this replica
-                    Console.WriteLine("Add Replica IP {0} to Server {1}", ipAddr, primaryServerIp);
+                    //Console.WriteLine("Add Replica IP {0} to Server {1}", ipAddr, primaryServerIp);
 
                     // Add backup ip address to primary server list
                     allReplicaAddr.Add(new Tuple<IPAddress, bool>(ipAddr, true));
@@ -383,7 +383,7 @@ namespace Server
                         // Add tempIP into the list of existing ip addresses
                         if (allReplicaAddr.All(tuple => !tuple.Item1.Equals(ipAddr)))
                         {
-                            Console.WriteLine("Add this IP Address to the list {0}", ipAddr);
+                            //Console.WriteLine("Add this IP Address to the list {0}", ipAddr);
                             allReplicaAddr.Add(new Tuple<IPAddress, bool>(ipAddr, true));
                         }
 
@@ -572,6 +572,12 @@ namespace Server
 
                 // Set playerNames
                 thisServer.SetPlayerNames(tempPlayerNames);
+
+                // Debug
+                foreach (string ply in thisServer.GetPlayerNames())
+                {
+                    Console.WriteLine("backup received player {0}", ply);
+                }
             }
 
             else if (responseType == REQ_GAMESESSIONS)
@@ -641,6 +647,15 @@ namespace Server
 
                 // Add to game session of server
                 thisServer.SetGameSession(tempGameSession.ToArray());
+
+                // Debug
+                foreach (GameSession sess in thisServer.GetGameSession())
+                {
+                    foreach(ClientInfo cli in sess.Players)
+                    {
+                        Console.WriteLine("backup received session players of ID {0} and {1} {2} {3} {4}", sess.ID, cli.IPAddr, cli.ListeningPort, cli.PlayerId, cli.PlayerName);
+                    }
+                }
             }
             else if (responseType.Equals(REQ_QUEUE))
             {
@@ -695,6 +710,15 @@ namespace Server
                 }
 
                 thisServer.SetClientsWaitingForGame(tempQueues);
+
+                // Debug
+                for (int i = 0; i < thisServer.GetClientWaitingForGame().Count; i++)
+                {
+                    foreach (ClientInfo cli in thisServer.GetClientWaitingForGame()[i])
+                    {
+                        Console.WriteLine("backup received match of queue number {0} and player {1}", i, cli.IPAddr, cli.ListeningPort, cli.PlayerId, cli.PlayerName);
+                    }
+                }
             }
         }
 
@@ -939,7 +963,7 @@ namespace Server
             // Send message
             client.Send(bytes, bytes.Length, sendingIP);
 
-            Console.WriteLine("I sent {0}", message);
+           // Console.WriteLine("I sent {0}", message);
 
             // Close client
             client.Close();
@@ -953,7 +977,7 @@ namespace Server
             //receive messages
             byte[] bytes = udpBroadcast.Receive(ref receivingIP);
             string message = Encoding.ASCII.GetString(bytes);
-            Console.WriteLine("I received {0}", message);
+            //Console.WriteLine("I received {0}", message);
             // todo: disable sending messages to yourself by default
             if (!receivingIP.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
         }
