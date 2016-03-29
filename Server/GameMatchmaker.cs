@@ -221,7 +221,7 @@ namespace Server
                 
                
                 // TODO: Will not work when in index 2 there are four want 2
-                if (i >= clientsWaitingForGame[i].Count)
+                if (i <= clientsWaitingForGame[i].Count)
                 {
 
                     // First, test if the 'connected' queued players are still online
@@ -284,12 +284,9 @@ namespace Server
 
                         Console.WriteLine("\nSent Acknowledgement");
 
-                        lock (listLock)
-                        {
-                            server.ConnectedClients.Remove(server.ConnectedClients.Where(c => c.TcpClient == client.TcpClient).First());
-
-                            client.TcpClient.Close();
-                        }
+                        
+                        client.TcpClient.Close();
+                        
                     });
                 }
             }
