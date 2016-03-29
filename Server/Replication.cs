@@ -602,7 +602,7 @@ namespace Server
                         string[] arrayOfGameSessionAndPlayerSpecificInfo = arrayOfSpecificSession[gameSessionAndPlayerInfoIndex].Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries); ;
 
                         // TODO: Add TCP client
-                        ClientInfo player = new ClientInfo(null);
+                        ClientInfo player;
                         if (extraIndexForGameID == 1)
                         {
                             gameID = arrayOfGameSessionAndPlayerSpecificInfo[0];
@@ -611,12 +611,15 @@ namespace Server
                         }
 
                         // Check that the gameSession doesn't alreay exist on this backup server
-                       // if (!thisServer.GetGameSession().All(gameSessionparam => gameSessionparam.ID.Equals(gameID)))
+                        // if (!thisServer.GetGameSession().All(gameSessionparam => gameSessionparam.ID.Equals(gameID)))
                         //{
-                            // TODO: TryPArse
-                        player.IPAddr = IPAddress.Parse(arrayOfGameSessionAndPlayerSpecificInfo[0 + extraIndexForGameID]);
+                        // TODO: TryPArse
+                        string playerIPAddress = arrayOfGameSessionAndPlayerSpecificInfo[0 + extraIndexForGameID];
+                        int listeningPortForPlayer = int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[1 + extraIndexForGameID]);
+                        TcpClient playerTCPClient = new TcpClient(playerIPAddress, listeningPortForPlayer);
+                        player = new ClientInfo(playerTCPClient);
 
-                        player.ListeningPort = int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[1 + extraIndexForGameID]);
+                        player.ListeningPort = listeningPortForPlayer;
 
                         player.PlayerName = arrayOfGameSessionAndPlayerSpecificInfo[2 + extraIndexForGameID];
 
@@ -671,10 +674,14 @@ namespace Server
 
                     for (int i = 1; i < arrayOfGameQueue.Count(); i += 4)
                     {
-                        ClientInfo player = new ClientInfo(null);
+                        ClientInfo player;
                         // For every four enteries get the relvent info
-                        player.IPAddr = IPAddress.Parse(arrayOfGameQueue[i]);
-                        player.ListeningPort = int.Parse(arrayOfGameQueue[i + 1]);
+                        string playerIPAddress = arrayOfGameQueue[i];
+                        int listeningPortForPlayer = int.Parse(arrayOfGameQueue[i + 1]);
+                        TcpClient playerTCPClient = new TcpClient(playerIPAddress, listeningPortForPlayer);
+                        player = new ClientInfo(playerTCPClient);
+
+                        player.ListeningPort = listeningPortForPlayer;
                         player.PlayerId = int.Parse(arrayOfGameQueue[i + 2]);
                         player.PlayerName = arrayOfGameQueue[i + 3];
 
