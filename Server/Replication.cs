@@ -45,6 +45,7 @@ namespace Server
         const string REQ_GAMESESSIONS = "session";
         const string REQ_CHECK = "check";
         const string REQ_QUEUE = "queue";
+        const string REQ_UPDATE_BACKUP = "update-backup";
         const string RESP_SUCCESS = "success";
 
         const int SIZE_OF_BUFFER = 4096;
@@ -141,7 +142,7 @@ namespace Server
 
             string requestMessage = sb.ToString().Trim().ToLower();
 
-            byte[] responseMessageForBackupOrCheck = new byte[1024];
+            byte[] responseMessageForBackupOrCheck = new byte[SIZE_OF_BUFFER];
 
             if (requestMessage.StartsWith(REQ_CHECK) || requestMessage.StartsWith(REQ_BACKUP))
             {
@@ -770,7 +771,7 @@ namespace Server
                     // In this case: server must have crashed
                     // take over and become the primary 
                     // TODO: This won't work for multiple servers
-                    if (allReplicaAddr[1].Item1.ToString() == thisServer.ipAddr.ToString())
+                    if (allReplicaAddr[1].Item1.ToString().Equals(thisServer.ipAddr.ToString()))
                     {
                         MakeThisServerPrimary();
                     }
@@ -954,7 +955,8 @@ namespace Server
         private void Broadcast(string message)
         {
             // Initialize a new udp client
-            UdpClient client = new UdpClient(AddressFamily.InterNetwork);
+            IPEndPoint ipEndPoint = new IPEndPoint(thisServer.ipAddr, 15000);
+            UdpClient client = new UdpClient(ipEndPoint);
             client.EnableBroadcast = true;
 
             // Send a request message asking if primary exists.
@@ -997,22 +999,22 @@ namespace Server
                     // Send a response back
                     // TODO: Only send to specific ip.
                     // Don't broadcast 
-                    // Broadcast("primary");
+                    Broadcast("primary");
                     // Test: send to specific ip
                     // Initialize a new udp client
-                    UdpClient client = new UdpClient(AddressFamily.InterNetwork);
+                    //UdpClient client = new UdpClient(AddressFamily.InterNetwork);
 
-                    // Send a request message asking if primary exists.
-                    byte[] bytes = Encoding.ASCII.GetBytes("primary");
+                    //// Send a request message asking if primary exists.
+                    //byte[] bytes = Encoding.ASCII.GetBytes("primary");
 
-                    // Send message
-                    ip.Port = 15000;
-                    client.Send(bytes, bytes.Length, ip);
+                    //// Send message
+                    //ip.Port = 15000;
+                    //client.Send(bytes, bytes.Length, ip);
 
-                    Console.WriteLine("I sent {0}", "primary");
+                    //Console.WriteLine("I sent {0}", "primary");
 
-                    // Close client
-                    client.Close();
+                    //// Close client
+                    //client.Close();
 
 
                 }
