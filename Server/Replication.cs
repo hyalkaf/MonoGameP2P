@@ -148,14 +148,15 @@ namespace Server
 
             byte[] responseMessageForBackupOrCheck = new byte[SIZE_OF_BUFFER];
 
-            if (requestMessage.StartsWith(REQ_CHECK) || requestMessage.StartsWith(REQ_BACKUP))
+            if (requestMessage.StartsWith(REQ_CHECK))
             {
                 responseMessageForBackupOrCheck = parseRequestMessageForPrimary(requestMessage);
             }
             // Here we want to send back to all backups
             if ((requestMessage.StartsWith(REQ_NAMES)
                 || requestMessage.StartsWith(REQ_GAMESESSIONS)
-                || requestMessage.StartsWith(REQ_QUEUE))
+                || requestMessage.StartsWith(REQ_QUEUE)
+                || requestMessage.StartsWith(REQ_BACKUP))
                 && thisServer.isPrimaryServer)
             {
                 // TODO: how does socket differ from tcp client.
