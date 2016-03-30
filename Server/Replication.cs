@@ -421,6 +421,11 @@ namespace Server
                 //
                 serversAddresses = allReplicaAddrTemp;
 
+                if (responseType.Equals(REQ_UPDATE_BACKUP))
+                {
+                    primaryServerIp = serversAddresses[0];
+                }
+
                 foreach (IPAddress ip in serversAddresses)
                 {
                     Console.WriteLine("in method parseResponseMessageForBackup, server addresses are {0}", ip);
