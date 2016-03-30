@@ -312,7 +312,7 @@ namespace Server
                     responseMessage = RES_ADDRESSES + " ";
 
                     // Send backup servers ip addresses starting from first backup server exculding primary server
-                    for (int i = 1; i < serversAddresses.Count; i++)
+                    for (int i = 0; i < serversAddresses.Count; i++)
                     {
                         // Comma shouldn't be added at the end of the message
                         if (i != serversAddresses.Count - 1)
