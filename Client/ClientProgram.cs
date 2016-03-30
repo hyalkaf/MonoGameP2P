@@ -47,6 +47,7 @@ namespace Client
         private bool gameRequested = false;
         public static string SERVER_IP = "";
         private GameConnectType connectType;
+
         // Holds information about other peers in the system: IPAddress, portNumber, name and ID.
         //List<Tuple<string, int, string, int, int>> peersInfo;
         List<PeerInfo> allPeersInfo;
@@ -71,6 +72,7 @@ namespace Client
             do
             {
                 connectToServer();
+ 
                 Console.Write("Enter Your Player Name: ");
                 pName = Console.ReadLine();
                 pName = pName.Replace(" ", "").Replace("\t", "");
@@ -103,7 +105,7 @@ namespace Client
         /// This method connects to the server for estiblishing a game.
         /// TODO: Should we have a specific IP and port or we should change it.
         /// </summary>
-        private void connectToServer()
+        private void connectToServer(bool reqServReconn = false)
         {
             //if ((client is TcpClient) && client.Connected)
             //{
@@ -126,6 +128,7 @@ namespace Client
                 }
                 catch (Exception)
                 {
+                    reqServReconn = true;
                     Console.WriteLine("Retrying...");
                     connected = false;
                     tryTimes--;
@@ -152,7 +155,14 @@ namespace Client
 
             } while (!connected);
 
+            if (reqServReconn)
+            {
             
+              SendRequest(Request.SERVRECONN + " " + playerName);
+                
+            }
+            
+       
             Console.WriteLine("Connected! Server IP: {0} Port: {1}", SERVER_IP, 8001);
 
 
@@ -255,7 +265,8 @@ namespace Client
             catch (Exception)
             {
                 thisTcpClient.Close();
-                connectToServer();
+                connectToServer(true);
+                
             }
             
             return 0;
@@ -375,7 +386,7 @@ namespace Client
                         {
                             string playerNum = respMsg;
                             Console.WriteLine("You were in Queue for matchmaking for " + playerNum);
-                            
+                            SendRequest(Request.GAME + " " + playerNum);
                         }
                     }
                     else

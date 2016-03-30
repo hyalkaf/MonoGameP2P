@@ -27,6 +27,7 @@ namespace Client
             public const string ALIVE = "alive";
             public const string TIMEUPDATE = "timeupdate";
             public const string ISLEADER = "isleader";
+            public const string GAMEBEGIN = "begin";
         }
 
         private static class Response
@@ -43,6 +44,7 @@ namespace Client
         private List<PeerInfo> allPeersInfo;
         private Game.Game game;
         private Object timerLock = new object();
+        private int readyToBegin = 0; 
         // Initalize variables for peer(client) connecting to other peers(clients)
 
         private TcpListener _peerListener;
@@ -108,6 +110,10 @@ namespace Client
                 }
 
                 SendRequestPeers(Request.ISLEADER);
+            }
+            else
+            {
+
             }
            
 
