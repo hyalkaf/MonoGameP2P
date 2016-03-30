@@ -997,7 +997,23 @@ namespace Server
                     // Send a response back
                     // TODO: Only send to specific ip.
                     // Don't broadcast 
-                    Broadcast("primary");
+                    // Broadcast("primary");
+                    // Test: send to specific ip
+                    // Initialize a new udp client
+                    UdpClient client = new UdpClient(AddressFamily.InterNetwork);
+
+                    // Send a request message asking if primary exists.
+                    byte[] bytes = Encoding.ASCII.GetBytes("primary");
+
+                    // Send message
+                    client.Send(bytes, bytes.Length, ip);
+
+                    Console.WriteLine("I sent {0}", "primary");
+
+                    // Close client
+                    client.Close();
+
+
                 }
             }
             else if (receivedMessage.StartsWith("primary"))
