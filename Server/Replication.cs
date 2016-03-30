@@ -1006,6 +1006,7 @@ namespace Server
                     byte[] bytes = Encoding.ASCII.GetBytes("primary");
 
                     // Send message
+                    ip.Port = 15000;
                     client.Send(bytes, bytes.Length, ip);
 
                     Console.WriteLine("I sent {0}", "primary");
