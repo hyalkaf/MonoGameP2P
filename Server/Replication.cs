@@ -36,7 +36,7 @@ namespace Server
         // Udp client listening for broadcast messages
         private readonly UdpClient udpBroadcast = new UdpClient(15000);
         // IP Address for broadcasting
-        IPEndPoint sendingIP = new IPEndPoint(IPAddress.Parse("10.2.15.255"), 15000);
+        IPEndPoint sendingIP = new IPEndPoint(IPAddress.Parse("10.1.15.255"), 15000);
         IPEndPoint receivingIP = new IPEndPoint(IPAddress.Any, 0);
 
         //
