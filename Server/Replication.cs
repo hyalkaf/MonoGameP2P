@@ -38,6 +38,9 @@ namespace Server
         IPEndPoint sendingIP = new IPEndPoint(IPAddress.Parse("10.2.15.255"), 15000);
         IPEndPoint receivingIP = new IPEndPoint(IPAddress.Any, 0);
 
+        //
+        bool primaryFound = false;
+
         // Request messsages between replicas and server
         const string REQ_BACKUP = "backup";
         const string RES_ADDRESSES = "address";
@@ -1059,8 +1062,10 @@ namespace Server
 
                 }
             }
-            else if (receivedMessage.StartsWith("primary"))
+            else if (receivedMessage.StartsWith("primary") && !primaryFound)
             {
+                primaryFound = true;
+
                 // Disable timer 
                 timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
 
