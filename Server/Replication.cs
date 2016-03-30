@@ -415,6 +415,11 @@ namespace Server
 
                 //
                 serversAddresses = allReplicaAddrTemp;
+
+                foreach (IPAddress ip in serversAddresses)
+                {
+                    Console.WriteLine("in method parseResponseMessageForBackup, server addresses are {0}", ip);
+                }
             }
             else if (responseType == REQ_NAMES || responseType == REQ_GAMESESSIONS || responseType == REQ_QUEUE)
             {
@@ -637,10 +642,10 @@ namespace Server
                 thisServer.SetPlayerNames(tempPlayerNames);
 
                 // Debug
-                /*foreach (string ply in thisServer.GetPlayerNames())
+                foreach (string ply in thisServer.GetPlayerNames())
                 {
-                    Console.WriteLine("backup received player {0}", ply);
-                }*/
+                    Console.WriteLine("In method ParseServerResponseMessageToBackUpForGameInfo, response is name received player as backup {0}", ply);
+                }
             }
 
             else if (responseType == REQ_GAMESESSIONS)
@@ -875,6 +880,8 @@ namespace Server
         {
             string messageToBeSent = ConstructReplicaMessagesFromReplicaToServer(tempMsg);
 
+            Console.WriteLine("in method SendFromReplicaToServerAndParseResponse, message to be sent from backup to server {0}", messageToBeSent);
+
             // Initalize a new TcpClient
             replicaClient = new TcpClient();
 
@@ -899,6 +906,8 @@ namespace Server
                 c = Convert.ToChar(bb[i]);
                 responseMessage += c;
             }
+
+            Console.WriteLine("in method SendFromReplicaToServerAndParseResponse, response message {0}", responseMessage);
 
             // Prepare another response to backups
             parseResponseMessageForBackup(responseMessage);
