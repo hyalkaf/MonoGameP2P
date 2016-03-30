@@ -230,7 +230,8 @@ namespace Server
             else if ((requestMessage.StartsWith(REQ_NAMES)
                     || requestMessage.StartsWith(REQ_GAMESESSIONS)
                     || requestMessage.StartsWith(REQ_QUEUE)
-                    || requestMessage.StartsWith(REQ_UPDATE_BACKUP))
+                    || requestMessage.StartsWith(REQ_UPDATE_BACKUP)
+                    || requestMessage.StartsWith(RES_ADDRESSES))
                     && !thisServer.isPrimaryServer)
             {
                 //Console.WriteLine("Received messages from primary of this type {0}", requestMessage);
