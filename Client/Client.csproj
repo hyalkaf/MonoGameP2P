@@ -47,6 +47,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Game.cs" />
+    <Compile Include="GameMatchedException.cs" />
     <Compile Include="MessageParser.cs" />
     <Compile Include="Peer.cs" />
     <Compile Include="PeerInfo.cs" />
