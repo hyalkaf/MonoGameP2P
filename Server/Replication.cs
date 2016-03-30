@@ -160,9 +160,13 @@ namespace Server
                 && thisServer.isPrimaryServer)
             {
                 // add success message and respond back to the server.
+                sock.Send(new byte[1]);
 
                 // TODO: how does socket differ from tcp client.
                 sock.Close();
+
+                // Get appeopraite response
+                byte[] responseMessage = parseRequestMessageForPrimary(requestMessage);
 
                 // Accumlate backup indexes from the list of backup ips in case they are died
                 List<int> deadBackupServers = new List<int>();
@@ -173,8 +177,7 @@ namespace Server
                     // 
                     IPAddress backupIP = serversAddresses[j];
 
-                    // Get appeopraite response
-                    byte[] responseMessage = parseRequestMessageForPrimary(requestMessage);
+                    
 
                     try
                     {
