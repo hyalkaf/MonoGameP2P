@@ -133,7 +133,7 @@ namespace Server
             }
             catch (Exception)
             {
-                connectedClients.Remove(connectedClients.Find(client => client.TcpClient == tcpclient));
+                connectedClients.Remove(connectedClients.Find(client => client.TcpClient.Equals(tcpclient)));
                 tcpclient.Close();
                 return;
             }

@@ -10,12 +10,52 @@ namespace Server
 {
     public class ClientInfo
     {
-        private string playerName = null;
-        private int playerId = -1;
-        private int listeningPort = -1;
 
-        private TcpClient tcpclient;
-        private IPAddress ipaddr;
+
+        /// <summary>
+        /// Uniqie Player Name.
+        /// </summary>
+        public string PlayerName { get;set; }
+
+        /// <summary>
+        /// Player ID.
+        /// </summary>
+        public int PlayerId{ get;set;}
+
+        /// <summary>
+        /// Port number to be used to listen to incoming messages.
+        /// </summary>
+        public int ListeningPort { get;  set; }
+
+        /// <summary>
+        /// IP Address for this client.
+        /// </summary>
+        public IPAddress IPAddr { get;set; }
+
+        /// <summary>
+        /// TCP Client to connect to other players.
+        /// </summary>
+        public TcpClient TcpClient {  get;set; }
+
+        public ClientInfo()
+        {
+            PlayerName = null;
+            PlayerId = -1;
+            ListeningPort = -1;
+          }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name=""></param>
+        public ClientInfo(IPAddress ip, int port,string playerName, int playerId)
+        {
+            IPAddr = ip;
+            ListeningPort = port;
+            PlayerName = playerName;
+            PlayerId = playerId;
+        }
 
         /// <summary>
         /// This method Sets initial information of the client/player -> TCPclient and IP address.
@@ -28,49 +68,7 @@ namespace Server
         }
 
 
-        /// <summary>
-        /// Uniqie Player Name.
-        /// </summary>
-        public string PlayerName {
-            get { return playerName; }
-            set { playerName = value; }
-        }
-
-        /// <summary>
-        /// Player ID.
-        /// </summary>
-        public int PlayerId
-        {
-            get { return playerId; }
-            set { playerId = value; }
-        }
-
-        /// <summary>
-        /// Port number to be used to listen to incoming messages.
-        /// </summary>
-        public int ListeningPort
-        {
-            get { return listeningPort; }
-            set { listeningPort = value; }
-        }
-
-        /// <summary>
-        /// IP Address for this client.
-        /// </summary>
-        public IPAddress IPAddr {
-            get { return ipaddr; }
-            set { ipaddr = value; }
-        }
-
-        /// <summary>
-        /// TCP Client to connect to other players.
-        /// </summary>
-        public TcpClient TcpClient
-        {
-            get { return tcpclient; }
-            set { tcpclient = value; }
-        }
-
+        
         /// <summary>
         /// Convert client info to a string message delimited by spaces in between each piece of information
         /// </summary>
