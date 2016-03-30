@@ -681,16 +681,10 @@ namespace Server
                         // if (!thisServer.GetGameSession().All(gameSessionparam => gameSessionparam.ID.Equals(gameID)))
                         //{
                         // TODO: TryPArse
-                        string playerIPAddress = arrayOfGameSessionAndPlayerSpecificInfo[0 + extraIndexForGameID];
-                        int listeningPortForPlayer = int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[1 + extraIndexForGameID]);
-                        TcpClient playerTCPClient = new TcpClient(playerIPAddress, listeningPortForPlayer);
-                        player = new ClientInfo(playerTCPClient);
-
-                        player.ListeningPort = listeningPortForPlayer;
-
-                        player.PlayerName = arrayOfGameSessionAndPlayerSpecificInfo[2 + extraIndexForGameID];
-
-                        player.PlayerId = int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[3 + extraIndexForGameID]);
+                        player = new ClientInfo(IPAddress.Parse(arrayOfGameSessionAndPlayerSpecificInfo[0 + extraIndexForGameID]),
+                            int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[1 + extraIndexForGameID]), 
+                            arrayOfGameSessionAndPlayerSpecificInfo[2 + extraIndexForGameID], 
+                            int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[3 + extraIndexForGameID]));
                         //}
 
                         // After extracting gameID, index goes back to zero.
@@ -752,14 +746,10 @@ namespace Server
                     {
                         ClientInfo player;
                         // For every four enteries get the relvent info
-                        string playerIPAddress = arrayOfGameQueue[i];
-                        int listeningPortForPlayer = int.Parse(arrayOfGameQueue[i + 1]);
-                        TcpClient playerTCPClient = new TcpClient(playerIPAddress, listeningPortForPlayer);
-                        player = new ClientInfo(playerTCPClient);
-
-                        player.ListeningPort = listeningPortForPlayer;
-                        player.PlayerId = int.Parse(arrayOfGameQueue[i + 2]);
-                        player.PlayerName = arrayOfGameQueue[i + 3];
+                        player = new ClientInfo(IPAddress.Parse(arrayOfGameQueue[i]),
+                            int.Parse(arrayOfGameQueue[i + 1]),
+                            arrayOfGameQueue[i + 3],
+                            int.Parse(arrayOfGameQueue[i + 2]));
 
                         tempQueues[gameCapacity].Enqueue(player);
                     }
