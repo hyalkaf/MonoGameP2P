@@ -37,6 +37,10 @@ namespace Client
         {
            NewGame,Reconnect 
         }
+        enum ResponseStatus
+        {
+            Ok,Game,Error
+        }
 
         public const int SERVER_PORT = 8001;
 
@@ -111,61 +115,61 @@ namespace Client
             //{
             //    return;
             //}
-
-            bool connected = true;
-            int tryTimes = 15;
-            do
-            {
-                client = new TcpClient();
+            if (!inGame) { 
+                bool connected = true;
+                int tryTimes = 15;
+                do
+                {
+                    client = new TcpClient();
              
-                try
-                {
-                    connected = true;
-                    Console.WriteLine("Connecting to Server.....");
-
-                    // Connect to the server
-                    client.ConnectAsync(SERVER_IP, SERVER_PORT).Wait(1500);
-                }
-                catch (Exception)
-                {
-                    reqServReconn = true;
-                    Console.WriteLine("Retrying...");
-                    connected = false;
-                    tryTimes--;
-                    client.Close();
-                    if (tryTimes < 1)
+                    try
                     {
-                        Console.Write("Did you have the wrong Server IP Address? (Press Enter or enter new IP Address: )");
-                        string result = Console.ReadLine();
+                        connected = true;
+                        Console.WriteLine("Connecting to Server.....");
 
-                        IPAddress newip;
-                        if(result.Trim() != String.Empty)
-                        {
-                            while(!IPAddress.TryParse(result,out newip))
-                            {
-                                Console.Write("Invalid IP address, Please enter again: ");
-                                result = Console.ReadLine();
-                            }
-
-                            SERVER_IP = result;
-                        }
-                        tryTimes = 4;
+                        // Connect to the server
+                        client.ConnectAsync(SERVER_IP, SERVER_PORT).Wait(1500);
                     }
-                }
+                    catch (Exception)
+                    {
+                        reqServReconn = true;
+                        Console.WriteLine("Retrying...");
+                        connected = false;
+                        tryTimes--;
+                        client.Close();
+                        if (tryTimes < 1)
+                        {
+                            Console.Write("Did you have the wrong Server IP Address? (Press Enter or enter new IP Address: )");
+                            string result = Console.ReadLine();
 
-            } while (!connected);
+                            IPAddress newip;
+                            if(result.Trim() != String.Empty)
+                            {
+                                while(!IPAddress.TryParse(result,out newip))
+                                {
+                                    Console.Write("Invalid IP address, Please enter again: ");
+                                    result = Console.ReadLine();
+                                }
 
-            if (reqServReconn)
-            {
+                                SERVER_IP = result;
+                            }
+                            tryTimes = 4;
+                        }
+                    }
+
+                } while (!connected);
+
+                if (reqServReconn)
+                {
             
-              SendRequest(Request.SERVRECONN + " " + playerName);
+                  SendRequest(Request.SERVRECONN + " " + playerName);
                 
-            }
+                }
             
        
-            Console.WriteLine("Connected! Server IP: {0} Port: {1}", SERVER_IP, 8001);
+                Console.WriteLine("Connected! Server IP: {0} Port: {1}", SERVER_IP, 8001);
 
-
+            }
         }
 
 
@@ -221,11 +225,10 @@ namespace Client
                 {
                     Console.WriteLine("USAGE: reconn <gameId>");
                     client.Close();
-                    if (!inGame)
-                    {
-                        // Connect back to server immediately if user not in game
-                        connectToServer();
-                    }
+
+                    // Connect back to server immediately if user not in game
+                    connectToServer();
+
                     return 0;
                 }
                 string gameId = reqMsg;
@@ -239,20 +242,29 @@ namespace Client
             
 
             reqMessage += "\n\n";
-            
+
             try {
                 //Write to server
                 TCPMessageHandler msgHandler = new TCPMessageHandler();
-                string responseMessage = msgHandler.SendMessage(reqMessage,thisTcpClient);
+                string responseMessage = msgHandler.SendMessage(reqMessage, thisTcpClient);
                 //Done 
 
-                if (processResponse(responseMessage) == -1)
+                if (processResponse(responseMessage) == ResponseStatus.Error)
                 {
                     //Console.WriteLine("\nDEBUG: INVALID REQUEST/RESPONSE\n");
                     thisTcpClient.Close();
-                    connectToServer();
+                    if (reqType != Request.GAME)
+                    {
+                        // Connect back to server immediately if user not in game
+                        connectToServer();
+                    }
                     return -1;
+                } else if (processResponse(responseMessage) == ResponseStatus.Game)
+                {
+                    
+                    throw new GameMatchedException();
                 }
+
 
                 thisTcpClient.Close();
 
@@ -261,6 +273,11 @@ namespace Client
                     // Connect back to server immediately if user not in game
                     connectToServer();
                 }
+            }
+            catch (GameMatchedException)
+            {
+                thisTcpClient.Close();
+                throw new GameMatchedException();
             }
             catch (Exception)
             {
@@ -277,7 +294,7 @@ namespace Client
         /// </summary>
         /// <param name="responseMessage"></param>
         /// <returns></returns>
-        private int processResponse(string responseMessage)
+        private ResponseStatus processResponse(string responseMessage)
         {
             
             string respType;
@@ -325,7 +342,7 @@ namespace Client
 
                     inGame = true;
                     connectType = GameConnectType.NewGame;
-                    return 0;
+                    return ResponseStatus.Game;
                 }
                 else if (reqType == Request.RECONN)
                 {
@@ -358,25 +375,25 @@ namespace Client
 
                     inGame = true;
                     connectType = GameConnectType.Reconnect;
-                    return 0;
+                    return ResponseStatus.Game;
                 }
                 else if (reqType == Request.PLAYERS)
                 {
                     // DISPLAY playernum ON GUI
                     string playernum = respMsg;
                     Console.WriteLine("\nNum of Players on server now: " + playernum);
-                    return 0;
+                    return ResponseStatus.Ok;
                 }
                 else if (reqType == Request.CANCEL)
                 {
                     // INDICATES THAT THE USER HAVE CANCELED 
                     Console.WriteLine("\nYou have CANCELED your match making.");
-                    return 0;
+                    return ResponseStatus.Ok;
                 }
                 else if (reqType == Request.CHECKNAME)
                 {
                     Console.WriteLine("\nName is available!");
-                    return 0;
+                    return ResponseStatus.Ok;
                 }else if (reqType == Request.SERVRECONN)
                 {
                     if(respMsg != "") {
@@ -393,7 +410,7 @@ namespace Client
                     {
                         Console.WriteLine("Welcome back");
                     }
-                    return 0;
+                    return ResponseStatus.Ok;
                 }
 
             }
@@ -410,22 +427,22 @@ namespace Client
                 if (reqType == Request.GAME)
                 {
                     
-                    return 0;
+                    return ResponseStatus.Ok;
                 }
 
                 else if (reqType == Request.CHECKNAME)
                 {
 
-                    return -1;
+                    return ResponseStatus.Error;
                 }else if(reqType == Request.RECONN)
                 {
 
-                    return 0;
+                    return ResponseStatus.Ok;
                 }
                 else if (reqType == Request.CANCEL)
                 {
 
-                    return 0;
+                    return ResponseStatus.Ok;
                 }
             }
             else if (respType == Response.ERROR)
@@ -438,7 +455,7 @@ namespace Client
             }
 
 
-            return -1;
+            return ResponseStatus.Error;
 
         }
 
@@ -454,23 +471,31 @@ namespace Client
 
                         if (!inGame)
                         {
+                            try { 
+                                Console.Write("Send request (game, players, cancel, reconn): ");
+                                var request = Console.ReadLine().Trim().ToLower();
+                                if (!inGame) { 
+                                    if (request != String.Empty) {
+                                       
+                                        Console.WriteLine("Sending request \"{0}\"", request);
+                                        Task.Factory.StartNew(() => { SendRequest(request); });
+                                        //Thread sendThread = new Thread(() =>
+                                        //{
 
-                            Console.Write("Send request (game, players, cancel, reconn): ");
-                            var request = Console.ReadLine().Trim().ToLower();
-                            if (request != String.Empty) {
+                                        //    SendRequest(request);
+                                        //    Thread.CurrentThread.Abort();
 
-                                Console.WriteLine("Sending request \"{0}\"", request);
+                                        //});
 
-                                Thread sendThread = new Thread(() =>
-                                {
-                                    SendRequest(request);
-                                    Thread.CurrentThread.Abort();
-                                });
-
-                                sendThread.IsBackground = true;
-                                sendThread.Start();
+                                        //sendThread.IsBackground = true;
+                                        //sendThread.Start();
+                                    }
+                                }
                             }
-
+                            catch (GameMatchedException)
+                            {
+                                Console.WriteLine("------\nGame Matched!-------\n");
+                            }
                         }
 
                         else

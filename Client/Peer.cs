@@ -44,7 +44,7 @@ namespace Client
         private List<PeerInfo> allPeersInfo;
         private Game.Game game;
         private Object timerLock = new object();
-        private int readyToBegin = 0; 
+        
         // Initalize variables for peer(client) connecting to other peers(clients)
 
         private TcpListener _peerListener;
