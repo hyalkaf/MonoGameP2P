@@ -20,7 +20,7 @@ namespace Server
         // CH: This way of storing all replicas might not be viable
         public static List<ServerProgram> listReplicas = new List<ServerProgram>();
         // CH: New way of storing replicas (IPAddress, Bool: online status)
-        public static List<Tuple<IPAddress, bool>> allReplicaAddr = new List<Tuple<IPAddress, bool>>();
+        public static List<IPAddress> serversAddresses = new List<IPAddress>();
         // replica TCP Client for sending requests to primary server
         private TcpClient replicaClient;
         // Timer for running a check agansit the primary server.
@@ -35,7 +35,7 @@ namespace Server
         // Udp client listening for broadcast messages
         private readonly UdpClient udpBroadcast = new UdpClient(15000);
         // IP Address for broadcasting
-        IPEndPoint sendingIP = new IPEndPoint(IPAddress.Broadcast, 15000);
+        IPEndPoint sendingIP = new IPEndPoint(IPAddress.Broadcast, 15000);//10.2.15.255
         IPEndPoint receivingIP = new IPEndPoint(IPAddress.Any, 0);
 
         // Request messsages between replicas and server
@@ -99,11 +99,11 @@ namespace Server
         {
             if (!isServerPrimary)
             {
-                if (!allReplicaAddr.Exists(e => e.Item1.Equals(primaryServerIp)))
+                if (!serversAddresses.Exists(e => e.Equals(primaryServerIp)))
                 { 
                     // Add Primary server ip address to replica
                     //TODO dont need this, get list update from primary
-                    allReplicaAddr.Add(new Tuple<IPAddress, bool>(primaryServerIp, true));
+                    serversAddresses.Add(primaryServerIp);
 
                     // Timer for checking if primary is there
                     timerForCheckingPrimaryExistence = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
@@ -158,42 +158,40 @@ namespace Server
                 sock.Close();
 
                 // Send back to all backups the new updated information
-                IEnumerable<IPAddress> IEnumerableOfBackUpIPs = allReplicaAddr.Select(tuple => tuple.Item1);
+                IEnumerable<IPAddress> IEnumerableOfBackUpIPs = serversAddresses.Where((addr, ind) => !ind.Equals(0));
 
                 // Send all backups updated info
                 foreach (IPAddress backupIP in IEnumerableOfBackUpIPs)
                 {
-                    if (!thisServer.ipAddr.Equals(backupIP))
+                    // Get appeopraite response
+                    byte[] responseMessage = parseRequestMessageForPrimary(requestMessage);
+
+                    TcpClient primaryClientToBackup = new TcpClient();
+                    primaryClientToBackup.Connect(backupIP, 8000);
+
+                    //Console.WriteLine("Sending to every backup this {0}", responseMessage);
+
+                    Stream stm = primaryClientToBackup.GetStream();
+
+                    ASCIIEncoding asen = new ASCIIEncoding();
+
+                    stm.Write(responseMessage, 0, responseMessage.Length);
+                    byte[] responseOfBackUpToServerResponse = new byte[SIZE_OF_BUFFER];
+
+                    // Receive response from primary
+                    int k = stm.Read(responseOfBackUpToServerResponse, 0, SIZE_OF_BUFFER);
+
+                    string responseOfBackUpToServerResponseStr = "";
+                    char c = ' ';
+                    for (int i = 0; i < k; i++)
                     {
-                        // Get appeopraite response
-                        byte[] responseMessage = parseRequestMessageForPrimary(requestMessage);
-
-                        TcpClient primaryClientToBackup = new TcpClient();
-                        primaryClientToBackup.Connect(backupIP, 8000);
-
-                        //Console.WriteLine("Sending to every backup this {0}", responseMessage);
-
-                        Stream stm = primaryClientToBackup.GetStream();
-
-                        ASCIIEncoding asen = new ASCIIEncoding();
-
-                        stm.Write(responseMessage, 0, responseMessage.Length);
-                        byte[] responseOfBackUpToServerResponse = new byte[SIZE_OF_BUFFER];
-
-                        // Receive response from primary
-                        int k = stm.Read(responseOfBackUpToServerResponse, 0, SIZE_OF_BUFFER);
-
-                        string responseOfBackUpToServerResponseStr = "";
-                        char c = ' ';
-                        for (int i = 0; i < k; i++)
-                        {
-                            c = Convert.ToChar(responseOfBackUpToServerResponse[i]);
-                            responseOfBackUpToServerResponseStr += c;
-                        }
-
-                        primaryClientToBackup.Close();
-                        // TODO: Test response again.
+                        c = Convert.ToChar(responseOfBackUpToServerResponse[i]);
+                        responseOfBackUpToServerResponseStr += c;
                     }
+
+                    primaryClientToBackup.Close();
+                    // TODO: Test response again.
+                    
                 }
             }
             // Messages receivied from primary by backup after listening
@@ -304,23 +302,23 @@ namespace Server
                     //Console.WriteLine("Add Replica IP {0} to Server {1}", ipAddr, primaryServerIp);
 
                     // Add backup ip address to primary server list
-                    allReplicaAddr.Add(new Tuple<IPAddress, bool>(ipAddr, true));
+                    serversAddresses.Add(ipAddr);
 
                     // Create a response back to the replicationManager of the backup server
                     // add required information to be sent back
                     responseMessage = RES_ADDRESSES + " ";
 
                     // Send backup servers ip addresses starting from first backup server exculding primary server
-                    for (int i = 1; i < allReplicaAddr.Count; i++)
+                    for (int i = 1; i < serversAddresses.Count; i++)
                     {
                         // Comma shouldn't be added at the end of the message
-                        if (i != allReplicaAddr.Count - 1)
+                        if (i != serversAddresses.Count - 1)
                         {
-                            responseMessage += allReplicaAddr[i].Item1 + ",";
+                            responseMessage += serversAddresses[i] + ",";
                         }
                         else
                         {
-                            responseMessage += allReplicaAddr[i].Item1;
+                            responseMessage += serversAddresses[i];
                         }
 
                     }
@@ -369,7 +367,7 @@ namespace Server
             {
                 // get IP Addresses of all the other programs 
                 string[] arrayOfIPAddresses = messageParam.Split(',');
-                List<Tuple<IPAddress, bool>> allReplicaAddrTemp = new List<Tuple<IPAddress, bool>>();
+                List<IPAddress> allReplicaAddrTemp = new List<IPAddress>();
 
                 // Convert IP address from string to IPAddress
                 foreach (string tempIP in arrayOfIPAddresses)
@@ -383,12 +381,12 @@ namespace Server
                     }
                     else
                     {
-                        allReplicaAddrTemp.Add(new Tuple<IPAddress, bool>(ipAddr, true));
+                        allReplicaAddrTemp.Add(ipAddr);
                     }
                 }
 
                 //
-                allReplicaAddr = allReplicaAddrTemp;
+                serversAddresses = allReplicaAddrTemp;
             }
             else if (responseType == REQ_NAMES || responseType == REQ_GAMESESSIONS || responseType == REQ_QUEUE)
             {
@@ -459,16 +457,16 @@ namespace Server
             string requestMessage = updateBackupsRequestMessage + " ";
 
             // Send backup servers ip addresses starting from first backup server exculding primary server
-            for (int i = 0; i < allReplicaAddr.Count; i++)
+            for (int i = 0; i < serversAddresses.Count; i++)
             {
                 // Comma shouldn't be added at the end of the message
-                if (i != allReplicaAddr.Count - 1)
+                if (i != serversAddresses.Count - 1)
                 {
-                    requestMessage += allReplicaAddr[i].Item1 + ",";
+                    requestMessage += serversAddresses[i] + ",";
                 }
                 else
                 {
-                    requestMessage += allReplicaAddr[i].Item1;
+                    requestMessage += serversAddresses[i] ;
                 }
 
             }
@@ -765,9 +763,7 @@ namespace Server
         /// <param name="replica"></param>
         public void addReplica(ServerProgram replica)
         {
-            bool isOnline = true;
-
-            allReplicaAddr.Add(new Tuple<IPAddress, bool>(replica.ipAddr, isOnline));
+            serversAddresses.Add(replica.ipAddr);
         }
 
         /// <summary>
@@ -807,7 +803,7 @@ namespace Server
                     // In this case: server must have crashed
                     // take over and become the primary 
                     // TODO: This won't work for multiple servers
-                    if (allReplicaAddr[1].Item1.ToString().Equals(thisServer.ipAddr.ToString()))
+                    if (serversAddresses[1].Equals(thisServer.ipAddr))
                     {
                         MakeThisServerPrimary();
                     }
@@ -905,7 +901,7 @@ namespace Server
 
             // Send back to all backups the new updated information
             // TODO: We know primary only sends so remove zeroth position
-            IEnumerable<IPAddress> IEnumerableOfBackUpIPs = allReplicaAddr.Where(tuple => !tuple.Item1.Equals(thisServer.ipAddr)).Select(tuple2 => tuple2.Item1);
+            IEnumerable<IPAddress> IEnumerableOfBackUpIPs = serversAddresses.Where((tuple, ind) => !ind.Equals(0));
 
             // Send all backups updated info
             foreach (IPAddress backupIP in IEnumerableOfBackUpIPs)
@@ -961,7 +957,7 @@ namespace Server
         public void MakeThisServerPrimary()
         {
             // Update addresses
-            allReplicaAddr.RemoveAt(0);
+            serversAddresses.RemoveAt(0);
 
             thisServer.isPrimaryServer = true;
             // TODO: change this to try Parse
