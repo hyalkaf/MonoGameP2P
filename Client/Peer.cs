@@ -967,7 +967,7 @@ namespace Client
                     //Console.WriteLine(e.Message);
                     _peerListener.Stop();
                     //Console.WriteLine(e.StackTrace);
-                    Console.WriteLine("Internet died, please check if you have network access...");
+                    Console.WriteLine("Left the connection...");
                     hasNetworkEvent.WaitOne();   
                 }
             }
