@@ -826,7 +826,7 @@ namespace Server
 
 
                     // After extracting gameID, index goes back to zero.
-                    extraIndexForGameCapacity = 0;
+                    extraIndexForGameCapacity = 1;
 
                 }
 
@@ -837,7 +837,7 @@ namespace Server
                 {
                     foreach (ClientInfo cli in thisServer.GetClientWaitingForGame()[i])
                     {
-                        Console.WriteLine("backup received match of queue number {0} and player {1}", i, cli.IPAddr, cli.ListeningPort, cli.PlayerId, cli.PlayerName);
+                        Console.WriteLine("backup received match of queue number {0} and player address {1} and port {2} and id {3} and playername {4} ", i, cli.IPAddr, cli.ListeningPort, cli.PlayerId, cli.PlayerName);
                     }
                 }
             }
