@@ -178,7 +178,7 @@ namespace Server
                 byte[] responseMessage = parseRequestMessageForPrimary(requestMessage);
 
                 // Accumlate backup indexes from the list of backup ips in case they are died
-                List<int> deadBackupServers = new List<int>();
+                List<int> indexOfDeadBackupServers = new List<int>();
 
                 // Send all backups updated info
                 for (int j = 1; j < serversAddresses.Count; j++) 
@@ -219,12 +219,48 @@ namespace Server
                     catch (SocketException e)
                     {
                         // Remove dead backups
-                        deadBackupServers.Add(j);
+                        indexOfDeadBackupServers.Add(j);
                     }
-                    
+
+                    bool areDead = false;
+                    // Remove all dead backups if there is any
+                    foreach (int deadBackupind in indexOfDeadBackupServers)
+                    {
+                        // Ping each backup again 
+                        Ping pingBackups = new Ping();
+                        PingReply reply = pingBackups.Send(serversAddresses[deadBackupind]);
+                        if (!reply.Status.Equals(IPStatus.Success))
+                        {
+                            serversAddresses.RemoveAt(deadBackupind);
+                            areDead = true;
+                        }
+
+                    }
+
+                    // Send messages again
+                    // Send all backups updated info
+                    // TODO: Refactor this code.
+                    if (areDead)
+                    {
+                        for (int z = 1; z < serversAddresses.Count; z++)
+                        {
+                            // Catch exceptions when backup is not there
+                            // 
+                            try
+                            {
+                                sendMessage(serversAddresses[j], Encoding.ASCII.GetString(responseMessage));
+                            }
+                            catch (SocketException e)
+                            {
+                                // Remove the backup server that is not responding to messages
+                                indexOfDeadBackupServers.Add(j);
+                            }
+                        }
+                    }
+
                 }
 
-                foreach(int deadBackupInd in deadBackupServers)
+                foreach(int deadBackupInd in indexOfDeadBackupServers)
                 {
                     // Ping each backup again 
                     Ping pingBackups = new Ping();
@@ -965,7 +1001,7 @@ namespace Server
             
 
             // Accumlate backup indexes from the list of backup ips in case they are died
-            List<int> deadBackupServers = new List<int>();
+            List<int> indexOfDeadBackupServers = new List<int>();
 
             // Send all backups updated info
             for (int j = 1; j < serversAddresses.Count; j++)
@@ -1007,13 +1043,13 @@ namespace Server
                 catch (SocketException e)
                 {
                     // Remove the backup server that is not responding to messages
-                    deadBackupServers.Add(j);
+                    indexOfDeadBackupServers.Add(j);
                 }
             }
 
             bool areDead = false;
             // Remove all dead backups if there is any
-            foreach (int deadBackupind in deadBackupServers)
+            foreach (int deadBackupind in indexOfDeadBackupServers)
             {
                 // Ping each backup again 
                 Ping pingBackups = new Ping();
@@ -1042,7 +1078,7 @@ namespace Server
                     catch (SocketException e)
                     {
                         // Remove the backup server that is not responding to messages
-                        deadBackupServers.Add(j);
+                        indexOfDeadBackupServers.Add(j);
                     }
                 }
             }
