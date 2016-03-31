@@ -127,7 +127,7 @@ namespace Client
 
             if (!inGame) { 
                 bool connected = true;
-                int tryTimes = 15;
+                int tryTimes = 10;
                 do
                 {
                     client = new TcpClient();
