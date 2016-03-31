@@ -96,7 +96,7 @@ namespace Server
                 foreach (ClientInfo ci in q)
                 {
                     // Check if player is in this queue
-                    if (ci.TcpClient.Connected && ci.PlayerName == playername)
+                    if (ci.TcpClient == null || (ci.TcpClient.Connected && ci.PlayerName == playername))
                     {
                         return i;
                     }
