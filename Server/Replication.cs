@@ -758,7 +758,7 @@ namespace Server
                         //}
 
                         // After extracting gameID, index goes back to zero.
-                        extraIndexForGameID = 0;
+                        extraIndexForGameID = 1;
 
 
                         players.Add(player);
