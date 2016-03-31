@@ -723,7 +723,7 @@ namespace Server
                 foreach (string tempSession in arrayOfSessions)
                 {
                     // Split each game session by comma serperator
-                    string[] arrayOfSpecificSession = messageParam.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
+                    string[] arrayOfSpecificSession = tempSession.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
                     GameSession gameSession = null;
                     List<ClientInfo> players = new List<ClientInfo>();
                     string gameID = "";
