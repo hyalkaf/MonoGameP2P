@@ -658,7 +658,7 @@ namespace Server
                 {
                     if (j.Equals(0))
                     {
-                        responseMessage += i + clientsWaitingForGame[i].ElementAt(j).ToMessage() + " ";
+                        responseMessage += i + " " + clientsWaitingForGame[i].ElementAt(j).ToMessage() + " ";
                     }
                     else if (j.Equals(clientsWaitingForGame[i].Count - 1))
                     {
@@ -800,7 +800,7 @@ namespace Server
 
                     if (extraIndexForGameCapacity == 1)
                     {
-                        gameCapacity = int.Parse(arrayOfGameQueues[0]);
+                        gameCapacity = int.Parse(arrayOfGameQueue[0]);
                         // TODO: TryParse
                         for (int i = tempQueues.Count; i <= gameCapacity; i++)
                         {
