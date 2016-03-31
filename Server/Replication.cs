@@ -846,7 +846,7 @@ namespace Server
                     // In this case: server must have crashed
                     // take over and become the primary 
                     // TODO: This won't work for multiple servers
-                    if (checkTimerCounter < 2 && serversAddresses[1].Equals(thisServer.ipAddr))
+                    if (checkTimerCounter < 3 && serversAddresses[1].Equals(thisServer.ipAddr))
                     {
                         MakeThisServerPrimary();
                     }
