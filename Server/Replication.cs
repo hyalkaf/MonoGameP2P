@@ -81,6 +81,12 @@ namespace Server
                 }
             }).Start();
 
+            // Run listening on its own thread
+            new Thread(() =>
+            {
+                ListenReplica();
+            }).Start();
+
             // TODO: Send multiple times for udp
             timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 2000, Timeout.Infinite);
             for (int i = 0; i < 3; i++)
@@ -92,11 +98,7 @@ namespace Server
                 Thread.Sleep(500);
             }
 
-            // Run listening on its own thread
-            new Thread(() =>
-            {
-                ListenReplica();
-            }).Start();
+            
   
         }
 
@@ -1140,6 +1142,9 @@ namespace Server
 
                 // Make this server a backup
                 thisServer.isPrimaryServer = false;
+
+                // DEBUG
+                Console.WriteLine("Primary was found, this server is backup");
 
                 // Take the ip address of 
                 primaryServerIp = ip.Address;
