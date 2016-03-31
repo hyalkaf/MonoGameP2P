@@ -43,6 +43,7 @@ namespace Server
         bool primaryFound = false;
         bool isUdpResponseReceived = false;
         int checkTimerCounter = 0;
+        bool backupWasUpdated = false;
 
         // Request messsages between replicas and server
         const string REQ_BACKUP = "backup";
@@ -247,6 +248,10 @@ namespace Server
                 // Update information for backup 
                 // Here we are parsing request but since method is same use same
                 // TODO: Update names
+                if (requestMessage.StartsWith(REQ_UPDATE_BACKUP))
+                {
+                    backupWasUpdated = true;
+                }
                 parseResponseMessageForBackup(requestMessage);
 
                 // TODO: Response of success
@@ -838,26 +843,26 @@ namespace Server
                 try
                 {
                     SendFromReplicaToServerAndParseResponse("check");
-                    checkTimerCounter = 0;
+                    //checkTimerCounter = 0;
                 }
                 catch (SocketException)
                 {
                     // In this case: server must have crashed
                     // take over and become the primary 
                     // TODO: This won't work for multiple servers
-                    if (serversAddresses[1].Equals(thisServer.ipAddr))
+                    if (!backupWasUpdated && serversAddresses[1].Equals(thisServer.ipAddr))
                     {
-                        if (checkTimerCounter.Equals(0))
-                        {
-                            MakeThisServerPrimary();
-                        }
+                       // if (checkTimerCounter.Equals(0))
+                       // {
+                        MakeThisServerPrimary();
+                       // }
                     }
-                    // TODO: in the case where you are not second to primary 
+                    /*// TODO: in the case where you are not second to primary 
                     // Then we keep a counter for trying
                     else
                     {
                         checkTimerCounter++;
-                    }
+                    }*/
                 }
             }
   
@@ -956,7 +961,7 @@ namespace Server
 
             // Send back to all backups the new updated information
             // TODO: We know primary only sends so remove zeroth position
-
+            
 
             // Accumlate backup indexes from the list of backup ips in case they are died
             List<int> deadBackupServers = new List<int>();
@@ -1005,6 +1010,7 @@ namespace Server
                 }
             }
 
+            bool areDead = false;
             // Remove all dead backups if there is any
             foreach (int deadBackupind in deadBackupServers)
             {
@@ -1014,9 +1020,64 @@ namespace Server
                 if (!reply.Status.Equals(IPStatus.Success))
                 {
                     serversAddresses.RemoveAt(deadBackupind);
+                    areDead = true;
                 }
                 
             }
+
+            // Send messages again
+            // Send all backups updated info
+            // TODO: Refactor this code.
+            if (areDead)
+            {
+                for (int j = 1; j < serversAddresses.Count; j++)
+                {
+                    // Catch exceptions when backup is not there
+                    // 
+                    try
+                    {
+                        sendMessage(serversAddresses[j], messageUpdate);
+                    }
+                    catch (SocketException e)
+                    {
+                        // Remove the backup server that is not responding to messages
+                        deadBackupServers.Add(j);
+                    }
+                }
+            }
+        }
+
+
+        private void sendMessage(IPAddress ip, string message)
+        {
+            TcpClient tcpClient = new TcpClient();
+            tcpClient.Connect(ip, 8000);
+
+            //Console.WriteLine("Sending to every backup this {0}", messageUpdate);
+
+            Stream stm = tcpClient.GetStream();
+
+            ASCIIEncoding asen = new ASCIIEncoding();
+
+            byte[] messageUpdateBytes = asen.GetBytes(message);
+
+            stm.Write(messageUpdateBytes, 0, messageUpdateBytes.Length);
+            byte[] responseOfBackUp = new byte[SIZE_OF_BUFFER];
+
+            // Receive response from primary
+            int k = stm.Read(responseOfBackUp, 0, SIZE_OF_BUFFER);
+
+            string responseOfBackUpToServerResponseStr = "";
+            char c = ' ';
+            for (int i = 0; i < k; i++)
+            {
+                c = Convert.ToChar(responseOfBackUp[i]);
+                responseOfBackUpToServerResponseStr += c;
+            }
+
+            // TODO: Check if response has success
+
+            tcpClient.Close();
         }
 
         /// <summary>
