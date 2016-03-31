@@ -844,6 +844,7 @@ namespace Server
                 {
                     SendFromReplicaToServerAndParseResponse("check");
                     //checkTimerCounter = 0;
+                    backupWasUpdated = false;
                 }
                 catch (SocketException)
                 {
