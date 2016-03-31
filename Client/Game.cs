@@ -48,7 +48,7 @@ namespace Game
         /// </summary>
         /// <param name="current_player"></param>
         /// <param name="offset"></param>
-        public void move_player(Player current_player, int offset)
+        public void MovePlayer(Player current_player, int offset)
         {
             //get current and new locations
             int cur_loc = current_player.Position;
@@ -155,7 +155,7 @@ namespace Game
         public Player Winner
         {
             get { return winner; }
-            internal set {
+            private set {
                 winner = value;
                 Console.WriteLine("\n---------------------------------");
                 Console.WriteLine("The Winner is (" + winner.PlayerId+")"+winner.Name);

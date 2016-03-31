@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -42,18 +43,25 @@ namespace Client
             Ok,Game,Error
         }
 
+        private GameConnectType connectType;
         public const int SERVER_PORT = 8001;
 
-        TcpClient client;
-        TcpClient stayConnectedClient;
+        private TcpClient client;
+
         private string playerName;
         public bool inGame = false;
-        private bool gameRequested = false;
+
         public static string SERVER_IP = "";
-        private GameConnectType connectType;
+
+        // For interrupting user input
+        [DllImport("User32.Dll", EntryPoint = "PostMessageA")]
+        private static extern bool PostMessage(IntPtr hWnd, uint msg, int wParam, int lParam);
+
+        const int VK_RETURN = 0x0D;
+        const int WM_KEYDOWN = 0x100;
+
 
         // Holds information about other peers in the system: IPAddress, portNumber, name and ID.
-        //List<Tuple<string, int, string, int, int>> peersInfo;
         List<PeerInfo> allPeersInfo;
        
 
@@ -61,7 +69,7 @@ namespace Client
         /// Constructor for creating a client, it will connect to the server and prompts for unique name.
         /// </summary>
         public ClientProgram()
-        { 
+        {
             // Set IP address of server
             if (SERVER_IP == "")
             {
@@ -69,14 +77,20 @@ namespace Client
                 SERVER_IP = Console.ReadLine();
             }
 
+            Login();
+
+        }
+
+        private void Login()
+        {
             // Connect to server and set unique player name 
             string pName = String.Empty;
             int checkNameResult = -1;
- 
+
             do
             {
-                connectToServer();
- 
+                ConnectToServer();
+
                 Console.Write("Enter Your Player Name: ");
                 pName = Console.ReadLine();
                 pName = pName.Replace(" ", "").Replace("\t", "");
@@ -87,7 +101,7 @@ namespace Client
                     Console.Write("Name exists on server, is it you? (Y/N)");
                     string isityou = Console.ReadLine().Trim().ToLower();
 
-                    if(isityou == "y")
+                    if (isityou == "y")
                     {
                         checkNameResult = 0;
                         SendRequest(Request.SERVRECONN + " " + pName);
@@ -96,25 +110,21 @@ namespace Client
                     {
                         Console.Write("Re");
                     }
-                    
+
                 }
 
             } while (checkNameResult == -1);
 
             playerName = pName;
-
         }
 
         /// <summary>
         /// This method connects to the server for estiblishing a game.
         /// TODO: Should we have a specific IP and port or we should change it.
         /// </summary>
-        private void connectToServer(bool reqServReconn = false)
+        private void ConnectToServer(bool reqServReconn = false)
         {
-            //if ((client is TcpClient) && client.Connected)
-            //{
-            //    return;
-            //}
+
             if (!inGame) { 
                 bool connected = true;
                 int tryTimes = 15;
@@ -165,8 +175,7 @@ namespace Client
                   SendRequest(Request.SERVRECONN + " " + playerName);
                 
                 }
-            
-       
+
                 Console.WriteLine("Connected! Server IP: {0} Port: {1}", SERVER_IP, 8001);
 
             }
@@ -188,58 +197,50 @@ namespace Client
 
             TcpClient thisTcpClient = client;
 
-            if (reqType == Request.GAME)
+            switch (reqType)
             {
-                thisTcpClient = new TcpClient();
-                thisTcpClient.Connect(SERVER_IP,SERVER_PORT);
-                int inttest;
-                if (reqMsg == "" || !int.TryParse(reqMsg, out inttest))
-                {
-                    Console.WriteLine("USAGE: game <number>");
-                    thisTcpClient.Close();
+                case Request.GAME:
+                    thisTcpClient = new TcpClient();
+                    thisTcpClient.Connect(SERVER_IP, SERVER_PORT);
+                    int inttest;
+                    if (reqMsg == "" || !int.TryParse(reqMsg, out inttest))
+                    {
+                        Console.WriteLine("USAGE: game <number>");
+                        thisTcpClient.Close();
 
-                    return 0 ;
-                }
+                        return 0;
+                    }
 
-                string numOfPeersToMatch = reqMsg;
+                    string numOfPeersToMatch = reqMsg;
 
-                reqMessage = reqType +  " " + playerName + " " + numOfPeersToMatch;
+                    reqMessage = reqType + " " + playerName + " " + numOfPeersToMatch;
+                    break;
 
-            }
-            else if(reqType == Request.CANCEL)
-            {
-                reqMessage = reqType + " " + playerName;
-            }
-            else if (reqType == Request.PLAYERS)
-            {
-                reqMessage = reqType;
-            }
-            else if (reqType == Request.CHECKNAME)
-            {
-                reqMessage = reqType + " " + reqMsg;
-            }
-            else if (reqType == Request.RECONN)
-            {
-                int inttest;
-                if (reqMsg == "" || !int.TryParse(reqMsg, out inttest))
-                {
-                    Console.WriteLine("USAGE: reconn <gameId>");
-                    client.Close();
+                case Request.RECONN:
+                    int numTest;
+                    if (reqMsg == "" || !int.TryParse(reqMsg, out numTest))
+                    {
+                        Console.WriteLine("USAGE: reconn <gameId>");
+                        client.Close();
+                        ConnectToServer();
 
-                    // Connect back to server immediately if user not in game
-                    connectToServer();
+                        return 0;
+                    }
+                    string gameId = reqMsg;
 
-                    return 0;
-                }
-                string gameId = reqMsg;
+                    reqMessage = reqType + " " + playerName + " " + gameId;
+                    break;
 
-                reqMessage = reqType + " " + playerName + " " + gameId;
-            }
-            else if (reqType == Request.SERVRECONN)
-            {
-                reqMessage = reqType + " " + reqMsg;
-            }
-            
+                case Request.CANCEL:
+                    reqMessage = reqType + " " + playerName;
+                    break;
+
+                case Request.PLAYERS:                 
+                case Request.CHECKNAME:
+                case Request.SERVRECONN:
+                    reqMessage = reqType + " " + reqMsg;
+                    break;
+            }            
 
             reqMessage += "\n\n";
 
@@ -247,45 +248,45 @@ namespace Client
                 //Write to server
                 TCPMessageHandler msgHandler = new TCPMessageHandler();
                 string responseMessage = msgHandler.SendMessage(reqMessage, thisTcpClient);
-                //Done 
+                //Done writing to server
 
-                if (processResponse(responseMessage) == ResponseStatus.Error)
+                ResponseStatus status = ProcessResponseMessage(responseMessage);
+
+                switch (status)
                 {
-                    //Console.WriteLine("\nDEBUG: INVALID REQUEST/RESPONSE\n");
-                    thisTcpClient.Close();
-                    if (reqType != Request.GAME)
-                    {
+                    case ResponseStatus.Error:
+                    case ResponseStatus.Ok:
+                        thisTcpClient.Close();
                         // Connect back to server immediately if user not in game
-                        connectToServer();
-                    }
-                    return -1;
-                } else if (processResponse(responseMessage) == ResponseStatus.Game)
-                {
-                    
-                    throw new GameMatchedException();
+                        if (reqType != Request.GAME)
+                        {
+                            ConnectToServer();
+                        }
+                        break;
+                    case ResponseStatus.Game:
+                        Console.WriteLine("!!!!!!!!!!!\nGame Matched!\n!!!!!!!!!!!\n");
+                        Console.WriteLine("\tstarting...");
+                        Thread.Sleep(800);
+
+                        
+                        thisTcpClient.Close();
+                        // Interrupt any user input
+                        var hWnd = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+                        PostMessage(hWnd, WM_KEYDOWN, VK_RETURN, 0);
+                        break;
                 }
 
+                return (status==ResponseStatus.Error) ? -1 : 0;
 
-                thisTcpClient.Close();
-
-                if (reqType != Request.GAME)
-                {
-                    // Connect back to server immediately if user not in game
-                    connectToServer();
-                }
             }
-            catch (GameMatchedException)
-            {
-                thisTcpClient.Close();
-                throw new GameMatchedException();
-            }
+           
             catch (Exception)
             {
                 thisTcpClient.Close();
-                connectToServer(true);
+                ConnectToServer(true);
                 
             }
-            
+
             return 0;
         }
 
@@ -294,9 +295,9 @@ namespace Client
         /// </summary>
         /// <param name="responseMessage"></param>
         /// <returns></returns>
-        private ResponseStatus processResponse(string responseMessage)
+        private ResponseStatus ProcessResponseMessage(string responseMessage)
         {
-            
+
             string respType;
             string respMsg;
             MessageParser.ParseNext(responseMessage, out respType, out respMsg);
@@ -310,10 +311,10 @@ namespace Client
 
 
                 Console.WriteLine("\nDEBUG: " + reqType + "\n");
-                if (reqType == Request.GAME)
+                if (reqType == Request.GAME || reqType == Request.RECONN)
                 {
                     allPeersInfo = new List<PeerInfo>();
-                    //peersInfo = new List<Tuple<string, int, string, int, int>>();
+  
                     string gameSessionId;
                     MessageParser.ParseNext(respMsg, out gameSessionId, out respMsg);
                     IEnumerable<string> temp = respMsg.Split(',');
@@ -322,59 +323,33 @@ namespace Client
                     allPeersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
                     {
                         string[] parsedInfo = info.Trim().Split(' ');
-                        //Tuple<string, int, string, int, int> t = null;
+         
                         PeerInfo pInfo = null;
                         if (!string.IsNullOrEmpty(info))
                         {
-                            // TODO: deal with cases when integer can't be parsed
+
                             string ip = parsedInfo[0];
                             int port = int.Parse(parsedInfo[1]);
                             string pName = parsedInfo[2];
                             int playerId = int.Parse(parsedInfo[3]);
-                            // TODO: deal with cases when integer can't be parsed
+
                             pInfo = new PeerInfo(ip, port, pName, playerId, int.Parse(gameSessionId));
                         }
 
-                        //return t;
                         return pInfo;
                        
                     }).ToList();
-
+                    
                     inGame = true;
-                    connectType = GameConnectType.NewGame;
-                    return ResponseStatus.Game;
-                }
-                else if (reqType == Request.RECONN)
-                {
-                    allPeersInfo = new List<PeerInfo>();
 
-                    string gameSessionId;
-                    MessageParser.ParseNext(respMsg, out gameSessionId, out respMsg);
-
-                    IEnumerable<string> temp = respMsg.Split(',');
-                    allPeersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
+                    switch (reqType)
                     {
-                        string[] parsedInfo = info.Trim().Split(' ');
-                        
-                        PeerInfo pInfo = null;
-                        if (!string.IsNullOrEmpty(info))
-                        {
-                            string ip = parsedInfo[0];
-                            int port = int.Parse(parsedInfo[1]);
-                            string pName = parsedInfo[2];
-                            int playerId = int.Parse(parsedInfo[3]);
+                        case Request.GAME:
+                            connectType = GameConnectType.NewGame; break;
+                        case Request.RECONN:
+                            connectType = GameConnectType.Reconnect; break;
+                    }
 
-                            // TODO: deal with cases when integer can't be parsed
-                            pInfo = new PeerInfo(ip, port, pName, playerId, int.Parse(gameSessionId));
-                        }
-
-      
-                        return pInfo;
-
-                    }).ToList();
-
-                    inGame = true;
-                    connectType = GameConnectType.Reconnect;
                     return ResponseStatus.Game;
                 }
                 else if (reqType == Request.PLAYERS)
@@ -403,7 +378,8 @@ namespace Client
                         {
                             string playerNum = respMsg;
                             Console.WriteLine("You were in Queue for matchmaking for " + playerNum);
-                            SendRequest(Request.GAME + " " + playerNum);
+
+                            Task.Factory.StartNew(() => { SendRequest(Request.GAME + " " + playerNum); });
                         }
                     }
                     else
@@ -471,47 +447,41 @@ namespace Client
 
                         if (!inGame)
                         {
-                            try { 
-                                Console.Write("Send request (game, players, cancel, reconn): ");
-                                var request = Console.ReadLine().Trim().ToLower();
-                                if (!inGame) { 
-                                    if (request != String.Empty) {
+                         
+                            Console.Write("Send request (game, players, cancel, reconn): ");
+                            var request = Console.ReadLine().Trim().ToLower();
+
+
+
+                            if (!inGame)
+                            {
+                                
+                                if (request != String.Empty) {
                                        
-                                        Console.WriteLine("Sending request \"{0}\"", request);
-                                        Task.Factory.StartNew(() => { SendRequest(request); });
-                                        //Thread sendThread = new Thread(() =>
-                                        //{
+                                    Console.WriteLine("Sending request \"{0}\"", request);
 
-                                        //    SendRequest(request);
-                                        //    Thread.CurrentThread.Abort();
+                                    Task.Run(() => {SendRequest(request);  });
 
-                                        //});
-
-                                        //sendThread.IsBackground = true;
-                                        //sendThread.Start();
-                                    }
                                 }
                             }
-                            catch (GameMatchedException)
-                            {
-                                Console.WriteLine("------\nGame Matched!-------\n");
-                            }
+                       
+                           
                         }
 
                         else
                         {
                             // Leave the server if a game was matched, 
                             //   proceed to p2p connection with other players
+                            if (client.Connected)
+                            {
+                                client.Close();
+                            }
                             break;
                         }
                     }
 
-                    bool reconn = false;
-                    if (connectType == GameConnectType.Reconnect)
-                    {
-                        reconn = true;
-                    }
-
+                    bool reconn = (connectType == GameConnectType.Reconnect)? true :false;
+                    
                     Peer peer;
 
                     using (peer = new Peer(playerName, allPeersInfo, reconn)) 
@@ -519,7 +489,7 @@ namespace Client
                     
                     // Game ended connect back to server
                     inGame = false;
-                    connectToServer();
+                    ConnectToServer();
 
                 }
                 catch (Exception e)
@@ -532,6 +502,7 @@ namespace Client
              }
             
         }
+
 
         static void Main(string[] args)
         {

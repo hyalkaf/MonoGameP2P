@@ -114,13 +114,19 @@ namespace Server
             int queuePosition = IsInQueue(playername);
             ClientInfo playerToCancel = clientsWaitingForGame[queuePosition].Where(ci => ci.PlayerName == playername && ci.TcpClient.Connected).First();
             TcpClient gameReqClient = playerToCancel.TcpClient;
-            NetworkStream stm = gameReqClient.GetStream();
+            try { 
+                NetworkStream stm = gameReqClient.GetStream();
 
-            string responseMessage = ServerProgram.Response.SUCCESS + " " + ServerProgram.Request.CANCEL + " YOU CANCELED your match request.";
+                string responseMessage = ServerProgram.Response.SUCCESS + " " + ServerProgram.Request.CANCEL + " [GameRequestCancel]YOU CANCELED your match request.";
 
-            Console.WriteLine("DEBUG: Response sent: " + responseMessage);
-            byte[] b = Encoding.ASCII.GetBytes(responseMessage);
-            stm.Write(b, 0, b.Length);
+                Console.WriteLine("DEBUG: Response sent: " + responseMessage);
+                byte[] b = Encoding.ASCII.GetBytes(responseMessage);
+                stm.Write(b, 0, b.Length);
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("Cancel Response Failed, Client already disconnected...");
+            }
 
             gameReqClient.Close();
         }
@@ -229,7 +235,7 @@ namespace Server
                     foreach (ClientInfo client in clientsWaitingForGame[i])
                     {
 
-                        if (!server.TestAndRemoveDisconnectedClients(client))
+                        if (!server.TestAndDisconnectClients(client))
                         {
                             stillConnected--;
                         }

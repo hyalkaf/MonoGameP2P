@@ -48,15 +48,9 @@ namespace Server
         // then once that index has fullfilled its number we will match those in that index to a game.
         //private List<ConcurrentDictionary<string, Socket>> socketsForGameRequests;
 
-        //private List<ConcurrentQueue<ClientInfo>> clientsWaitingForGame;
-        //private List<Socket> sockets;
+
         private List<ClientInfo> connectedClients;
         private ObservableCollection<string> allPlayerNamesUsed;
-
-        // --To be removed--
-        //public Dictionary<string, List<string>> gameSession { get; private set; }
-        //public Dictionary<string, List<string>> gameSession;
-        // -----------------
 
         public bool isPrimaryServer = false;
 
@@ -171,24 +165,6 @@ namespace Server
 
 
                     connectedClients.Remove(connectedClients.Find(client => client.TcpClient.Equals(tcpclient)));
-
-                    // Legacy functionality: copy GameSessions to Dictionary
-                    GameSession[] sessions = _gameMatchmaker.GameSessions;
-                    // gameSession = new Dictionary<string, List<string>>();
-                    for (int i = 1; i <= sessions.Length; i++)
-                    {
-                        List<string> playerInfos = new List<string>();
-                        string[] msgs = sessions[i-1].ToMessage().Split(',');
-
-                        foreach(string m in msgs)
-                        {
-                            if (m.Trim() != String.Empty) { 
-                                playerInfos.Add(m.Trim());
-                            }
-                        }
-
-                        //gameSession.Add(i.ToString(), playerInfos);
-                    }
                 }
                 else
                 {
@@ -273,7 +249,7 @@ namespace Server
                 else
                 {
                     _gameMatchmaker.CancelGameRequest(playername);
-                    responseMessage = Response.SUCCESS + " " + Request.CANCEL + " YOU CANCELED your match request.";
+                    responseMessage = Response.SUCCESS + " " + Request.CANCEL + " Cancelled.";
                 }
 
 
@@ -325,6 +301,7 @@ namespace Server
 
                 if (qNum != -1)
                 {
+                    _gameMatchmaker.CancelGameRequest(aPlayerName);
                     responseMessage += " " + Request.GAME + " " + qNum;
                 }
 
@@ -393,8 +370,6 @@ namespace Server
                 Console.WriteLine("Waiting for a connection {0} .....", ++counter);
                 
                 TcpClient tcpclient = listener.AcceptTcpClient();
-                //Socket s = listener.AcceptSocket();
-                
 
                 new Thread(() => {
                     EstablishConnection(tcpclient);
@@ -402,12 +377,10 @@ namespace Server
                
           
             } while (true);
-            /* clean up */
-
           
         }
 
-        public bool TestAndRemoveDisconnectedClients(ClientInfo c)
+        public bool TestAndDisconnectClients(ClientInfo c)
         {
             byte[] testMsg = new byte[1];
             int timeToTry = 2;
@@ -426,7 +399,11 @@ namespace Server
                     {
                         if (tcpclient.Client.Connected)
                         {
-                            //connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
+                            if (connectedClients.Exists(client => client.TcpClient == tcpclient))
+                            {
+                                connectedClients.Remove(connectedClients.Find(client => client.TcpClient == tcpclient));
+                            }
+                           
                             tcpclient.Close();
                             
                         }

@@ -9,14 +9,16 @@ namespace Client
 {
     public class PeerInfo : IComparable<PeerInfo>
     {
-        private int listeningPort; 
-        private Player playerInfo;
-        private int gameSessionId;
-        public bool IsLeader
-        {
-            get;
-            set;
-        }
+
+        public Player PlayerInfo { get; set; }
+
+        public IPAddress IPAddr { get; set; }
+        public int Port { get; set; }
+        public int Strike { set; get; }
+        public int GameSessionId{private set; get;}
+        public bool IsLeader { get;  set;  }
+
+
 
         /// <summary>
         ///
@@ -28,8 +30,7 @@ namespace Client
         /// <param name="gameSessionId"></param>
         public PeerInfo(string ip, int port, string playername, int playerId, int gameSessionId)
         {
-            Initialize(ip, port, new Player(playername, playerId));
-            this.gameSessionId = gameSessionId;
+            Initialize(ip, port, new Player(playername, playerId), gameSessionId);
             
         }
 
@@ -42,15 +43,16 @@ namespace Client
         /// <param name="gameSessionId"></param>
         public PeerInfo(string ip, int port, Player p, int gameSessionId)
         {
-            Initialize(ip,port,p);
-            this.gameSessionId = gameSessionId;
+            Initialize(ip,port,p, gameSessionId);
+            
         }
-        private void Initialize(string ip, int port, Player p)
+        private void Initialize(string ip, int port, Player p, int gameSessionId)
         {
-            playerInfo = p;
+            PlayerInfo = p;
             IPAddr = IPAddress.Parse(ip);
-            listeningPort = port;
+            Port = port;
             Strike = 0;
+            GameSessionId = gameSessionId;
             if (PlayerInfo.PlayerId == 0)
             {
                 IsLeader = true;
@@ -61,31 +63,11 @@ namespace Client
             }
         }
 
-        public Player PlayerInfo
-        {
-            get { return playerInfo; }
-            set { playerInfo = value; }
-        }
-
-        public IPAddress IPAddr
-        {
-            get;
-            set;
-        }
-
+      
+        
         public override string ToString()
         {
             return "(" + PlayerInfo.PlayerId + ")" + PlayerInfo.Name;
-        }
-
-        public int Port {
-            get { return listeningPort; }
-            set { listeningPort = value; }
-        }
-
-        public int GameSessionId
-        {
-            get { return gameSessionId; }
         }
 
 
@@ -108,11 +90,6 @@ namespace Client
             return this.PlayerInfo.PlayerId.CompareTo(other.PlayerInfo.PlayerId);
         }
 
-        public int Strike
-        {
-            internal set;
-            get;
-            
-        }
+   
     }
 }

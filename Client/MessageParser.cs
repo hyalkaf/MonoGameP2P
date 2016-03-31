@@ -7,16 +7,18 @@ using System.Threading.Tasks;
     /// <summary>
     /// Message helper class to parse incoming or outgoing message
     /// </summary>
-   public class MessageParser
-   {
-        /// <summary>
-        /// Get the first occurence keyword in a message.
-        /// </summary>
-        /// <param name="msg"></param>
-        /// <param name="first"></param>
-        /// <param name="rest"></param>
-        public static void ParseNext(string msg, out string first, out string rest)
-        {
+public class MessageParser
+{
+    private static Object messageLock = new object();
+    /// <summary>
+    /// Get the first occurence keyword in a message.
+    /// </summary>
+    /// <param name="msg"></param>
+    /// <param name="first"></param>
+    /// <param name="rest"></param>
+    public static void ParseNext(string msg, out string first, out string rest)
+    {
+        lock (messageLock) { 
             msg = msg.Trim();
             msg = msg.Replace('\t', ' ');
             rest = "";
@@ -31,4 +33,5 @@ using System.Threading.Tasks;
                 rest = msg.Substring(first.Length).Trim();
             }
         }
-   }
+    }
+}
