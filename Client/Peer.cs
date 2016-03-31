@@ -44,7 +44,8 @@ namespace Client
         private List<PeerInfo> allPeersInfo;
         private Game.Game game;
         private Object timerLock = new object();
-        
+        private AutoResetEvent hasNetworkEvent = new AutoResetEvent(false);
+        private bool quitGame = false;
         // Initalize variables for peer(client) connecting to other peers(clients)
 
         private TcpListener _peerListener;
@@ -59,6 +60,8 @@ namespace Client
         public Peer(string playerName, List<PeerInfo> peersInfo , bool reconnect)
         {
 
+            NetworkChange.NetworkAvailabilityChanged += new NetworkAvailabilityChangedEventHandler(NetworkAvailChangeHandler);
+            NetworkChange.NetworkAddressChanged += new NetworkAddressChangedEventHandler(NetworkAddrChangeHandler);
             Console.WriteLine("PEER ESTABLISHED For {0}", playerName);
             
             allPeersInfo = peersInfo;
@@ -68,67 +71,59 @@ namespace Client
             {
                 // Get this peerInfo
                 myPeerInfo = allPeersInfo.Find(peer => peer.PlayerInfo.Name == playerName);
-
-                string localIP = "";
-                IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
-                foreach (IPAddress ip in host.AddressList)
-                {
-                    if (ip.AddressFamily == AddressFamily.InterNetwork)
-                    {
-                        localIP = ip.ToString();
-                    }
-                }
-
-                _peerListener = new TcpListener(IPAddress.Parse(localIP), myPeerInfo.Port);
             }
 
             InitializeGameState();
-            bool synced = false;
-            int numOfTries = 3;
-            
+
+            // If a peer is reconnecting back to the game, sync with current game state
             if (reconnect)
             {
-                while (!synced)
-                {
-                    myPeerInfo.IsLeader = false;
-
-                    Console.WriteLine("Syncing game state...");
-                    int status = SendRequestPeers(Request.RECONNECTED + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.IPAddr);
-                    if (status == 0)
-                    {
-                        synced = true;
-                        break;
-                    }
-                    numOfTries--;
-
-                    if (numOfTries < 0)
-                    {
-                        break;
-                    }
-                    Thread.Sleep(500);
-                }
-
-                SendRequestPeers(Request.ISLEADER);
+                ReconnectionAttempt();
             }
-            else
-            {
 
-            }
-           
+            // Ask who is the leader
+            SendRequestPeers(Request.ISLEADER);
 
             Thread.Sleep(100);
             game.TurnTimer.Change(1000, 1000);
         }
 
+        private void ReconnectionAttempt()
+        {
+            bool synced = false;
+            int numOfTries = 3;
+            while (!synced)
+            {
+                myPeerInfo.IsLeader = false;
+
+                Console.WriteLine("Syncing game state...");
+                int status = SendRequestPeers(Request.RECONNECTED + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.IPAddr);
+                if (status == 0)
+                {
+                    synced = true;
+                    break;
+                }
+                numOfTries--;
+
+                if (numOfTries < 0)
+                {
+                    break;
+                }
+                Thread.Sleep(500);
+            }
+
+            
+        }
+
         private void InitializeGameState()
         {
-            foreach(PeerInfo pInfo in allPeersInfo)
+            Parallel.ForEach(allPeersInfo, (pInfo) =>
             {
                 Player playerInfo = pInfo.PlayerInfo;
                 playerInfo.Turn = playerInfo.PlayerId;
                 playerInfo.Position = 0;
-                
-            }
+
+            });
 
             game = new Game.Game(allPeersInfo);
             game.TurnTimer = new Timer(TimeCounter);
@@ -153,8 +148,7 @@ namespace Client
             while (true)
             {
                 try { 
-                if (NetworkInterface.GetIsNetworkAvailable())
-                {
+          
                     Console.Write("Enter request (turn, quit): ");
                     string req = Console.ReadLine();
                     req = req.Trim().ToLower();
@@ -191,16 +185,22 @@ namespace Client
                     }
 
                     
-                }
+         
                 }
                 catch (Exception)
                 {
+                    Console.WriteLine("\n\t!! You have quit the game !!\t");
                     break;
                 }
             }
+
+
         }
 
-
+        /// <summary>
+        /// Convert current state of peer system into string
+        /// </summary>
+        /// <returns></returns>
         private string CurrentStateString()
         {
             string msg = "";
@@ -227,7 +227,7 @@ namespace Client
             TCPMessageHandler msgHandler = new TCPMessageHandler();
 
             string requestMessage = msgHandler.RecieveMessage(tcpclient);
-            Console.WriteLine("DEBUG: Request: " + requestMessage);
+            //Console.WriteLine("DEBUG: Request: " + requestMessage);
 
             string reqType;
             string reqMsg;
@@ -925,39 +925,71 @@ namespace Client
         /// </summary>
         public void StartListenPeers()
         {
-            /* Start Listeneting at the specified port */
-            Console.WriteLine("\nDEBUG: Peer listener starts");
-            try
-            {
-                _peerListener.Start();
+            while (!quitGame) {
 
-                Console.WriteLine("The peer is running at port {0}...", (_peerListener.LocalEndpoint as IPEndPoint).Port);
-                Console.WriteLine("The local End point is  :" + _peerListener.LocalEndpoint);
-
-                do
+                string localIP = "";
+                IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
+                foreach (IPAddress ip in host.AddressList)
                 {
+                    if (ip.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        localIP = ip.ToString();
+                    }
+                }
 
+                _peerListener = new TcpListener(IPAddress.Parse(localIP), myPeerInfo.Port);
 
-                    //Console.WriteLine("Waiting for a connection...");
-                    TcpClient tcpclient = _peerListener.AcceptTcpClient();
+                /* Start Listeneting at the specified port */
+                Console.WriteLine("\nDEBUG: Peer listener starts");
+                try
+                {
+                    _peerListener.Start();
 
-                    Thread connectionThread = new Thread(() => {
-                        EstablishConnection(tcpclient);
-                    });
-                    connectionThread.IsBackground = true;
-                    connectionThread.Start();
+                    Console.WriteLine("The peer is running at port {0}...", (_peerListener.LocalEndpoint as IPEndPoint).Port);
+                    Console.WriteLine("The local End point is  :" + _peerListener.LocalEndpoint);
 
-                } while (true);
+                    do
+                    {                    
+                        //Console.WriteLine("Waiting for a connection...");
+                        TcpClient tcpclient = _peerListener.AcceptTcpClient();
 
+                        Thread connectionThread = new Thread(() => {
+                            EstablishConnection(tcpclient);
+                        });
+                        connectionThread.IsBackground = true;
+                        connectionThread.Start();
+
+                    } while (true);
+
+                }
+                catch (Exception)
+                {
+                    //Console.WriteLine(e.Message);
+                    _peerListener.Stop();
+                    //Console.WriteLine(e.StackTrace);
+                    Console.WriteLine("Internet died, please check if you have network access...");
+                    hasNetworkEvent.WaitOne();   
+                }
             }
-            catch (Exception)
+
+        }
+
+        private void NetworkAvailChangeHandler(object sender, EventArgs e)
+        {
+            if (NetworkInterface.GetIsNetworkAvailable())
             {
-                //Console.WriteLine(e.Message);
-                _peerListener.Stop();
-                //Console.WriteLine(e.StackTrace);
-                Console.WriteLine("You have quit the game!");
+                Console.WriteLine("Connected back to network.");
+                hasNetworkEvent.Set();
             }
+            else
+            {
+                Console.WriteLine("Make sure you are connected to the network!");
+            }
+        }
 
+        private void NetworkAddrChangeHandler(object sender, EventArgs e)
+        {
+            SendRequestPeers(Request.RECONNECTED + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.IPAddr);
         }
 
         public void Dispose()
