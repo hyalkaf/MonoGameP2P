@@ -37,7 +37,7 @@ namespace Server
         {
             if (MatchMakerWasModifiedEvent != null)
             {
-                changedData = "match";
+                changedData = ReplicationManager.REQ_MATCH;
                 MatchMakerWasModifiedEvent(this, null);
             }
         }

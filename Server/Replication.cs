@@ -32,7 +32,7 @@ namespace Server
         private Object thisLock = new Object();
         private Object udpLock = new Object();
         // Requests to be sent from replica to primary server every time a new replica is initalized.
-        public static readonly string[] arrayOfReplicaMessages = { "backup", "name", "session" , "queue"};
+        public static readonly string[] arrayOfReplicaMessages = { REQ_BACKUP, REQ_NAMES, REQ_GAMESESSIONS , REQ_MATCH};
         // Udp client listening for broadcast messages
         private readonly UdpClient udpBroadcast = new UdpClient(15000);
         // IP Address for broadcasting
@@ -46,14 +46,14 @@ namespace Server
         bool backupWasUpdated = false;
 
         // Request messsages between replicas and server
-        const string REQ_BACKUP = "backup";
-        const string RES_ADDRESSES = "address";
-        const string REQ_NAMES = "name";
-        const string REQ_GAMESESSIONS = "session";
-        const string REQ_CHECK = "check";
-        const string REQ_QUEUE = "queue";
-        const string REQ_UPDATE_BACKUP = "update-backup";
-        const string RESP_SUCCESS = "success";
+        public const string REQ_BACKUP = "backup";
+        public const string RES_ADDRESSES = "address";
+        public const string REQ_NAMES = "name";
+        public const string REQ_GAMESESSIONS = "session";
+        public const string REQ_CHECK = "check";
+        public const string REQ_MATCH = "match";
+        public const string REQ_UPDATE_BACKUP = "update-backup";
+        public const string RESP_SUCCESS = "success";
 
         const int SIZE_OF_BUFFER = 4096;
 
@@ -164,7 +164,7 @@ namespace Server
             // Here we want to send back to all backups
             if ((requestMessage.StartsWith(REQ_NAMES)
                 || requestMessage.StartsWith(REQ_GAMESESSIONS)
-                || requestMessage.StartsWith(REQ_QUEUE)
+                || requestMessage.StartsWith(REQ_MATCH)
                 || requestMessage.StartsWith(REQ_BACKUP))
                 && thisServer.isPrimaryServer)
             {
@@ -274,7 +274,7 @@ namespace Server
             // Messages receivied from primary by backup after listening
             else if ((requestMessage.StartsWith(REQ_NAMES)
                     || requestMessage.StartsWith(REQ_GAMESESSIONS)
-                    || requestMessage.StartsWith(REQ_QUEUE)
+                    || requestMessage.StartsWith(REQ_MATCH)
                     || requestMessage.StartsWith(REQ_UPDATE_BACKUP)
                     || requestMessage.StartsWith(RES_ADDRESSES))
                     && !thisServer.isPrimaryServer)
@@ -410,7 +410,7 @@ namespace Server
                     b = asen.GetBytes(responseMessage + "\n\n");
                 }
             }
-            else if (requestType == REQ_NAMES || requestType == REQ_GAMESESSIONS || requestType == REQ_QUEUE)
+            else if (requestType == REQ_NAMES || requestType == REQ_GAMESESSIONS || requestType == REQ_MATCH)
             {
                 responseMessage = ConstructPrimaryMessageToBackupBasedOnRequestType(requestType);
 
@@ -480,7 +480,7 @@ namespace Server
                     Console.WriteLine("in method parseResponseMessageForBackup, server addresses are {0}", ip);
                 }*/
             }
-            else if (responseType == REQ_NAMES || responseType == REQ_GAMESESSIONS || responseType == REQ_QUEUE)
+            else if (responseType == REQ_NAMES || responseType == REQ_GAMESESSIONS || responseType == REQ_MATCH)
             {
                 if (!string.IsNullOrEmpty(messageParam))
                 {
@@ -522,7 +522,7 @@ namespace Server
             {
                 responseMessage = ConstructPrimaryMessageSession(sessions);
             }
-            else if (requestType.Equals(REQ_QUEUE))
+            else if (requestType.Equals(REQ_MATCH))
             {
                 responseMessage = ConstructPrimaryMessageMatch(clientsWaitingForgame);
             }
@@ -649,7 +649,7 @@ namespace Server
 
         private string ConstructPrimaryMessageMatch(ObservableCollection<ConcurrentQueue<ClientInfo>> clientsWaitingForGame)
         {
-            string responseMessage = "queue" + " ";
+            string responseMessage = REQ_MATCH + " ";
 
             // send client names on the server
             for (int i = 0; i < clientsWaitingForGame.Count; i++)
@@ -778,7 +778,7 @@ namespace Server
                     }
                 }*/
             }
-            else if (responseType.Equals(REQ_QUEUE))
+            else if (responseType.Equals(REQ_MATCH))
             {
                 // Split game queue by delimiter comma
                 string[] arrayOfGameQueues = messageParam.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
@@ -934,9 +934,9 @@ namespace Server
             {
                 messageToBeSent = "session" + " ";
             }
-            else if (replicaMsg.StartsWith(REQ_QUEUE))
+            else if (replicaMsg.StartsWith(REQ_MATCH))
             {
-                messageToBeSent = "queue" + " ";
+                messageToBeSent = REQ_MATCH + " ";
             }
 
             return messageToBeSent;

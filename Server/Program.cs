@@ -483,7 +483,7 @@ namespace Server
             this._gameMatchmaker.ClientGameQueue = newClientsWaitingForGame;
 
             // Update all backup servers
-            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges("match");
+            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges(ReplicationManager.REQ_MATCH);
         }
         
 
