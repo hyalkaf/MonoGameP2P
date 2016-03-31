@@ -148,20 +148,25 @@ namespace Server
 
             byte[] responseMessageForBackupOrCheck = new byte[SIZE_OF_BUFFER];
 
-            if (requestMessage.StartsWith(REQ_CHECK) || requestMessage.StartsWith(REQ_BACKUP))
+            if (requestMessage.StartsWith(REQ_CHECK))
             {
                 responseMessageForBackupOrCheck = parseRequestMessageForPrimary(requestMessage);
             }
             // Here we want to send back to all backups
             if ((requestMessage.StartsWith(REQ_NAMES)
                 || requestMessage.StartsWith(REQ_GAMESESSIONS)
-                || requestMessage.StartsWith(REQ_QUEUE))
+                || requestMessage.StartsWith(REQ_QUEUE)
+                || requestMessage.StartsWith(REQ_BACKUP))
                 && thisServer.isPrimaryServer)
             {
                 // add success message and respond back to the server.
+                sock.Send(new byte[1]);
 
                 // TODO: how does socket differ from tcp client.
                 sock.Close();
+
+                // Get appeopraite response
+                byte[] responseMessage = parseRequestMessageForPrimary(requestMessage);
 
                 // Accumlate backup indexes from the list of backup ips in case they are died
                 List<int> deadBackupServers = new List<int>();
@@ -172,8 +177,7 @@ namespace Server
                     // 
                     IPAddress backupIP = serversAddresses[j];
 
-                    // Get appeopraite response
-                    byte[] responseMessage = parseRequestMessageForPrimary(requestMessage);
+                    
 
                     try
                     {
@@ -226,7 +230,8 @@ namespace Server
             else if ((requestMessage.StartsWith(REQ_NAMES)
                     || requestMessage.StartsWith(REQ_GAMESESSIONS)
                     || requestMessage.StartsWith(REQ_QUEUE)
-                    || requestMessage.StartsWith(REQ_UPDATE_BACKUP))
+                    || requestMessage.StartsWith(REQ_UPDATE_BACKUP)
+                    || requestMessage.StartsWith(RES_ADDRESSES))
                     && !thisServer.isPrimaryServer)
             {
                 //Console.WriteLine("Received messages from primary of this type {0}", requestMessage);
@@ -415,6 +420,11 @@ namespace Server
 
                 //
                 serversAddresses = allReplicaAddrTemp;
+
+                if (responseType.Equals(REQ_UPDATE_BACKUP))
+                {
+                    primaryServerIp = serversAddresses[0];
+                }
 
                 foreach (IPAddress ip in serversAddresses)
                 {
@@ -1016,12 +1026,13 @@ namespace Server
             thisServer.isPrimaryServer = true;
             // TODO: change this to try Parse
             // primaryServerIp = IPAddress.Parse("162.246.157.120");
-            thisServer.StartListen();
+            
             timerForCheckingPrimaryExistence.Change(Timeout.Infinite, Timeout.Infinite);
 
             // Update backup servers 
             SendFromServerToBackUPSWhenStateChanges(REQ_UPDATE_BACKUP);
 
+            thisServer.StartListen();
         }
 
         public bool IsPrimary()
