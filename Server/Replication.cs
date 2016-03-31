@@ -842,13 +842,21 @@ namespace Server
                 }
                 catch (SocketException)
                 {
-                    checkTimerCounter++;
                     // In this case: server must have crashed
                     // take over and become the primary 
                     // TODO: This won't work for multiple servers
-                    if (checkTimerCounter < 3 && serversAddresses[1].Equals(thisServer.ipAddr))
+                    if (serversAddresses[1].Equals(thisServer.ipAddr))
                     {
-                        MakeThisServerPrimary();
+                        if (checkTimerCounter.Equals(0))
+                        {
+                            MakeThisServerPrimary();
+                        }
+                    }
+                    // TODO: in the case where you are not second to primary 
+                    // Then we keep a counter for trying
+                    else
+                    {
+                        checkTimerCounter++;
                     }
                 }
             }
