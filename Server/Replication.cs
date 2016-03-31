@@ -814,8 +814,8 @@ namespace Server
                         // For every four enteries get the relvent info
                         player = new ClientInfo(IPAddress.Parse(arrayOfGameQueue[i]),
                             int.Parse(arrayOfGameQueue[i + 1]),
-                            arrayOfGameQueue[i + 3],
-                            int.Parse(arrayOfGameQueue[i + 2]));
+                            arrayOfGameQueue[i + 2],
+                            int.Parse(arrayOfGameQueue[i + 3]));
 
                         tempQueues[gameCapacity].Enqueue(player);
                     }
