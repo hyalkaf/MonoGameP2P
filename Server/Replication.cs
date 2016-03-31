@@ -656,17 +656,21 @@ namespace Server
             {
                 for (int j = 0; j < clientsWaitingForGame[i].Count; j++)
                 {
+
                     if (j.Equals(0))
                     {
-                        responseMessage += i + " " + clientsWaitingForGame[i].ElementAt(j).ToMessage() + " ";
+                        responseMessage += i + " ";
                     }
-                    else if (j.Equals(clientsWaitingForGame[i].Count - 1))
+
+                    responseMessage += clientsWaitingForGame[i].ElementAt(j).ToMessage();
+
+                    if (j.Equals(clientsWaitingForGame[i].Count - 1))
                     {
-                        responseMessage += clientsWaitingForGame[i].ElementAt(j).ToMessage() + ",";
+                        responseMessage += ",";
                     }
                     else
                     {
-                        responseMessage += clientsWaitingForGame[i].ElementAt(j).ToMessage() + " ";
+                        responseMessage += " ";
                     }
                 }
 
@@ -822,7 +826,7 @@ namespace Server
 
 
                     // After extracting gameID, index goes back to zero.
-                    extraIndexForGameCapacity = 0;
+                    extraIndexForGameCapacity = 1;
 
                 }
 
@@ -833,7 +837,7 @@ namespace Server
                 {
                     foreach (ClientInfo cli in thisServer.GetClientWaitingForGame()[i])
                     {
-                        Console.WriteLine("backup received match of queue number {0} and player {1}", i, cli.IPAddr, cli.ListeningPort, cli.PlayerId, cli.PlayerName);
+                        Console.WriteLine("backup received match of queue number {0} and player address {1} and port {2} and id {3} and playername {4} ", i, cli.IPAddr, cli.ListeningPort, cli.PlayerId, cli.PlayerName);
                     }
                 }
             }
