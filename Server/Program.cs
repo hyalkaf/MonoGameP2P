@@ -323,6 +323,9 @@ namespace Server
                 GameSession gs = _gameMatchmaker.GetGameSession(int.Parse(gameSessionId));
                 gs.RemovePlayer(playername);
 
+                // Trigger update
+                MatchMakerChangedEvent(null, null, "session");
+
                 responseMessage = Response.SUCCESS + " " + Request.RMPLAYER;
 
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);

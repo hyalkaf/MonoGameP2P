@@ -150,6 +150,9 @@ namespace Server
             // Add player to the specific queue
             clientsWaitingForGame[queueNum].Enqueue(player);
 
+            // Trigger update
+            GameQueueChangedEvent(null, null);
+
         }
 
         /// <summary>
@@ -258,6 +261,9 @@ namespace Server
                         {
                             dequeued = clientsWaitingForGame[i].TryDequeue(out client);
                         } while (!dequeued);
+
+                        // Trigger update
+                        GameQueueChangedEvent(null, null);
 
                         // Assign the ip address to a port
                         if (client.TcpClient.Client.Connected)
