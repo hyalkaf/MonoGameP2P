@@ -41,6 +41,7 @@ namespace Server
 
         //
         bool primaryFound = false;
+        bool isUdpResponseReceived = false;
 
         // Request messsages between replicas and server
         const string REQ_BACKUP = "backup";
@@ -81,10 +82,14 @@ namespace Server
             }).Start();
 
             // TODO: Send multiple times for udp
-            timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 5000, Timeout.Infinite);
+            timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 2000, Timeout.Infinite);
             for (int i = 0; i < 3; i++)
             {
-                Broadcast("isPrimary");
+                if (!isUdpResponseReceived)
+                {
+                    Broadcast("isPrimary");
+                }
+                Thread.Sleep(500);
             }
 
             // Run listening on its own thread
@@ -426,10 +431,10 @@ namespace Server
                     primaryServerIp = serversAddresses[0];
                 }
 
-                foreach (IPAddress ip in serversAddresses)
+                /*foreach (IPAddress ip in serversAddresses)
                 {
                     Console.WriteLine("in method parseResponseMessageForBackup, server addresses are {0}", ip);
-                }
+                }*/
             }
             else if (responseType == REQ_NAMES || responseType == REQ_GAMESESSIONS || responseType == REQ_QUEUE)
             {
@@ -652,10 +657,10 @@ namespace Server
                 thisServer.SetPlayerNames(tempPlayerNames);
 
                 // Debug
-                foreach (string ply in thisServer.GetPlayerNames())
+                /*foreach (string ply in thisServer.GetPlayerNames())
                 {
                     Console.WriteLine("In method ParseServerResponseMessageToBackUpForGameInfo, response is name received player as backup {0}", ply);
-                }
+                }*/
             }
 
             else if (responseType == REQ_GAMESESSIONS)
@@ -721,13 +726,13 @@ namespace Server
                 thisServer.SetGameSession(tempGameSession.ToArray());
 
                 // Debug
-                foreach (GameSession sess in thisServer.GetGameSession())
+                /*foreach (GameSession sess in thisServer.GetGameSession())
                 {
                     foreach(ClientInfo cli in sess.Players)
                     {
                         Console.WriteLine("backup received session players of ID {0} and {1} {2} {3} {4}", sess.ID, cli.IPAddr, cli.ListeningPort, cli.PlayerId, cli.PlayerName);
                     }
-                }
+                }*/
             }
             else if (responseType.Equals(REQ_QUEUE))
             {
@@ -890,7 +895,7 @@ namespace Server
         {
             string messageToBeSent = ConstructReplicaMessagesFromReplicaToServer(tempMsg);
 
-            Console.WriteLine("in method SendFromReplicaToServerAndParseResponse, message to be sent from backup to server {0}", messageToBeSent);
+            //Console.WriteLine("in method SendFromReplicaToServerAndParseResponse, message to be sent from backup to server {0}", messageToBeSent);
 
             // Initalize a new TcpClient
             replicaClient = new TcpClient();
@@ -917,7 +922,7 @@ namespace Server
                 responseMessage += c;
             }
 
-            Console.WriteLine("in method SendFromReplicaToServerAndParseResponse, response message {0}", responseMessage);
+            //Console.WriteLine("in method SendFromReplicaToServerAndParseResponse, response message {0}", responseMessage);
 
             // Prepare another response to backups
             parseResponseMessageForBackup(responseMessage);
@@ -1098,6 +1103,7 @@ namespace Server
             // Parse message received 
             if (receivedMessage.StartsWith("isPrimary"))
             {
+                isUdpResponseReceived = true;
                 // Check if this backup server is primary
                 if (IsPrimary())
                 {
@@ -1126,6 +1132,7 @@ namespace Server
             }
             else if (receivedMessage.StartsWith("primary") && !primaryFound)
             {
+                isUdpResponseReceived = true;
                 primaryFound = true;
 
                 // Disable timer 
