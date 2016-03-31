@@ -175,8 +175,7 @@ namespace Client
                   SendRequest(Request.SERVRECONN + " " + playerName);
                 
                 }
-            
-       
+
                 Console.WriteLine("Connected! Server IP: {0} Port: {1}", SERVER_IP, 8001);
 
             }
@@ -269,10 +268,11 @@ namespace Client
                         Console.WriteLine("\tstarting...");
                         Thread.Sleep(800);
 
+                        
+                        thisTcpClient.Close();
                         // Interrupt any user input
                         var hWnd = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
                         PostMessage(hWnd, WM_KEYDOWN, VK_RETURN, 0);
-                        thisTcpClient.Close();
                         break;
                 }
 
@@ -297,7 +297,7 @@ namespace Client
         /// <returns></returns>
         private ResponseStatus ProcessResponseMessage(string responseMessage)
         {
-            
+
             string respType;
             string respMsg;
             MessageParser.ParseNext(responseMessage, out respType, out respMsg);
@@ -339,7 +339,7 @@ namespace Client
                         return pInfo;
                        
                     }).ToList();
-
+                    
                     inGame = true;
 
                     switch (reqType)
@@ -449,8 +449,10 @@ namespace Client
                         {
                          
                             Console.Write("Send request (game, players, cancel, reconn): ");
-
                             var request = Console.ReadLine().Trim().ToLower();
+
+
+
                             if (!inGame)
                             {
                                 
@@ -458,17 +460,8 @@ namespace Client
                                        
                                     Console.WriteLine("Sending request \"{0}\"", request);
 
-                                    Task.Factory.StartNew(() => {SendRequest(request);  });
-                                    //Thread sendThread = new Thread(() =>
-                                    //{
+                                    Task.Run(() => {SendRequest(request);  });
 
-                                    //    SendRequest(request);
-                                    //    Thread.CurrentThread.Abort();
-
-                                    //});
-
-                                    //sendThread.IsBackground = true;
-                                    //sendThread.Start();
                                 }
                             }
                        

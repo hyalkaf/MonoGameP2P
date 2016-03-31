@@ -78,9 +78,8 @@ namespace Client
                         localIP = ip.ToString();
                     }
                 }
-                IPAddress localIpAddr = IPAddress.Parse(localIP);
 
-                _peerListener = new TcpListener(localIpAddr, myPeerInfo.Port);
+                _peerListener = new TcpListener(IPAddress.Parse(localIP), myPeerInfo.Port);
             }
 
             InitializeGameState();
@@ -136,7 +135,7 @@ namespace Client
             Console.WriteLine(game);
             if (myPeerInfo.PlayerInfo.Turn==0)
             {          
-                Console.WriteLine("!!You go first! It is your turn now !!");         
+                Console.WriteLine("It is your turn now !! (Type 'turn')");         
             }
             
         }
@@ -145,7 +144,7 @@ namespace Client
         {
 
             Thread listenerThread =  new Thread(() => {
-                Console.WriteLine("\nDEBUG: Peer listener starts");
+               
                 StartListenPeers();
             });
             listenerThread.IsBackground = true;
@@ -294,7 +293,8 @@ namespace Client
 
                 // Get PlayerId
                 string str_playerId;
-                MessageParser.ParseNext(reqMsg, out str_playerId, out reqMsg);
+                string playerPosition;
+                MessageParser.ParseNext(reqMsg, out str_playerId, out playerPosition);
                 int playerId = int.Parse(str_playerId);
 
                 string turnNum = reqMsg;
@@ -330,6 +330,7 @@ namespace Client
                     reconnectedPeer.ResetStrike();
                     if (reconnectedPeer.IPAddr != (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address)
                     {
+                        Console.WriteLine("RECONNECT NOTICE: {0} changed IP address", reconnectedPeer.PlayerInfo.Name);
                         reconnectedPeer.IPAddr = (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address;
                     }
 
@@ -379,7 +380,7 @@ namespace Client
            // TcpClient[] allPeerTcpClient = new TcpClient[allPeersInfo.Count];
             string[] allResponseMsgs = new string[allPeersInfo.Count];
             string reqType = "";
-            Object msgLock = new Object();
+
             var numOfEmptyResponse = allPeersInfo.Count;
 
             // Multicast message to all peers
@@ -399,7 +400,7 @@ namespace Client
                         try
                         {
 
-                            aClient.ConnectAsync(allPeersInfo[i].IPAddr, aPeer.Port).Wait(3000);
+                            aClient.ConnectAsync(aPeer.IPAddr, aPeer.Port).Wait(3000);
                         }
                         catch (Exception)
                         {
@@ -687,7 +688,7 @@ namespace Client
             }
             else if (req == Request.QUIT)
             {
-                msg = req + " " + myPeerInfo.PlayerInfo.PlayerId + " " + 0;
+                msg = req + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.PlayerInfo.Position;
                 SendToAllPeers(msg);
 
                 Dispose();
@@ -925,6 +926,7 @@ namespace Client
         public void StartListenPeers()
         {
             /* Start Listeneting at the specified port */
+            Console.WriteLine("\nDEBUG: Peer listener starts");
             try
             {
                 _peerListener.Start();

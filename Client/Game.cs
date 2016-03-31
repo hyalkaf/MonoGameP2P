@@ -155,7 +155,7 @@ namespace Game
         public Player Winner
         {
             get { return winner; }
-            internal set {
+            private set {
                 winner = value;
                 Console.WriteLine("\n---------------------------------");
                 Console.WriteLine("The Winner is (" + winner.PlayerId+")"+winner.Name);

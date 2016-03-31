@@ -14,8 +14,6 @@ namespace Client
         public string SendMessage(string msg, TcpClient tcpclient)
         {
 
-
-
             try
             {
                 NetworkStream netStream = tcpclient.GetStream();
@@ -42,15 +40,15 @@ namespace Client
         public string RecieveMessage(TcpClient tcpclient)
         {
 
-                NetworkStream netStream = tcpclient.GetStream();
+            NetworkStream netStream = tcpclient.GetStream();
 
-                tcpclient.ReceiveBufferSize = 4096;
-                byte[] bytes = new byte[tcpclient.ReceiveBufferSize];
+            tcpclient.ReceiveBufferSize = 4096;
+            byte[] bytes = new byte[tcpclient.ReceiveBufferSize];
 
-                netStream.Read(bytes, 0, (int)tcpclient.ReceiveBufferSize);
+            netStream.Read(bytes, 0, (int)tcpclient.ReceiveBufferSize);
 
-                string requestMessage = Encoding.ASCII.GetString(bytes).Trim();
-                return requestMessage.Substring(0, requestMessage.IndexOf("\0")).Trim();
+            string requestMessage = Encoding.ASCII.GetString(bytes).Trim();
+            return requestMessage.Substring(0, requestMessage.IndexOf("\0")).Trim();
       
         }
 
