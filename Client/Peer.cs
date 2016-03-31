@@ -256,7 +256,7 @@ namespace Client
                 {
                     pi.ResetStrike();
                     game.TurnTimer.Change(Timeout.Infinite, Timeout.Infinite);
-                    game.move_player(p, int.Parse(diceRolled));
+                    game.MovePlayer(p, int.Parse(diceRolled));
                     Console.WriteLine(game);
                     Console.WriteLine("\nPlayer " + playerId + " (" + playerName + ") move " + diceRolled + " steps.");
                     game.UpdateTurn();
@@ -667,7 +667,7 @@ namespace Client
                 if (myPeerInfo.PlayerInfo.Turn == 0) {
 
                     myPeerInfo.ResetStrike();
-                    game.move_player(myPeerInfo.PlayerInfo, dice);
+                    game.MovePlayer(myPeerInfo.PlayerInfo, dice);
 
                     Console.WriteLine(game);
                     Console.WriteLine("\nYOU moved " + dice + " steps.");
