@@ -656,17 +656,21 @@ namespace Server
             {
                 for (int j = 0; j < clientsWaitingForGame[i].Count; j++)
                 {
+
                     if (j.Equals(0))
                     {
-                        responseMessage += i + " " + clientsWaitingForGame[i].ElementAt(j).ToMessage() + " ";
+                        responseMessage += i + " ";
                     }
-                    else if (j.Equals(clientsWaitingForGame[i].Count - 1))
+
+                    responseMessage += clientsWaitingForGame[i].ElementAt(j).ToMessage();
+
+                    if (j.Equals(clientsWaitingForGame[i].Count - 1))
                     {
-                        responseMessage += clientsWaitingForGame[i].ElementAt(j).ToMessage() + ",";
+                        responseMessage += ",";
                     }
                     else
                     {
-                        responseMessage += clientsWaitingForGame[i].ElementAt(j).ToMessage() + " ";
+                        responseMessage += " ";
                     }
                 }
 
