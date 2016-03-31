@@ -42,6 +42,7 @@ namespace Server
         //
         bool primaryFound = false;
         bool isUdpResponseReceived = false;
+        int checkTimerCounter = 0;
 
         // Request messsages between replicas and server
         const string REQ_BACKUP = "backup";
@@ -837,13 +838,15 @@ namespace Server
                 try
                 {
                     SendFromReplicaToServerAndParseResponse("check");
+                    checkTimerCounter = 0;
                 }
                 catch (SocketException)
                 {
+                    checkTimerCounter++;
                     // In this case: server must have crashed
                     // take over and become the primary 
                     // TODO: This won't work for multiple servers
-                    if (serversAddresses[1].Equals(thisServer.ipAddr))
+                    if (checkTimerCounter < 2 && serversAddresses[1].Equals(thisServer.ipAddr))
                     {
                         MakeThisServerPrimary();
                     }
