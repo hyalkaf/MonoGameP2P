@@ -757,17 +757,18 @@ namespace Server
                             int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[3 + extraIndexForGameID]));
                         //}
 
-                        
 
+                        // After extracting gameID, index goes back to zero.
+                        extraIndexForGameID = 0;
 
                         players.Add(player);
 
                         
                     }
 
-
                     // After extracting gameID, index goes back to zero.
                     extraIndexForGameID = 1;
+
 
                     // Add to the gamesession
                     gameSession.SetPlayers = players;
