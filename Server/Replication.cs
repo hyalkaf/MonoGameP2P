@@ -772,6 +772,9 @@ namespace Server
 
                     // Add to the gamesession
                     gameSession.SetPlayers = players;
+
+                    // Add game session
+                    tempGameSession.Add(gameSession);
                 }
 
                 // Add to game session of server
