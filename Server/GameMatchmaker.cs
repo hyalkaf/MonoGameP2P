@@ -96,7 +96,7 @@ namespace Server
                 foreach (ClientInfo ci in q)
                 {
                     // Check if player is in this queue
-                    if (ci.TcpClient == null || (ci.TcpClient.Connected && ci.PlayerName == playername))
+                    if (ci.PlayerName == playername && ci.InQueue)
                     {
                         return i;
                     }
@@ -112,7 +112,8 @@ namespace Server
         public void CancelGameRequest(string playername)
         {
             int queuePosition = IsInQueue(playername);
-            ClientInfo playerToCancel = clientsWaitingForGame[queuePosition].Where(ci => ci.PlayerName == playername && (ci.TcpClient.Equals(null) || ci.TcpClient.Connected)).First();
+            ClientInfo playerToCancel = clientsWaitingForGame[queuePosition].Where(ci => ci.PlayerName == playername && ci.InQueue).First();
+            playerToCancel.InQueue = false;
             TcpClient gameReqClient = playerToCancel.TcpClient;
             try { 
                 NetworkStream stm = gameReqClient.GetStream();
@@ -148,6 +149,7 @@ namespace Server
             }
 
             // Add player to the specific queue
+            player.InQueue = true;
             clientsWaitingForGame[queueNum].Enqueue(player);
 
             // Trigger update

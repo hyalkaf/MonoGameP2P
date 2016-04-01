@@ -35,7 +35,12 @@ namespace Server
         /// <summary>
         /// TCP Client to connect to other players.
         /// </summary>
-        public TcpClient TcpClient {  get;set; }
+        public TcpClient TcpClient { get; set; } = null;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public bool InQueue { get; set; } = false;
 
         public ClientInfo()
         {
