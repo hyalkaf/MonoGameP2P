@@ -40,7 +40,7 @@ namespace Server
         /// <summary>
         /// 
         /// </summary>
-        public bool InQueue { get; set; };
+        public bool InQueue { get; set; }
 
         public ClientInfo()
         {
