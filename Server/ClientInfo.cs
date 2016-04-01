@@ -35,12 +35,12 @@ namespace Server
         /// <summary>
         /// TCP Client to connect to other players.
         /// </summary>
-        public TcpClient TcpClient { get; set; } = null;
+        public TcpClient TcpClient { get; set; }
 
         /// <summary>
         /// 
         /// </summary>
-        public bool InQueue { get; set; } = false;
+        public bool InQueue { get; set; };
 
         public ClientInfo()
         {
@@ -60,6 +60,8 @@ namespace Server
             ListeningPort = port;
             PlayerName = playerName;
             PlayerId = playerId;
+            TcpClient = null;
+            InQueue = false;
         }
 
         /// <summary>
@@ -70,6 +72,7 @@ namespace Server
         {
             TcpClient = tcpclient;
             IPAddr = (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address;
+            InQueue = false;
         }
 
 
