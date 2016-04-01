@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,19 +39,26 @@ namespace Client
             public const string UNKNOWN = "unknownrequest";
         }
        // private Timer gameTimer;
-        private const int TIMER_START_TIME = 15;
+        private const int TIMER_START_TIME = 16;
         private int TimerTime = TIMER_START_TIME;
         private PeerInfo myPeerInfo;
         private List<PeerInfo> allPeersInfo;
-        private Game.Game game;
+        private Game game;
         private Object timerLock = new object();
         private AutoResetEvent hasNetworkEvent = new AutoResetEvent(false);
         private bool quitGame = false;
         // Initalize variables for peer(client) connecting to other peers(clients)
-
         private TcpListener _peerListener;
+        private Thread listenerThread;
 
-        
+        // For interrupting user input
+        [DllImport("User32.Dll", EntryPoint = "PostMessageA")]
+
+        private static extern bool PostMessage(IntPtr hWnd, uint msg, int wParam, int lParam);
+
+        const int VK_RETURN = 0x0D;
+        const int WM_KEYDOWN = 0x100;
+
         /// <summary>
         /// 
         /// </summary>
@@ -59,11 +67,14 @@ namespace Client
         /// <param name="reconnect"></param>
         public Peer(string playerName, List<PeerInfo> peersInfo , bool reconnect)
         {
+            Console.WriteLine("PEER ESTABLISHED For {0}", playerName);
 
             NetworkChange.NetworkAvailabilityChanged += new NetworkAvailabilityChangedEventHandler(NetworkAvailChangeHandler);
             NetworkChange.NetworkAddressChanged += new NetworkAddressChangedEventHandler(NetworkAddrChangeHandler);
-            Console.WriteLine("PEER ESTABLISHED For {0}", playerName);
-            
+         
+            listenerThread = new Thread(() => { StartTcpListener();} );
+            listenerThread.IsBackground = true;
+
             allPeersInfo = peersInfo;
 
             // Check if peersInfo is populated
@@ -74,6 +85,8 @@ namespace Client
             }
 
             InitializeGameState();
+
+            listenerThread.Start();
 
             // If a peer is reconnecting back to the game, sync with current game state
             if (reconnect)
@@ -125,7 +138,7 @@ namespace Client
 
             });
 
-            game = new Game.Game(allPeersInfo);
+            game = new Game(allPeersInfo);
             game.TurnTimer = new Timer(TimeCounter);
             Console.WriteLine(game);
             if (myPeerInfo.PlayerInfo.Turn==0)
@@ -135,15 +148,11 @@ namespace Client
             
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         public void StartPeerCommunication()
-        {
-
-            Thread listenerThread =  new Thread(() => {
-               
-                StartListenPeers();
-            });
-            listenerThread.IsBackground = true;
-            listenerThread.Start();
+        { 
 
             while (true)
             {
@@ -168,7 +177,7 @@ namespace Client
 
                     if (req == Request.QUIT || !allPeersInfo.Contains(myPeerInfo))
                     {
-                        listenerThread.Abort();
+                        Dispose();
                         break;
                     }
 
@@ -690,8 +699,6 @@ namespace Client
             {
                 msg = req + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.PlayerInfo.Position;
                 SendToAllPeers(msg);
-
-                Dispose();
             }
             else if (req == Request.RECONNECTED)
             {
@@ -719,8 +726,7 @@ namespace Client
                     }
                     catch (Exception)
                     {
-                        Console.Write("Can't connect to Leader..  ");
-                        Console.WriteLine("Trying {0} more times... ", numOfTries);
+                        Console.WriteLine("Can't connect to Leader..   Trying {0} more times... ", numOfTries);
                         leaderClient.Close();
                         succPeerConnect = false;
                         numOfTries--;
@@ -886,20 +892,18 @@ namespace Client
 
         private void RemovePeerFromGame(PeerInfo peerToBeRemoved)
         {
-
-            if (peerToBeRemoved == myPeerInfo)
-            {
-                Console.WriteLine("\n\nYou have been removed from the game!\n");
-                Dispose();
-                Thread.CurrentThread.Abort();
-                return;
-            }
-
             allPeersInfo.Remove(peerToBeRemoved);
 
             game.RemovePlayer(peerToBeRemoved.PlayerInfo);
 
-            
+            if (peerToBeRemoved.Equals(myPeerInfo))
+            {
+                Console.WriteLine("\n\nYou have been removed from the game!\n");
+
+                LeaveThisGame();
+
+                return;
+            }
 
             Console.WriteLine(game);
 
@@ -923,7 +927,7 @@ namespace Client
         /// <summary>
         /// Start the listener for peer
         /// </summary>
-        public void StartListenPeers()
+        public void StartTcpListener()
         {
             while (!quitGame) {
 
@@ -992,10 +996,17 @@ namespace Client
             SendRequestPeers(Request.RECONNECTED + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.IPAddr);
         }
 
+        private void LeaveThisGame()
+        {
+            Dispose();
+            Thread.CurrentThread.Abort();
+        }
+
         public void Dispose()
         {
             _peerListener.Stop();
             game.TurnTimer.Dispose();
+            listenerThread.Abort();
             allPeersInfo = null;
         }
 

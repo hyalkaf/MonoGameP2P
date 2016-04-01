@@ -245,6 +245,12 @@ namespace Server
                         if (!server.TestAndDisconnectClients(client))
                         {
                             stillConnected--;
+                            ClientInfo firstInQueue;
+                            clientsWaitingForGame[i].TryPeek(out firstInQueue);
+                            if (firstInQueue == client) 
+                            {
+                                clientsWaitingForGame[i].TryDequeue(out firstInQueue);
+                            }
                         }
 
                         Console.WriteLine("DEBUG: client " + client.PlayerName + client.IPAddr + " connected is " + client.TcpClient.Client.Connected);
@@ -267,7 +273,7 @@ namespace Server
                         } while (!dequeued);
 
                         // Trigger update
-                        GameQueueChangedEvent(null, null);
+                       
 
                         // Assign the ip address to a port
                         if (client.TcpClient.Client.Connected)
@@ -284,7 +290,7 @@ namespace Server
                         }
 
                     }
-
+                    GameQueueChangedEvent(null, null);
                     gameSessions.Add(newGameSession);
 
                     // Lastly, multicast the success response with game player data to the clients

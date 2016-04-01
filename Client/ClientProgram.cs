@@ -308,8 +308,6 @@ namespace Client
 
                 MessageParser.ParseNext(respMsg, out reqType, out respMsg);
 
-
-
                 Console.WriteLine("\nDEBUG: " + reqType + "\n");
                 if (reqType == Request.GAME || reqType == Request.RECONN)
                 {
@@ -435,63 +433,59 @@ namespace Client
 
         }
 
-        public void startClient()
+        public void StartClient()
         {
 
             // Continously stay connected to the server
-            while (true) {
+    
+                
+            while (true)
+            {
                 try
                 {
-                    while (true)
+
+                    if (!inGame)
                     {
+                         
+                        Console.Write("Send request (game, players, cancel, reconn): ");
+                        var request = Console.ReadLine().Trim().ToLower();
+
+
 
                         if (!inGame)
                         {
-                         
-                            Console.Write("Send request (game, players, cancel, reconn): ");
-                            var request = Console.ReadLine().Trim().ToLower();
-
-
-
-                            if (!inGame)
-                            {
-                                
-                                if (request != String.Empty) {
                                        
-                                    Console.WriteLine("Sending request \"{0}\"", request);
+                           Console.WriteLine("Sending request \"{0}\"", request);
 
-                                    Task.Run(() => {SendRequest(request);  });
+                           Task.Run(() => {SendRequest(request);  });
 
-                                }
-                            }
+                        }
                        
                            
-                        }
-
-                        else
-                        {
-                            // Leave the server if a game was matched, 
-                            //   proceed to p2p connection with other players
-                            if (client.Connected)
-                            {
-                                client.Close();
-                            }
-                            break;
-                        }
                     }
 
-                    bool reconn = (connectType == GameConnectType.Reconnect)? true :false;
-                    
-                    Peer peer;
+                    if(inGame)
+                    {
+                        // Leave the server if a game was matched, 
+                        //   proceed to p2p connection with other players
+                        if (client.Connected)
+                        {
+                            client.Close();
+                        }
 
-                    using (peer = new Peer(playerName, allPeersInfo, reconn)) 
-                    peer.StartPeerCommunication();
-                    
-                    // Game ended connect back to server
-                    inGame = false;
-                    ConnectToServer();
+                        bool reconn = (connectType == GameConnectType.Reconnect) ? true : false;
 
+                        Peer peer;
+
+                        using (peer = new Peer(playerName, allPeersInfo, reconn)) { 
+                            peer.StartPeerCommunication();
+                        }
+                        // Game ended connect back to server
+                        inGame = false;
+                        ConnectToServer();
+                    }
                 }
+
                 catch (Exception e)
                 {
                     Console.WriteLine("--Error! Client Program Ended--");
@@ -499,8 +493,9 @@ namespace Client
                     client.Close();
                     Console.Error.WriteLine(e.StackTrace);
                 };
-             }
-            
+
+            }
+               
         }
 
 
@@ -510,7 +505,7 @@ namespace Client
             {
 
                 ClientProgram aClient = new ClientProgram();
-                aClient.startClient();
+                aClient.StartClient();
 
 
                 Console.Write("--Program terminated. See you next time!--");

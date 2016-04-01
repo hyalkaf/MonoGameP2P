@@ -374,11 +374,14 @@ namespace Server
                 
                 TcpClient tcpclient = listener.AcceptTcpClient();
 
-                new Thread(() => {
+                Thread connectionThread = new Thread(() => {
                     EstablishConnection(tcpclient);
-                }).Start();
-               
-          
+                });
+                connectionThread.IsBackground = true;
+                connectionThread.Start();
+                   
+
+
             } while (true);
           
         }
