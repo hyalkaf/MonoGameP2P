@@ -112,8 +112,10 @@ namespace Server
         public void CancelGameRequest(string playername)
         {
             int queuePosition = IsInQueue(playername);
+
             ClientInfo playerToCancel = clientsWaitingForGame[queuePosition].Where(ci => ci.PlayerName == playername && ci.InQueue).First();
             playerToCancel.InQueue = false;
+
             TcpClient gameReqClient = playerToCancel.TcpClient;
             try { 
                 NetworkStream stm = gameReqClient.GetStream();
