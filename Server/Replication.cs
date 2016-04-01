@@ -482,7 +482,7 @@ namespace Server
             }
             else if (responseType == REQ_NAMES || responseType == REQ_GAMESESSIONS || responseType == REQ_MATCH)
             {
-                if (!string.IsNullOrEmpty(messageParam))
+                if (!string.IsNullOrEmpty(messageParam) || responseType.Equals(REQ_MATCH))
                 {
                     ParseServerResponseMessageToBackUpForGameInfo(responseType, messageParam);
                 }
