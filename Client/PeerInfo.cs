@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -18,7 +19,8 @@ namespace Client
         public int GameSessionId{private set; get;}
         public bool IsLeader { get;  set;  }
 
-
+        public TcpClient SenderClient { get; set; }
+        public TcpClient ReceiverClient { get; set; }
 
         /// <summary>
         ///

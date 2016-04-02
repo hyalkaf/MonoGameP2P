@@ -44,9 +44,17 @@ namespace Server
         /// Removes a player from this game session.
         /// </summary>
         /// <param name="pName">Player to be removed</param>
-        public void RemovePlayer(string pName)
+        public int RemovePlayer(string pName)
         {
-            players.Remove(GetPlayer(pName));
+            ClientInfo clientToBeRemoved = GetPlayer(pName);
+            if (clientToBeRemoved != null) { 
+                players.Remove(clientToBeRemoved);
+                return 0;
+            }
+            else
+            {
+                return -1;
+            }
         }
 
         /// <summary>

@@ -42,7 +42,13 @@ namespace Client
             PlayerId = -1;
         }
 
-
+        public void IsItMyTurn()
+        {
+            if (Turn == 0)
+            {
+                Console.Write("\n\tIt is Your Turn Now!");
+            }
+        }
        
 
     }

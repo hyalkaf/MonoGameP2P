@@ -33,7 +33,7 @@ namespace Server
         // Udp client listening for broadcast messages
         private readonly UdpClient udpBroadcast = new UdpClient(15000);
         // IP Address for broadcasting
-        IPEndPoint sendingIP = new IPEndPoint(IPAddress.Parse("10.1.15.255"), 15000);
+        IPEndPoint sendingIP;
         IPEndPoint receivingIP = new IPEndPoint(IPAddress.Any, 0);
 
         //
@@ -69,6 +69,17 @@ namespace Server
             //
             thisServer = replica;
             udpBroadcast.EnableBroadcast = true;
+            //Console.WriteLine("TEST " + thisServer.IPAddr.GetAddressBytes());
+            byte[] thisIPBytes = thisServer.IPAddr.GetAddressBytes();
+            byte[] broadcastIPBytes = new byte[4];
+
+            broadcastIPBytes[0] = thisIPBytes[0];
+            broadcastIPBytes[1] = thisIPBytes[1];
+            broadcastIPBytes[2] = 15;
+            broadcastIPBytes[3] = 255;
+
+            IPAddress broadcastIP = new IPAddress(broadcastIPBytes);
+            sendingIP = new IPEndPoint(broadcastIP, 15000);
 
             // Broadcast to local network trying to find if a primary exists or not.
             // Start Listening for udp broadcast messages
@@ -866,7 +877,7 @@ namespace Server
         /// <param name="replica"></param>
         public void addReplica(ServerProgram replica)
         {
-            serversAddresses.Add(replica.ipAddr);
+            serversAddresses.Add(replica.IPAddr);
         }
 
         /// <summary>
@@ -908,7 +919,7 @@ namespace Server
                     // In this case: server must have crashed
                     // take over and become the primary 
                     // TODO: This won't work for multiple servers
-                    if (!backupWasUpdated && serversAddresses[1].Equals(thisServer.ipAddr))
+                    if (!backupWasUpdated && serversAddresses[1].Equals(thisServer.IPAddr))
                     {
                        // if (checkTimerCounter.Equals(0))
                        // {
@@ -944,7 +955,7 @@ namespace Server
             else if (replicaMsg.StartsWith(REQ_BACKUP))
             {
                 // Message to be sent 
-                messageToBeSent = "backup" + " " + thisServer.ipAddr;
+                messageToBeSent = "backup" + " " + thisServer.IPAddr;
             }
             else if (replicaMsg.StartsWith(REQ_CHECK))
             {
@@ -1138,7 +1149,7 @@ namespace Server
         /// </summary>
         public void ListenReplica()
         {
-            TcpListener rmListener = new TcpListener(thisServer.ipAddr, 8000) ;
+            TcpListener rmListener = new TcpListener(thisServer.IPAddr, 8000) ;
             rmListener.Start();
             while (true)
             {
@@ -1188,7 +1199,7 @@ namespace Server
         private void Broadcast(string message)
         {
             // Initialize a new udp client
-            IPEndPoint ipEndPoint = new IPEndPoint(thisServer.ipAddr, 15000);
+            IPEndPoint ipEndPoint = new IPEndPoint(thisServer.IPAddr, 15000);
             UdpClient client = new UdpClient(ipEndPoint);
             client.EnableBroadcast = true;
 
@@ -1215,7 +1226,7 @@ namespace Server
                 string message = Encoding.ASCII.GetString(bytes);
                 Console.WriteLine("I received '{0}'", message);
                 // todo: disable sending messages to yourself by default
-                if (!receivingIP.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
+                if (!receivingIP.Address.Equals(thisServer.IPAddr)) ParseBroadcastMessages(message, receivingIP);
             }
         }
 
@@ -1284,7 +1295,7 @@ namespace Server
         private void timerCallBackForFindingPrimary(object state)
         {
             thisServer.isPrimaryServer = true;
-            primaryServerIp = thisServer.ipAddr; 
+            primaryServerIp = thisServer.IPAddr; 
 
             Console.WriteLine("I'm primary");
             addReplica(thisServer);
