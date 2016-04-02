@@ -138,7 +138,7 @@ namespace Client
                         Console.WriteLine("Connecting to Server.....");
 
                         // Connect to the server
-                        client.ConnectAsync(SERVER_IP, SERVER_PORT).Wait(1500);
+                        client.ConnectAsync(SERVER_IP, SERVER_PORT).Wait(5000);
                     }
                     catch (Exception)
                     {

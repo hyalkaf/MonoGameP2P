@@ -19,13 +19,15 @@ namespace Server
     {
         public class Request
         {
+            /* Request from client*/
             public const string GAME = "game";
             public const string PLAYERS = "players";
             public const string CANCEL = "cancel";
-            public const string IP = "ip";
             public const string CHECKNAME = "checkname";
             public const string RECONN = "reconn";
             public const string SERVRECONN = "servreconn";
+
+            /* Request from in-game peer*/
             public const string RMPLAYER = "rmplayer";
         }
 
@@ -35,7 +37,6 @@ namespace Server
             public const string SUCCESS = "success";
             public const string FAILURE = "failure";
             public const string ERROR = "error";
-
         }
 
 
