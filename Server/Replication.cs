@@ -10,78 +10,108 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using SharedFunctionailty;
 
 namespace Server
 {
-
+    /// <summary>
+    /// This class will be aggragted in every server program. It will be communicating with other
+    /// backup replication managers for other servers. It will take care of replicating data 
+    /// from its assoicated server.
+    /// </summary>
     public class ReplicationManager
     {
-        // Primary server ip address
-        public static IPAddress primaryServerIp = IPAddress.Parse("0.0.0.0");
-        // CH: This way of storing all replicas might not be viable
-        public static List<ServerProgram> listReplicas = new List<ServerProgram>();
-        // CH: New way of storing replicas (IPAddress, Bool: online status)
+        // List of all ip addresses of backup servers currently existing
+        // Zero position will have the primary server IP address.
         public static List<IPAddress> serversAddresses = new List<IPAddress>();
-        // replica TCP Client for sending requests to primary server
-        private TcpClient replicaClient;
-        // Timer for running a check agansit the primary server.
-        Timer timerForCheckingPrimaryExistence;
-        // Timer for 
-        Timer timerForFindingPrimary;
-        // lock object for check messages so it won't continue sending messages on different threads
-        private Object thisLock = new Object();
-        private Object udpLock = new Object();
-        // Requests to be sent from replica to primary server every time a new replica is initalized.
-        public static readonly string[] arrayOfReplicaMessages = { REQ_BACKUP, REQ_NAMES, REQ_GAMESESSIONS , REQ_MATCH};
-        // Udp client listening for broadcast messages
-        private readonly UdpClient udpBroadcast = new UdpClient(15000);
-        // IP Address for broadcasting
-        IPEndPoint sendingIP = new IPEndPoint(IPAddress.Parse("10.1.15.255"), 15000);
-        IPEndPoint receivingIP = new IPEndPoint(IPAddress.Any, 0);
 
-        //
-        bool primaryFound = false;
-        bool isUdpResponseReceived = false;
-        int checkTimerCounter = 0;
+        // This timer will be running every 5 seconds to check the primary server's existence
+        // This will be used when primary server is died or out of connection.
+        //private static readonly int CHECK_MESSAGE_INTERVAL = 5000;
+        private Timer timerForCheckingPrimaryExistence;
+
+        //// This timer is used for timing out broadcast messages for finding primary server
+        //// in the local network. Once time has passed after broadcasting without receiving
+        //// responses then it will run its callback making the server primary. 
+        //private static readonly int FINDING_PRIMARY_COUNTDOWN = 2000;
+        //private Timer timerForFindingPrimary;
+
+        // lock object for callback method that checks primary existence.
+        // this will prevent multiple threads from queueing the callback.
+        private Object checkPrimaryCallbackLock = new Object();
+
+        //// TODO: Write a method to calculate IP address of broadcast so you don't
+        //// have to do it every time.
+        //// IP Endpoints that will be used to send broadcast messages and another one for receiving.
+        //IPEndPoint sendingIP = new IPEndPoint(IPAddress.Parse("10.1.15.255"), 15000);
+        //IPEndPoint receivingIP = new IPEndPoint(IPAddress.Any, 0);
+
+        // GLOBAL variables for states of the program
+        //// primaryFound will be used to not run the same code multiple times in case 
+        //// Primary was detected. TODO: There is a better way for doing this.
+        //bool primaryFound = false;
+        //// isUdpResponseReceived will be used to figure out whether broadcase messages 
+        //// where received by others from their responses.
+        //bool isUdpResponseReceived = false;
+        // backupWasUpdated is needed to prevent the case where a backup replication manager
+        // receives an update for a new elected primary while it still has queued callbacks for 
+        // check messages making it become the primary in that case. this will happend when replication
+        // managers have almost the exact starting time checking primary existence timer.
         bool backupWasUpdated = false;
 
-        // Request messsages between replicas and server
-        public const string REQ_BACKUP = "backup";
-        public const string RES_ADDRESSES = "address";
-        public const string REQ_NAMES = "name";
-        public const string REQ_GAMESESSIONS = "session";
-        public const string REQ_CHECK = "check";
-        public const string REQ_MATCH = "match";
-        public const string REQ_UPDATE_BACKUP = "update-backup";
-        public const string RESP_SUCCESS = "success";
-
-        const int SIZE_OF_BUFFER = 4096;
+        // Request and response messsages between backup servers and primary server
+        // These are mentioned in our design document
+        // REQ_BACKUP is a request message that will be sent whenever a new backup is initialized
+        // It will be sending this request message with its own IP address to the primary.
+        private static readonly string REQ_BACKUP = "backup";
+        // RES_ADDRESSES is a response message that will be sent on the request of a backup from
+        // The backup server. it will contain all ip addresses of all backups including primary server.
+        private static readonly string RES_ADDRESSES = "address";
+        // REQ_NAMES is a request and response message that will be sent from backup to primary
+        // as well as from primary to backup. As a request from backup to server it will not 
+        // contain any information. As a response, it will contain the names of all players currently
+        // in the system that are waiting for a game.
+        private static readonly string REQ_NAMES = "name";
+        // REQ_GAMESESSIONS is a request and response message. As a request from backup to server it will not 
+        // contain any information. As a response, it will the information stored in the game session
+        // like sessionID, and players (player name, ID, Port and IP) that are currently
+        // playing a game with that unique sessionID.
+        private static readonly string REQ_GAMESESSIONS = "session";
+        // REQ_CHECK is a request message from backup replication manager to the primary server 
+        // checking if it still exists and it can't receive and respond to messages.
+        private static readonly string REQ_CHECK = "check";
+        // REQ_MATCH is a request and a response message. As a request from backup to server it will not 
+        // contain any information. As a response, it will contain information about the queued players
+        // waiting to be assigned and matched to other players. This information is game capacity or number
+        // of matched clients, and players info in that specific game capacity which is player name, player ID
+        // port and IP address.
+        public static readonly string REQ_MATCH = "match";
+        // REQ_UPDATE_BACKUP is a request that will be sent after a new primary is elected.
+        // This request holds the new information about the backup servers currently existing
+        // in the local network. 
+        private static readonly string REQ_UPDATE_BACKUP = "update-backup";
+        // TODO: Add responses
+        //private static readonly string RESP_SUCCESS = "success";
+        // Requests that will be sent from backup to primary server every time 
+        // a new backup is initalized. 
+        private static readonly string[] MESSAGES_SENT_AND_RECEIEVED_BY_A_NEW_BACKUP = { REQ_BACKUP, REQ_NAMES, REQ_GAMESESSIONS, REQ_MATCH };
+        // SIZE_OF_BUGGER is used for initalizing byte array of this size to receive information
+        // through the network.
+        private static readonly int SIZE_OF_BUFFER = 4096;
 
         // Server program assoicated with this replication manager
-        private ServerProgram thisServer;
+        public ServerProgram thisServer;
 
         /// <summary>
-        /// Main constructor for initalization for the replication manager. It will decide whether to start 
-        /// listening or not depdening on replica being primary or not as well as send initial requests
-        /// for backup replicas.
+        /// Main constructor for initalization of the replication manager. It will
+        /// initialize listeners (UDP for broadcast from other replication managers, TCP for
+        /// primary sending messages). It will also look for primary.
         /// </summary>
-        /// <param name="replica"></param>
-        /// <param name="primaryServerIPAddress"></param>
-        public ReplicationManager(ServerProgram replica)
+        /// <param name="associatedServer">The associated server that initialized the this replication manager.</param>
+        public ReplicationManager(ServerProgram associatedServer)
         {
-            //
-            thisServer = replica;
-            udpBroadcast.EnableBroadcast = true;
-
-            // Broadcast to local network trying to find if a primary exists or not.
-            // Start Listening for udp broadcast messages
-            new Thread(() =>
-            {
-                while(true)
-                {
-                    StartListeningUdp();
-                }
-            }).Start();
+            // assoicate the server with this replication manager
+            thisServer = associatedServer;
 
             // Run listening on its own thread
             new Thread(() =>
@@ -89,8 +119,22 @@ namespace Server
                 ListenReplica();
             }).Start();
 
+            // Broadcast to local network trying to find if a primary exists or not.
+            // Start Listening for udp broadcast messages after enabling broadcast
+            // receiveBroadcastUDPClient.EnableBroadcast = true;
+            /*new Thread(() =>
+            {
+                while(true)
+                {
+                    StartListeningUdp();
+                }
+            }).Start();*/
+            UDPWrapper replicationManagerUDP = new UDPWrapper(true, 15000, this);
+
+            
+
             // TODO: Send multiple times for udp
-            timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 2000, Timeout.Infinite);
+            /*timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", FINDING_PRIMARY_COUNTDOWN, Timeout.Infinite);
             for (int i = 0; i < 3; i++)
             {
                 if (!isUdpResponseReceived)
@@ -98,7 +142,7 @@ namespace Server
                     Broadcast("isPrimary");
                 }
                 Thread.Sleep(500);
-            }
+            }*/
 
             
   
@@ -108,18 +152,18 @@ namespace Server
         /// This method is used to initialize replication depedning on whether it's a server.
         /// </summary>
         /// <param name="isServerPrimary">A bool for whether server is primary or not.</param>
-        public void InitializeReplication(bool isServerPrimary)
+        public void InitializeReplicationManager(bool isServerPrimary, IPAddress primaryServerIP)
         {
             if (!isServerPrimary)
             {
-                if (!serversAddresses.Exists(e => e.Equals(primaryServerIp)))
+                if (!serversAddresses.Exists(e => e.Equals(primaryServerIP)))
                 { 
                     // Add Primary server ip address to replica
                     //TODO dont need this, get list update from primary
-                    serversAddresses.Add(primaryServerIp);
+                    serversAddresses.Add(primaryServerIP);
 
                     // Timer for checking if primary is there
-                    timerForCheckingPrimaryExistence = new Timer(CheckServerExistence, "Some state", TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+                    timerForCheckingPrimaryExistence = new Timer(CheckServerExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
 
                     // secondary replica sends a replica request
                     DecideOnMessagesSendFromBackUpToServer(true);
@@ -216,7 +260,7 @@ namespace Server
                         primaryClientToBackup.Close();
                         // TODO: Test response again.
                     }
-                    catch (SocketException e)
+                    catch (SocketException)
                     {
                         // Remove dead backups
                         indexOfDeadBackupServers.Add(j);
@@ -250,7 +294,7 @@ namespace Server
                             {
                                 sendMessage(serversAddresses[j], Encoding.ASCII.GetString(responseMessage));
                             }
-                            catch (SocketException e)
+                            catch (SocketException)
                             {
                                 // Remove the backup server that is not responding to messages
                                 indexOfDeadBackupServers.Add(j);
@@ -470,10 +514,10 @@ namespace Server
                 //
                 serversAddresses = allReplicaAddrTemp;
 
-                if (responseType.Equals(REQ_UPDATE_BACKUP))
-                {
-                    primaryServerIp = serversAddresses[0];
-                }
+                //if (responseType.Equals(REQ_UPDATE_BACKUP))
+                //{
+                //    primaryServerIp = serversAddresses[0];
+                //}
 
                 /*foreach (IPAddress ip in serversAddresses)
                 {
@@ -492,14 +536,14 @@ namespace Server
         }
 
 
-        /// <summary>
-        /// This method is used to parse reponse messages after sending requests. 
-        /// </summary>
-        /// <param name="reposnseMessage">Response messages</param>
-        private void parseResponseMessageForPrimary(string reposnseMessage)
-        {
-            throw new NotImplementedException();
-        }
+        ///// <summary>
+        ///// This method is used to parse reponse messages after sending requests. 
+        ///// </summary>
+        ///// <param name="reposnseMessage">Response messages</param>
+        //private void parseResponseMessageForPrimary(string reposnseMessage)
+        //{
+        //    throw new NotImplementedException();
+        //}
 
         private string ConstructPrimaryMessageToBackupBasedOnRequestType(string requestType)
         {
@@ -876,7 +920,7 @@ namespace Server
                     // Loop through three requests for duplicating data
                     for (int i = 0; i < 4; i++)
                     {
-                        SendFromReplicaToServerAndParseResponse(arrayOfReplicaMessages[i]);
+                        SendFromReplicaToServerAndParseResponse(MESSAGES_SENT_AND_RECEIEVED_BY_A_NEW_BACKUP[i]);
                     }
 
                 }
@@ -964,38 +1008,38 @@ namespace Server
             //Console.WriteLine("in method SendFromReplicaToServerAndParseResponse, message to be sent from backup to server {0}", messageToBeSent);
 
             // Initalize a new TcpClient
-            replicaClient = new TcpClient();
-
-            // will send a message to the primary server
-            replicaClient.Connect(primaryServerIp, 8000);
-
-            Stream stm = replicaClient.GetStream();
-
-            ASCIIEncoding asen = new ASCIIEncoding();
-            byte[] ba = asen.GetBytes(messageToBeSent);
-
-            stm.Write(ba, 0, ba.Length);
-            byte[] bb = new byte[SIZE_OF_BUFFER];
-
-            // Receive response from primary
-            int k = stm.Read(bb, 0, SIZE_OF_BUFFER);
-
-            string responseMessage = "";
-            char c = ' ';
-            for (int i = 0; i < k; i++)
+            using (TcpClient replicaClient = new TcpClient())
             {
-                c = Convert.ToChar(bb[i]);
-                responseMessage += c;
+
+                // will send a message to the primary server
+                replicaClient.Connect(serversAddresses[0], 8000);
+
+                Stream stm = replicaClient.GetStream();
+
+                ASCIIEncoding asen = new ASCIIEncoding();
+                byte[] ba = asen.GetBytes(messageToBeSent);
+
+                stm.Write(ba, 0, ba.Length);
+                byte[] bb = new byte[SIZE_OF_BUFFER];
+
+                // Receive response from primary
+                int k = stm.Read(bb, 0, SIZE_OF_BUFFER);
+
+                string responseMessage = "";
+                char c = ' ';
+                for (int i = 0; i < k; i++)
+                {
+                    c = Convert.ToChar(bb[i]);
+                    responseMessage += c;
+                }
+
+                //Console.WriteLine("in method SendFromReplicaToServerAndParseResponse, response message {0}", responseMessage);
+
+                // Prepare another response to backups
+                parseResponseMessageForBackup(responseMessage);
+
+
             }
-
-            //Console.WriteLine("in method SendFromReplicaToServerAndParseResponse, response message {0}", responseMessage);
-
-            // Prepare another response to backups
-            parseResponseMessageForBackup(responseMessage);
-
-            // TODO:
-
-            replicaClient.Close();
         }
 
         /// <summary>
@@ -1051,7 +1095,7 @@ namespace Server
 
                     primaryClientToBackup.Close();
                 }
-                catch (SocketException e)
+                catch (SocketException)
                 {
                     // Remove the backup server that is not responding to messages
                     indexOfDeadBackupServers.Add(j);
@@ -1086,7 +1130,7 @@ namespace Server
                     {
                         sendMessage(serversAddresses[j], messageUpdate);
                     }
-                    catch (SocketException e)
+                    catch (SocketException)
                     {
                         // Remove the backup server that is not responding to messages
                         indexOfDeadBackupServers.Add(j);
@@ -1174,7 +1218,7 @@ namespace Server
         private void CheckServerExistence(object state)
         {
             // Send to primary a message
-            lock (thisLock)
+            lock (checkPrimaryCallbackLock)
             {
                 DecideOnMessagesSendFromBackUpToServer(false);
             }
@@ -1183,112 +1227,112 @@ namespace Server
         /// <summary>
         /// This method will broadcast a message to all ip addresses in the local newtork.
         /// </summary>
-        /// <param name="message">Message to be broadcasted to all local network peers.</param>
-        private void Broadcast(string message)
-        {
-            // Initialize a new udp client
-            IPEndPoint ipEndPoint = new IPEndPoint(thisServer.ipAddr, 15000);
-            UdpClient client = new UdpClient(ipEndPoint);
-            client.EnableBroadcast = true;
+        /// <param name = "message" > Message to be broadcasted to all local network peers.</param>
+        //private void Broadcast(string message)
+        //{
+        //    Initialize a new udp client
+        //   IPEndPoint ipEndPoint = new IPEndPoint(thisServer.ipAddr, 15000);
+        //    UdpClient client = new UdpClient(ipEndPoint);
+        //    client.EnableBroadcast = true;
 
-            // Send a request message asking if primary exists.
-            byte[] bytes = Encoding.ASCII.GetBytes(message);
+        //    Send a request message asking if primary exists.
+        //    byte[] bytes = Encoding.ASCII.GetBytes(message);
 
-            // Send message
-            client.Send(bytes, bytes.Length, sendingIP);
+        //    Send message
+        //    client.Send(bytes, bytes.Length, sendingIP);
 
-            Console.WriteLine("I sent {0}", message);
+        //    Console.WriteLine("I sent {0}", message);
 
-            // Close client
-            client.Close();
-        }
+        //    Close client
+        //    client.Close();
+        //}
 
-        // <summary>
-        // this method will start listening for incoming requests to check if replica is primary or not
-        // </summary>
-        private void StartListeningUdp()
-        {
-            //receive messages
-            byte[] bytes = udpBroadcast.Receive(ref receivingIP);
-            string message = Encoding.ASCII.GetString(bytes);
-            Console.WriteLine("I received {0}", message);
-            // todo: disable sending messages to yourself by default
-            if (!receivingIP.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
-        }
+        //// <summary>
+        //// this method will start listening for incoming requests to check if replica is primary or not
+        //// </summary>
+        //private void StartListeningUdp()
+        //{
+        //    //receive messages
+        //    byte[] bytes = receiveBroadcastUDPClient.Receive(ref receivingIP);
+        //    string message = Encoding.ASCII.GetString(bytes);
+        //    Console.WriteLine("I received {0}", message);
+        //    // todo: disable sending messages to yourself by default
+        //    if (!receivingIP.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
+        //}
 
-        /// <summary>
-        /// This method will parse incoming requests that are sent using broadcase udp.
-        /// </summary>
-        /// <param name="receivedMessage">Message to be parsed</param>
-        private void ParseBroadcastMessages(string receivedMessage, IPEndPoint ip)
-        {
-            // Parse message received 
-            if (receivedMessage.StartsWith("isPrimary"))
-            {
-                isUdpResponseReceived = true;
-                // Check if this backup server is primary
-                if (IsPrimary())
-                {
-                    // Send a response back
-                    // TODO: Only send to specific ip.
-                    // Don't broadcast 
-                    Broadcast("primary");
-                    // Test: send to specific ip
-                    // Initialize a new udp client
-                    //UdpClient client = new UdpClient(AddressFamily.InterNetwork);
+        ///// <summary>
+        ///// This method will parse incoming requests that are sent using broadcase udp.
+        ///// </summary>
+        ///// <param name="receivedMessage">Message to be parsed</param>
+        //private void ParseBroadcastMessages(string receivedMessage, IPEndPoint ip)
+        //{
+        //    // Parse message received 
+        //    if (receivedMessage.StartsWith("isPrimary"))
+        //    {
+        //        isUdpResponseReceived = true;
+        //        // Check if this backup server is primary
+        //        if (IsPrimary())
+        //        {
+        //            // Send a response back
+        //            // TODO: Only send to specific ip.
+        //            // Don't broadcast 
+        //            Broadcast("primary");
+        //            // Test: send to specific ip
+        //            // Initialize a new udp client
+        //            //UdpClient client = new UdpClient(AddressFamily.InterNetwork);
 
-                    //// Send a request message asking if primary exists.
-                    //byte[] bytes = Encoding.ASCII.GetBytes("primary");
+        //            //// Send a request message asking if primary exists.
+        //            //byte[] bytes = Encoding.ASCII.GetBytes("primary");
 
-                    //// Send message
-                    //ip.Port = 15000;
-                    //client.Send(bytes, bytes.Length, ip);
+        //            //// Send message
+        //            //ip.Port = 15000;
+        //            //client.Send(bytes, bytes.Length, ip);
 
-                    //Console.WriteLine("I sent {0}", "primary");
+        //            //Console.WriteLine("I sent {0}", "primary");
 
-                    //// Close client
-                    //client.Close();
+        //            //// Close client
+        //            //client.Close();
 
 
-                }
-            }
-            else if (receivedMessage.StartsWith("primary") && !primaryFound)
-            {
-                isUdpResponseReceived = true;
-                primaryFound = true;
+        //        }
+        //    }
+        //    else if (receivedMessage.StartsWith("primary") && !primaryFound)
+        //    {
+        //        isUdpResponseReceived = true;
+        //        primaryFound = true;
 
-                // Disable timer 
-                timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
+        //        // Disable timer 
+        //        timerForFindingPrimary.Change(Timeout.Infinite, Timeout.Infinite);
 
-                // Make this server a backup
-                thisServer.isPrimaryServer = false;
+        //        // Make this server a backup
+        //        thisServer.isPrimaryServer = false;
 
-                // DEBUG
-                Console.WriteLine("Primary was found, this server is backup");
+        //        // DEBUG
+        //        Console.WriteLine("Primary was found, this server is backup");
 
-                // Take the ip address of 
-                primaryServerIp = ip.Address;
+        //        // Take the ip address of 
+        //        primaryServerIp = ip.Address;
 
-                InitializeReplication(false);
-            }
-        }
+        //        InitializeReplicationManager(false);
+        //    }
+        //}
 
-        /// <summary>
-        /// This method is a callback for a timer where it's being called when a server doesn't get any reply when it's initialized.
-        /// The server becomes the primary server when that happens.
-        /// </summary>
-        /// <param name="state">Passed parameter to the call back -> Object</param>
-        private void timerCallBackForFindingPrimary(object state)
-        {
-            thisServer.isPrimaryServer = true;
-            primaryServerIp = thisServer.ipAddr; 
+        ///// <summary>
+        ///// This method is a callback for a timer where it's being called when a server doesn't get any reply when it's initialized.
+        ///// The server becomes the primary server when that happens.
+        ///// </summary>
+        ///// <param name="state">Passed parameter to the call back -> Object</param>
+        //private void timerCallBackForFindingPrimary(object state)
+        //{
+        //    thisServer.isPrimaryServer = true;
+        //    primaryServerIp = thisServer.ipAddr; 
 
-            Console.WriteLine("I'm primary");
-            addReplica(thisServer);
+        //    Console.WriteLine("I'm primary");
+        //    addReplica(thisServer);
 
-            thisServer.StartListen();
+        //    thisServer.StartListen();
             
-        }
+        //}
 
     }
 }

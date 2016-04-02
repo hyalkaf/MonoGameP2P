@@ -41,7 +41,6 @@ namespace Server
 
         private ReplicationManager rm;
         public IPAddress ipAddr;
-        private IPAddress primaryIPAddress;
         private GameMatchmaker _gameMatchmaker;
 
         // Will use index as number of clients who want to be matched with this amount of other clients
