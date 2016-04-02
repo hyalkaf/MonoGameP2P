@@ -473,14 +473,16 @@ namespace Client
                             client.Close();
                         }
 
-                        bool reconn = (connectType == GameConnectType.Reconnect) ? true : false;
-
                         Peer peer;
 
-                        using (peer = new Peer(playerName, allPeersInfo, reconn)) { 
+                        using (peer = new Peer(playerName, allPeersInfo)) {
+                            if (connectType == GameConnectType.Reconnect) {
+                                peer.ReconnectBackToGame();
+                            }
                             peer.StartPeerCommunication();
                         }
-                        // Game ended connect back to server
+
+                        // Game ended, connect back to server
                         inGame = false;
                         ConnectToServer();
                     }

@@ -18,12 +18,9 @@ namespace Server
     {
         // Primary server ip address
         public static IPAddress primaryServerIp = IPAddress.Parse("0.0.0.0");
-        // CH: This way of storing all replicas might not be viable
-        public static List<ServerProgram> listReplicas = new List<ServerProgram>();
+
         // CH: New way of storing replicas (IPAddress, Bool: online status)
         public static List<IPAddress> serversAddresses = new List<IPAddress>();
-        // replica TCP Client for sending requests to primary server
-        private TcpClient replicaClient;
         // Timer for running a check agansit the primary server.
         Timer timerForCheckingPrimaryExistence;
         // Timer for 
@@ -75,19 +72,22 @@ namespace Server
 
             // Broadcast to local network trying to find if a primary exists or not.
             // Start Listening for udp broadcast messages
-            new Thread(() =>
+            Thread udpListenThread = new Thread(() =>
             {
-                while(true)
-                {
-                    StartListeningUdp();
-                }
-            }).Start();
+
+                StartListeningUdp();
+                
+            });
 
             // Run listening on its own thread
-            new Thread(() =>
+            Thread tcpReplicaListenThread = new Thread(() =>
             {
                 ListenReplica();
-            }).Start();
+            });
+
+            udpListenThread.Start();
+            tcpReplicaListenThread.Start();
+
 
             // TODO: Send multiple times for udp
             timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, "isPrimary", 2000, Timeout.Infinite);
@@ -139,21 +139,31 @@ namespace Server
         /// This method is responsible for taking a socket connection and receiving incoming message parse it and then send a response.
         /// </summary>
         /// <param name="sock">Socket that was listened on</param>
-        public void EstablishConnection(Socket sock)
+        public void EstablishConnection(TcpClient replicaClient)
         {
-            Console.WriteLine("Establishing Connection with {0} {1}", (sock.LocalEndPoint as IPEndPoint).Address, (sock.RemoteEndPoint as IPEndPoint).Address);
+            Console.WriteLine("Establishing Connection with {0} {1}", (replicaClient.Client.LocalEndPoint as IPEndPoint).Address, (replicaClient.Client.RemoteEndPoint as IPEndPoint).Address);
 
-            // S
-            StringBuilder sb = new StringBuilder();
+            NetworkStream netStream = replicaClient.GetStream();
 
-            byte[] buffer = new byte[SIZE_OF_BUFFER];
-            int bytesRead = sock.Receive(buffer);
+            replicaClient.ReceiveBufferSize = 4096;
+            byte[] bytes = new byte[replicaClient.ReceiveBufferSize];
 
-            sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
+            netStream.Read(bytes, 0, (int)replicaClient.ReceiveBufferSize);
 
-            Console.WriteLine("Message that was listened to {0}", sb.ToString());
+            string requestMessage = Encoding.ASCII.GetString(bytes).Trim();
+            requestMessage = requestMessage.Substring(0, requestMessage.IndexOf("\0")).Trim();
 
-            string requestMessage = sb.ToString().Trim().ToLower();
+
+            //StringBuilder sb = new StringBuilder();
+
+            //byte[] buffer = new byte[SIZE_OF_BUFFER];
+            //int bytesRead = sock.Receive(buffer);
+
+            //sb.Append(Encoding.ASCII.GetString(buffer, 0, bytesRead));
+
+            //Console.WriteLine("Message that was listened to {0}", sb.ToString());
+
+            //string requestMessage = sb.ToString().Trim().ToLower();
 
             byte[] responseMessageForBackupOrCheck = new byte[SIZE_OF_BUFFER];
 
@@ -169,10 +179,9 @@ namespace Server
                 && thisServer.isPrimaryServer)
             {
                 // add success message and respond back to the server.
-                sock.Send(new byte[1]);
+                replicaClient.GetStream().Write(new byte[1],0,0);
 
-                // TODO: how does socket differ from tcp client.
-                sock.Close();
+                replicaClient.Close();
 
                 // Get appeopraite response
                 byte[] responseMessage = parseRequestMessageForPrimary(requestMessage);
@@ -294,14 +303,15 @@ namespace Server
 
                 // TODO: how does socket differ from tcp client.
 
-                sock.Close();
+                replicaClient.Close();
 
             }
             else
             {
-                sock.Send(responseMessageForBackupOrCheck);
+                // ????
+                replicaClient.Client.Send(responseMessageForBackupOrCheck);
 
-                sock.Close();
+                replicaClient.Close();
             }
            
 
@@ -963,30 +973,25 @@ namespace Server
 
             //Console.WriteLine("in method SendFromReplicaToServerAndParseResponse, message to be sent from backup to server {0}", messageToBeSent);
 
+            // replica TCP Client for sending requests to primary server
             // Initalize a new TcpClient
-            replicaClient = new TcpClient();
+            TcpClient replicaClient = new TcpClient();
 
             // will send a message to the primary server
             replicaClient.Connect(primaryServerIp, 8000);
 
             Stream stm = replicaClient.GetStream();
 
-            ASCIIEncoding asen = new ASCIIEncoding();
-            byte[] ba = asen.GetBytes(messageToBeSent);
+            byte[] bytesToSend = Encoding.ASCII.GetBytes(messageToBeSent);
+            stm.Write(bytesToSend, 0, bytesToSend.Length);
 
-            stm.Write(ba, 0, ba.Length);
-            byte[] bb = new byte[SIZE_OF_BUFFER];
+            replicaClient.ReceiveBufferSize = SIZE_OF_BUFFER;
+            byte[] bytesRead = new byte[replicaClient.ReceiveBufferSize];
 
-            // Receive response from primary
-            int k = stm.Read(bb, 0, SIZE_OF_BUFFER);
+            stm.Read(bytesRead, 0, (int)replicaClient.ReceiveBufferSize);
 
-            string responseMessage = "";
-            char c = ' ';
-            for (int i = 0; i < k; i++)
-            {
-                c = Convert.ToChar(bb[i]);
-                responseMessage += c;
-            }
+            string responseMessage = Encoding.ASCII.GetString(bytesRead);
+            responseMessage = responseMessage.Substring(0, responseMessage.IndexOf("\0")).Trim();
 
             //Console.WriteLine("in method SendFromReplicaToServerAndParseResponse, response message {0}", responseMessage);
 
@@ -1138,9 +1143,10 @@ namespace Server
             while (true)
             {
                 Console.WriteLine("Listening");
-                Socket sock = rmListener.AcceptSocket();
+                //Socket sock = rmListener.AcceptSocket();
+                TcpClient replicaClient = rmListener.AcceptTcpClient();
                 new Thread(() => {
-                    EstablishConnection(sock);
+                    EstablishConnection(replicaClient);
                 }).Start();
             }
         }
@@ -1160,11 +1166,6 @@ namespace Server
             SendFromServerToBackUPSWhenStateChanges(REQ_UPDATE_BACKUP);
 
             thisServer.StartListen();
-        }
-
-        public bool IsPrimary()
-        {
-            return thisServer.isPrimaryServer;
         }
 
         /// <summary>
@@ -1208,12 +1209,14 @@ namespace Server
         // </summary>
         private void StartListeningUdp()
         {
-            //receive messages
-            byte[] bytes = udpBroadcast.Receive(ref receivingIP);
-            string message = Encoding.ASCII.GetString(bytes);
-            Console.WriteLine("I received {0}", message);
-            // todo: disable sending messages to yourself by default
-            if (!receivingIP.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
+            while (true) { 
+                //receive messages
+                byte[] bytes = udpBroadcast.Receive(ref receivingIP);
+                string message = Encoding.ASCII.GetString(bytes);
+                Console.WriteLine("I received '{0}'", message);
+                // todo: disable sending messages to yourself by default
+                if (!receivingIP.Address.Equals(thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
+            }
         }
 
         /// <summary>
@@ -1227,7 +1230,7 @@ namespace Server
             {
                 isUdpResponseReceived = true;
                 // Check if this backup server is primary
-                if (IsPrimary())
+                if (thisServer.isPrimaryServer)
                 {
                     // Send a response back
                     // TODO: Only send to specific ip.
