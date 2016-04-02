@@ -17,9 +17,16 @@ public class Game
 
     public Timer TurnTimer { get; set; }
 
+    private const int TIMER_START_TIME = 16;
+    public int TimerTime { get; private set; }
+
+    Object timerLock = new object();
+    Object timeChangeLock = new object();
+
     //construvtor
     public Game(List<PeerInfo> players)
     {
+        ResetTime();
         //initilize board
         for (int i = 0; i < Board.Length; i++)
         {
@@ -38,6 +45,7 @@ public class Game
         MaxPlayers = players.Count;
 
         winner = null;
+        Display();
     }
 
     /// <summary>
@@ -55,16 +63,18 @@ public class Game
         {
             new_loc = Board.Length - 1;
             Winner = current_player;
-        }                    
-           
+        }
+
+        
            
         //remove player from board space
         Board[cur_loc].Remove(current_player);
         //update player loction, move and turn
         current_player.Position = new_loc;
-
+        
         Board[new_loc].Add(current_player);
 
+        Display();
     }
 
     public void UpdateTurn()
@@ -112,6 +122,11 @@ public class Game
     {
         int removedPlayerTurnNum = pToBeRemoved.Turn;
 
+        if (removedPlayerTurnNum == 0)
+        {
+            ResetTime();
+        }
+
         Board[pToBeRemoved.Position].Remove(pToBeRemoved);
 
         foreach (List<Player> players in Board)
@@ -126,23 +141,67 @@ public class Game
             }
         }
         MaxPlayers--;
+
+        Display();
     }
 
-    public override string ToString()
+
+    public void Display()
     {
         string display = "\n-------------------------------\n";
 
-        foreach(List<Player> players in Board)
+        foreach (List<Player> players in Board)
         {
-            display += "["+(Array.IndexOf(Board,players)+1)+"] ";
-            foreach(Player p in players)
+            display += "[" + (Array.IndexOf(Board, players) + 1) + "] ";
+            foreach (Player p in players)
             {
                 display += "(" + p.PlayerId + ")" + p.Name + " ";
             }
             display += "\n";
         }
         display += "-------------------------------\n";
-        return display;
+
+       
+
+        Console.WriteLine(display);
+
+        if (Over)
+        {
+            Console.WriteLine("\n---------------------------------");
+            Console.WriteLine("The Winner is (" + winner.PlayerId + ")" + winner.Name);
+            Console.WriteLine("---------------------------------");
+        }
+
+    }
+
+    public void PauseTimer()
+    {
+        lock (timerLock)
+        {
+            TurnTimer.Change(Timeout.Infinite, Timeout.Infinite);
+        }
+       
+    }
+
+    public void StartTimer()
+    {
+        lock (timerLock)
+        {
+            TurnTimer.Change(1000, 1000);
+        }
+    }
+
+    public void ResetTime()
+    {
+        SetTime(TIMER_START_TIME);
+    }
+
+    public void SetTime(int t)
+    {
+        lock (timeChangeLock)
+        {
+            TimerTime = t;
+        }
     }
 
     public bool Over
@@ -154,10 +213,9 @@ public class Game
     {
         get { return winner; }
         private set {
-            winner = value;
-            Console.WriteLine("\n---------------------------------");
-            Console.WriteLine("The Winner is (" + winner.PlayerId+")"+winner.Name);
-            Console.WriteLine("---------------------------------");
+            if (!Over) { 
+                winner = value;
+            }
         }
     }
 
