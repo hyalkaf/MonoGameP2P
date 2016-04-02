@@ -29,6 +29,7 @@ namespace Client
             public const string TIMEUPDATE = "timeupdate";
             public const string TURN = "turn";
             public const string WHOISLEADER = "whoisleader";
+            public const string HANDSHAKE = "handshake";
 
             /*Request to server*/
             public const string RMPLAYER = "rmplayer";
@@ -78,17 +79,16 @@ namespace Client
 
             allPeersInfo = peersInfo;
 
-            // Check if peersInfo is populated
-            if (allPeersInfo.Count > 0)
-            {
-                // Get this peerInfo
-                myPeerInfo = allPeersInfo.Find(peer => peer.PlayerInfo.Name == playerName);
-            }
+            // Get this peerInfo
+            myPeerInfo = allPeersInfo.Find(peer => peer.PlayerInfo.Name == playerName);
+          
 
             InitializeGameState();
 
             listenerThread.Start();
-            
+
+            ConnectToEveryone();
+
             // Ask who is the leader from everyone
             SendTcpRequest(Request.WHOISLEADER);
 
@@ -133,11 +133,7 @@ namespace Client
         private void ConnectToEveryone()
         {
             Parallel.ForEach(allPeersInfo, (peer) => {
-
-                if (peer != myPeerInfo)
-                {
-                    ConnectToOnePeer(peer);
-                }
+                ConnectToOnePeer(peer);
             });
              
         }
@@ -148,33 +144,51 @@ namespace Client
             int numOfTries = 2;
             do
             {
-                aPeer.SenderClient = new TcpClient();
-                succPeerConnect = true;
                 try
                 {
+                    if (aPeer.SenderClient != null && aPeer.SenderClient.Client != null && aPeer.SenderClient.Connected)
+                    {
+                        TCPMessageHandler msgHandler = new TCPMessageHandler();
+                        msgHandler.SendMessage(Request.HANDSHAKE + " " +myPeerInfo.PlayerInfo.PlayerId, aPeer.SenderClient);
+                    }
+                    else
+                    {
+                        do
+                        {
+                            aPeer.SenderClient = new TcpClient();
+                            succPeerConnect = true;
+                            try
+                            {
 
-                    aPeer.SenderClient.ConnectAsync(aPeer.IPAddr, aPeer.Port).Wait(3000);
+                                aPeer.SenderClient.ConnectAsync(aPeer.IPAddr, aPeer.Port).Wait(3000);
+                            }
+                            catch (Exception)
+                            {
+                                Console.Write("Can't connect to peer {0}..  ", aPeer.PlayerInfo.PlayerId);
+                                Console.WriteLine("Trying {0} more times... ", numOfTries);
+                                aPeer.SenderClient.Close();
+                                succPeerConnect = false;
+                                numOfTries--;
+                                if (numOfTries == 0)
+                                {
+                                    Console.WriteLine("Unable to reach ({0}){1}", aPeer.PlayerInfo.PlayerId, aPeer.PlayerInfo.Name);
+                                    Console.WriteLine("Skip it for now...");
+
+                                    return -1;
+                                }
+                            }
+
+                        } while (!succPeerConnect && numOfTries > 0);
+
+                        Console.Write("Connected to peer " + aPeer.PlayerInfo.PlayerId + "..  ");
+                    }
                 }
                 catch (Exception)
                 {
-                    Console.Write("Can't connect to peer {0}..  ", aPeer.PlayerInfo.PlayerId);
-                    Console.WriteLine("Trying {0} more times... ", numOfTries);
                     aPeer.SenderClient.Close();
-                    succPeerConnect = false;
-                    numOfTries--;
-                    if (numOfTries == 0)
-                    {
-                        Console.WriteLine("Unable to reach ({0}){1}", aPeer.PlayerInfo.PlayerId, aPeer.PlayerInfo.Name);
-                        Console.WriteLine("Skip it for now...");
-                       
-                        return -1;
-                    }
                 }
 
-            } while (!succPeerConnect && numOfTries > 0);
-
-            Console.Write("Connected to peer " + aPeer.PlayerInfo.PlayerId + "..  ");
-
+            } while (!aPeer.SenderClient.Connected);
             return 0;
         }
 
@@ -203,7 +217,6 @@ namespace Client
         /// </summary>
         public void StartPeerCommunication()
         { 
-
             while (true)
             {
                 try {
@@ -290,165 +303,175 @@ namespace Client
 
             TCPMessageHandler msgHandler = new TCPMessageHandler();
 
-            string requestMessage = msgHandler.RecieveMessage(tcpclient);
-            //Console.WriteLine("DEBUG: Request: " + requestMessage);
+            while (true) { 
+                string requestMessage = msgHandler.RecieveMessage(tcpclient);
+                //Console.WriteLine("DEBUG: Request: " + requestMessage);
 
-            string reqType;
-            string reqMsg;
-            MessageParser.ParseNext(requestMessage, out reqType, out reqMsg);
+                string reqType;
+                string reqMsg;
+                MessageParser.ParseNext(requestMessage, out reqType, out reqMsg);
 
-            string responseMessage = Response.FAILURE + " " + Response.UNKNOWN + " Unknown Request (did you have a typo?)";
-
-            if (reqType == Request.TURN)
-            {
-
-                // Parse the request message
-                string playerName;
-                MessageParser.ParseNext(reqMsg, out playerName, out reqMsg);
-
-                string str_playerId;
-                string diceRolled;
-                MessageParser.ParseNext(reqMsg, out str_playerId, out diceRolled);
-                int playerId = int.Parse(str_playerId);
-
-                PeerInfo pi = allPeersInfo.Find(pInfo => pInfo.PlayerInfo.PlayerId == playerId);
-                Player p = pi.PlayerInfo;
-
-                if (p.Turn == 0)
+                string responseMessage = Response.FAILURE + " " + Response.UNKNOWN + " Unknown Request (did you have a typo?)";
+                if (reqType == Request.HANDSHAKE)
                 {
-                    pi.ResetStrike();
-                    game.PauseTimer();
-                    game.MovePlayer(p, int.Parse(diceRolled));
+                    int id = int.Parse(reqMsg);
 
-                    Console.WriteLine("\nPlayer " + playerId + " (" + playerName + ") move " + diceRolled + " steps.");
-                    game.UpdateTurn();
+                    allPeersInfo.Find(p=>p.PlayerInfo.PlayerId == id).ReceiverClient = tcpclient;
 
-                    responseMessage = Response.SUCCESS + " " + Request.TURN;
+                    responseMessage = Response.SUCCESS + " " + Request.HANDSHAKE;
                     msgHandler.SendResponse(responseMessage, tcpclient);
-                    if (myPeerInfo.PlayerInfo.Turn == 0)
-                    {
-                        Console.WriteLine("\nIt is your turn now :)");
+                }
+                else if (reqType == Request.TURN)
+                {
 
+                    // Parse the request message
+                    string playerName;
+                    MessageParser.ParseNext(reqMsg, out playerName, out reqMsg);
+
+                    string str_playerId;
+                    string diceRolled;
+                    MessageParser.ParseNext(reqMsg, out str_playerId, out diceRolled);
+                    int playerId = int.Parse(str_playerId);
+
+                    PeerInfo pi = allPeersInfo.Find(pInfo => pInfo.PlayerInfo.PlayerId == playerId);
+                    Player p = pi.PlayerInfo;
+
+                    if (p.Turn == 0)
+                    {
+                        pi.ResetStrike();
+                        game.PauseTimer();
+                        game.MovePlayer(p, int.Parse(diceRolled));
+
+                        Console.WriteLine("\nPlayer " + playerId + " (" + playerName + ") move " + diceRolled + " steps.");
+                        game.UpdateTurn();
+
+                        responseMessage = Response.SUCCESS + " " + Request.TURN;
+                        msgHandler.SendResponse(responseMessage, tcpclient);
+                        if (myPeerInfo.PlayerInfo.Turn == 0)
+                        {
+                            Console.WriteLine("\nIt is your turn now :)");
+
+                        }
+                        game.ResetTime();
+                        game.StartTimer();
                     }
-                    game.ResetTime();
+                    else
+                    {
+                        responseMessage = Response.ERROR + " " + Request.TURN + " Hey " + playerName + ", it's not your turn yet";
+                        msgHandler.SendResponse(responseMessage, tcpclient);
+                    }
+            
+
+                    // Update IP in case of IP changes
+                    if (pi.IPAddr != (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address)
+                    {
+                        pi.IPAddr = (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address;
+                    }
+
+                }
+                else if (reqType == Request.QUIT)
+                {
+                    game.PauseTimer();
+                    responseMessage = Response.SUCCESS + " " + Request.QUIT;
+                    msgHandler.SendResponse(responseMessage, tcpclient);
+            
+
+                    // Get PlayerId
+                    string str_playerId;
+                    string playerPosition;
+                    MessageParser.ParseNext(reqMsg, out str_playerId, out playerPosition);
+                    int playerId = int.Parse(str_playerId);
+
+                    string turnNum = reqMsg;
+
+                    Console.WriteLine("\nPlayer " + playerId + " quit the game! (" + turnNum + ") ");
+
+                    //Remove player from the list
+                    PeerInfo peerToRemove = allPeersInfo.Find(peer => peer.PlayerInfo.PlayerId == playerId);
+                    RemovePeerFromGame(peerToRemove);
                     game.StartTimer();
+                    break;
+
+                } else if (reqType == Request.STRIKE)
+                {
+
+                    responseMessage = Response.SUCCESS + " " + Request.STRIKE;
+                    msgHandler.SendResponse(responseMessage, tcpclient);
+                    string str_playerId;
+                    MessageParser.ParseNext(reqMsg, out str_playerId, out reqMsg);
+                    int playerId = int.Parse(str_playerId);
+               
+                    StrikePlayer(playerId);
+
+                } else if (reqType == Request.RECONNECTED)
+                {
+       
+                    game.PauseTimer();
+                    string playerId;
+
+                    MessageParser.ParseNext(reqMsg, out playerId, out reqMsg);
+               
+                    PeerInfo reconnectedPeer = allPeersInfo.Find(peer => peer.PlayerInfo.PlayerId == int.Parse(playerId));
+
+                    if (reconnectedPeer != null)
+                    {
+                        reconnectedPeer.ResetStrike();
+                        if (reconnectedPeer.IPAddr != (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address)
+                        {
+                            Console.WriteLine("RECONNECT NOTICE: {0} changed IP address", reconnectedPeer.PlayerInfo.Name);
+                            reconnectedPeer.IPAddr = (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address;
+                        }
+                        Console.WriteLine("(" + playerId + ")" + reconnectedPeer.PlayerInfo.Name + " reconnected!");
+                    }
+
+                    responseMessage = Response.SUCCESS + " " + Request.RECONNECTED + " " + CurrentStateString();
+                    msgHandler.SendResponse(responseMessage, tcpclient);
+               
+                    game.StartTimer();
+             
+
+                } else if (reqType == Request.TIMEUPDATE)
+                {
+                    responseMessage = Response.SUCCESS + " " + Request.TIMEUPDATE + " " + game.TimerTime;
+                    msgHandler.SendResponse(responseMessage, tcpclient);
+                } else if (reqType == Request.ALIVE)
+                {
+                    responseMessage = Response.SUCCESS + " " + Request.ALIVE;
+                    msgHandler.SendResponse(responseMessage, tcpclient);
+                } else if (reqType == Request.WHOISLEADER)
+                {
+                    PeerInfo p = allPeersInfo.Find(peer => peer.IsLeader);
+                    if (p == null)
+                    {
+                        responseMessage = Response.SUCCESS + " " + Request.WHOISLEADER + " " + Response.NOLEADER;
+                    }
+                    else {
+                        responseMessage = Response.SUCCESS + " " + Request.WHOISLEADER + " " + p.PlayerInfo.PlayerId;
+                    }
+                    msgHandler.SendResponse(responseMessage, tcpclient);
+                }
+                else if(reqType == Request.CHANGEIP)
+                {
+                    int playerId = int.Parse(reqMsg);
+                    PeerInfo peerIpChanged = allPeersInfo.Find(peer => peer.PlayerInfo.PlayerId == playerId);
+
+                    IPAddress sockIP = (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address;
+
+                    if (peerIpChanged.IPAddr != sockIP)
+                    {
+                        peerIpChanged.IPAddr = sockIP;
+                    }
+
+                    responseMessage = Response.SUCCESS + " " + Request.CHANGEIP + " " + sockIP;
+                    msgHandler.SendResponse(responseMessage, tcpclient);
                 }
                 else
                 {
-                    responseMessage = Response.ERROR + " " + Request.TURN + " Hey " + playerName + ", it's not your turn yet";
                     msgHandler.SendResponse(responseMessage, tcpclient);
                 }
-            
 
-                // Update IP in case of IP changes
-                if (pi.IPAddr != (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address)
-                {
-                    pi.IPAddr = (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address;
-                }
 
             }
-            else if (reqType == Request.QUIT)
-            {
-                game.PauseTimer();
-                responseMessage = Response.SUCCESS + " " + Request.QUIT;
-                msgHandler.SendResponse(responseMessage, tcpclient);
-            
-
-                // Get PlayerId
-                string str_playerId;
-                string playerPosition;
-                MessageParser.ParseNext(reqMsg, out str_playerId, out playerPosition);
-                int playerId = int.Parse(str_playerId);
-
-                string turnNum = reqMsg;
-
-                Console.WriteLine("\nPlayer " + playerId + " quit the game! (" + turnNum + ") ");
-
-                //Remove player from the list
-                PeerInfo peerToRemove = allPeersInfo.Find(peer => peer.PlayerInfo.PlayerId == playerId);
-                RemovePeerFromGame(peerToRemove);
-                game.StartTimer();
-
-            } else if (reqType == Request.STRIKE)
-            {
-
-                responseMessage = Response.SUCCESS + " " + Request.STRIKE;
-                msgHandler.SendResponse(responseMessage, tcpclient);
-                string str_playerId;
-                MessageParser.ParseNext(reqMsg, out str_playerId, out reqMsg);
-                int playerId = int.Parse(str_playerId);
-               
-                StrikePlayer(playerId);
-
-            } else if (reqType == Request.RECONNECTED)
-            {
-       
-                game.PauseTimer();
-                string playerId;
-
-                MessageParser.ParseNext(reqMsg, out playerId, out reqMsg);
-               
-                PeerInfo reconnectedPeer = allPeersInfo.Find(peer => peer.PlayerInfo.PlayerId == int.Parse(playerId));
-
-                if (reconnectedPeer != null)
-                {
-                    reconnectedPeer.ResetStrike();
-                    if (reconnectedPeer.IPAddr != (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address)
-                    {
-                        Console.WriteLine("RECONNECT NOTICE: {0} changed IP address", reconnectedPeer.PlayerInfo.Name);
-                        reconnectedPeer.IPAddr = (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address;
-                    }
-                    Console.WriteLine("(" + playerId + ")" + reconnectedPeer.PlayerInfo.Name + " reconnected!");
-                }
-
-                responseMessage = Response.SUCCESS + " " + Request.RECONNECTED + " " + CurrentStateString();
-                msgHandler.SendResponse(responseMessage, tcpclient);
-               
-                game.StartTimer();
-             
-
-            } else if (reqType == Request.TIMEUPDATE)
-            {
-                responseMessage = Response.SUCCESS + " " + Request.TIMEUPDATE + " " + game.TimerTime;
-                msgHandler.SendResponse(responseMessage, tcpclient);
-            } else if (reqType == Request.ALIVE)
-            {
-                responseMessage = Response.SUCCESS + " " + Request.ALIVE;
-                msgHandler.SendResponse(responseMessage, tcpclient);
-            } else if (reqType == Request.WHOISLEADER)
-            {
-                PeerInfo p = allPeersInfo.Find(peer => peer.IsLeader);
-                if (p == null)
-                {
-                    responseMessage = Response.SUCCESS + " " + Request.WHOISLEADER + " " + Response.NOLEADER;
-                }
-                else {
-                    responseMessage = Response.SUCCESS + " " + Request.WHOISLEADER + " " + p.PlayerInfo.PlayerId;
-                }
-                msgHandler.SendResponse(responseMessage, tcpclient);
-            }
-            else if(reqType == Request.CHANGEIP)
-            {
-                int playerId = int.Parse(reqMsg);
-                PeerInfo peerIpChanged = allPeersInfo.Find(peer => peer.PlayerInfo.PlayerId == playerId);
-
-                IPAddress sockIP = (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address;
-
-                if (peerIpChanged.IPAddr != sockIP)
-                {
-                    peerIpChanged.IPAddr = sockIP;
-                }
-
-                responseMessage = Response.SUCCESS + " " + Request.CHANGEIP + " " + sockIP;
-                msgHandler.SendResponse(responseMessage, tcpclient);
-            }
-            else
-            {
-                msgHandler.SendResponse(responseMessage, tcpclient);
-            }
-           
-
-            
         }
 
         /// <summary>
@@ -470,15 +493,29 @@ namespace Client
             Parallel.For(0, allPeersInfo.Count, i => {
                 // Check if peersInfo is not you and then send info
                PeerInfo aPeer = allPeersInfo[i];
-               
+
                TCPMessageHandler msgHandler = new TCPMessageHandler();
-               if (aPeer.PlayerInfo.Name != myPeerInfo.PlayerInfo.Name && aPeer.SenderClient.Connected)
+               if (aPeer.PlayerInfo.Name != myPeerInfo.PlayerInfo.Name 
+                && aPeer.SenderClient.Client != null && aPeer.SenderClient.Connected)
                 {
                     TcpClient aClient = aPeer.SenderClient;
 
                     Console.Write("Transmitting request to the peer {0} ...", aPeer.PlayerInfo.PlayerId);
-                    
-                    string responseMessage = msgHandler.SendMessage(msg, aClient);
+                    string responseMessage = "";
+                    do {
+                        try {
+                            responseMessage = msgHandler.SendMessage(msg, aClient);
+                            break;
+                        }
+                        catch (Exception)
+                        {
+                            int status = ConnectToOnePeer(aPeer);
+                            if (status == -1)
+                            {
+                                return;
+                            }
+                        }
+                    } while (true);
 
                     string respType;
                     string respMsg;
@@ -515,7 +552,7 @@ namespace Client
                         Console.WriteLine(respMsg);
                     }
 
-                    aClient.Close();
+                   // aClient.Close();
                 }
 
             });
@@ -884,10 +921,13 @@ namespace Client
                     {
                         try
                         {
-                            TcpClient testClient = new TcpClient();
-                            testClient.ConnectAsync(lowestIdPeer.IPAddr, lowestIdPeer.Port).Wait(3000);
-                            msgHandler.SendMessage(Request.ALIVE,testClient);
-                            testClient.Close();
+                            if (counter > 0) {
+                                lowestIdPeer.SenderClient.Close();
+                                lowestIdPeer.SenderClient = new TcpClient();
+                                lowestIdPeer.SenderClient.ConnectAsync(lowestIdPeer.IPAddr, lowestIdPeer.Port).Wait(3000);
+                            }
+
+                            msgHandler.SendMessage(Request.ALIVE, lowestIdPeer.SenderClient);
                             lowestIdPeer.IsLeader = true;
                             leaderIsAlive = true;
                             break;
@@ -897,7 +937,7 @@ namespace Client
                             Console.WriteLine("Leader is unresponsive...");
                             counter++;
                         }
-                    } while (counter < 2);
+                    } while (counter < 1);
 
                     if (!leaderIsAlive)
                     {
@@ -1005,7 +1045,13 @@ namespace Client
                         TcpClient tcpclient = _peerListener.AcceptTcpClient();
 
                         Thread connectionThread = new Thread(() => {
+                            try { 
                             EstablishAcceptedConnection(tcpclient);
+                            }
+                            catch (Exception)
+                            {
+                                Console.WriteLine("\n\t\tA Connection Left!");
+                            }
                         });
                         connectionThread.IsBackground = true;
                         connectionThread.Start();
