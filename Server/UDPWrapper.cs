@@ -137,7 +137,7 @@ namespace Server
             {
                 isUdpResponseReceived = true;
                 // Check if this backup server is primary
-                if (associatedReplicationManager.IsPrimary())
+                if (associatedReplicationManager.thisServer.isPrimaryServer)
                 {
                     // Send a response back
                     // TODO: Only send to specific ip.
