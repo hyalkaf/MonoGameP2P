@@ -10,7 +10,7 @@ namespace Server
     /// <summary>
     /// This class will be used to send and receive udp messages.
     /// </summary>
-    class UDPWrapper
+    class BroadcastForReplication
     {
         // TODO: Write a method to calculate IP address of broadcast so you don't
         // have to do it every time.
@@ -58,7 +58,7 @@ namespace Server
         /// Constrcutor for initializing a new udp Client. 
         /// </summary>
         /// <param name="isBroadCast">Determine whether this udp client will be broadcasting</param>
-        public UDPWrapper (bool isBroadCast, int portNumber, ReplicationManager associatedReplicationManager)
+        public BroadcastForReplication (bool isBroadCast, int portNumber, ReplicationManager associatedReplicationManager)
         {
             // Initialize udpClient
             receiveBroadcastUDPClient = new UdpClient(portNumber);
@@ -66,13 +66,12 @@ namespace Server
             receiveBroadcastUDPClient.EnableBroadcast = isBroadCast;
             this.associatedReplicationManager = associatedReplicationManager;
 
-            new Thread(() =>
+            Thread udpListenThread = new Thread(() =>
             {
-                while (true)
-                {
-                    StartListening();
-                }
-            }).Start();
+               StartListening();
+            });
+
+            udpListenThread.Start();
 
             // Initalize timer countdown before becoming primary server
             timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, REQ_IS_PRIMARY_THERE, FINDING_PRIMARY_COUNTDOWN, Timeout.Infinite);
@@ -96,12 +95,15 @@ namespace Server
         // </summary>
         private void StartListening()
         {
-            //receive messages
-            byte[] bytes = receiveBroadcastUDPClient.Receive(ref receivingIP);
-            string message = Encoding.ASCII.GetString(bytes);
-            Console.WriteLine("I received {0}", message);
-            // todo: disable sending messages to yourself by default
-            if (!receivingIP.Address.Equals(associatedReplicationManager.thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
+            while (true)
+            {
+                //receive messages
+                byte[] bytes = receiveBroadcastUDPClient.Receive(ref receivingIP);
+                string message = Encoding.ASCII.GetString(bytes);
+                Console.WriteLine("I received {0}", message);
+                // todo: disable sending messages to yourself by default
+                if (!receivingIP.Address.Equals(associatedReplicationManager.thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
+            }
         }
 
         /// <summary>

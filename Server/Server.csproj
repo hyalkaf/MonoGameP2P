@@ -50,12 +50,17 @@
     <Compile Include="Replication.cs" />
     <Compile Include="ServerProgram.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="UDPWrapper.cs" />
+    <Compile Include="BroadcastForReplication.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
-  <Import Project="..\SharedFunctionailty\SharedFunctionailty.projitems" Label="Shared" />
+  <ItemGroup>
+    <ProjectReference Include="..\SharedCode\SharedCode.csproj">
+      <Project>{fc10ff1c-3ecb-471d-b9de-90df444e9502}</Project>
+      <Name>SharedCode</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
