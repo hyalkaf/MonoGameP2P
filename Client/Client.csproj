@@ -50,8 +50,8 @@
     <Compile Include="MessageParser.cs" />
     <Compile Include="Peer.cs" />
     <Compile Include="PeerInfo.cs" />
-    <Compile Include="Player.cs" />
     <Compile Include="ClientProgram.cs" />
+    <Compile Include="Player.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TCPMessageHandler.cs" />
   </ItemGroup>
