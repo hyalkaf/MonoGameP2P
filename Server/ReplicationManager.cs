@@ -27,6 +27,7 @@ namespace Server
         // for backup servers that should take position of primary.
         public static List<IPAddress> serversAddresses = new List<IPAddress>();
 
+
         // This timer will be running every 5 seconds to check the primary server's existence
         // This will be used when primary server is died or out of connection.
         private static readonly int CHECK_MESSAGE_INTERVAL = 5000;
@@ -145,7 +146,7 @@ namespace Server
             else
             {
                 //
-                serversAddresses.Add(thisServer.ipAddr);
+                serversAddresses.Add(thisServer.IPAddr);
 
                 // Make this server start listening
                 thisServer.StartListen();
@@ -853,7 +854,7 @@ namespace Server
         /// <param name="replica"></param>
         public void addReplica(ServerProgram replica)
         {
-            serversAddresses.Add(replica.ipAddr);
+            serversAddresses.Add(replica.IPAddr);
         }
 
         /// <summary>
@@ -895,7 +896,7 @@ namespace Server
                     // In this case: server must have crashed
                     // take over and become the primary 
                     // TODO: This won't work for multiple servers
-                    if (!backupWasUpdated && serversAddresses[1].Equals(thisServer.ipAddr))
+                    if (!backupWasUpdated && serversAddresses[1].Equals(thisServer.IPAddr))
                     {
                         MakeThisServerPrimary();
                     }
@@ -922,7 +923,7 @@ namespace Server
             else if (replicaMsg.StartsWith(REQ_BACKUP))
             {
                 // Message to be sent 
-                messageToBeSent = "backup" + " " + thisServer.ipAddr;
+                messageToBeSent = "backup" + " " + thisServer.IPAddr;
             }
             else if (replicaMsg.StartsWith(REQ_CHECK))
             {
@@ -1116,7 +1117,7 @@ namespace Server
         /// </summary>
         public void ListenReplica()
         {
-            TcpListener rmListener = new TcpListener(thisServer.ipAddr, 8000) ;
+            TcpListener rmListener = new TcpListener(thisServer.IPAddr, 8000) ;
             rmListener.Start();
             while (true)
             {
@@ -1158,8 +1159,6 @@ namespace Server
                 DecideOnMessagesSendFromBackUpToServer(false);
             }
         }
-
-        
 
     }
 }

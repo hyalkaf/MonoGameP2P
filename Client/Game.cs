@@ -20,8 +20,25 @@ public class Game
     private const int TIMER_START_TIME = 16;
     public int TimerTime { get; private set; }
 
-    Object timerLock = new object();
-    Object timeChangeLock = new object();
+    public bool Over
+    {
+        get { return Winner != null; }
+    }
+
+    public Player Winner
+    {
+        get { return winner; }
+        private set
+        {
+            if (!Over)
+            {
+                winner = value;
+            }
+        }
+    }
+
+    object timerLock = new object();
+    object timeChangeLock = new object();
 
     //construvtor
     public Game(List<PeerInfo> players)
@@ -48,17 +65,23 @@ public class Game
         Display();
     }
 
+    public int RollDice()
+    {
+        Random rnd = new Random();
+        return rnd.Next(1, 7);
+    }
+
     /// <summary>
     /// 
     /// 
     /// </summary>
     /// <param name="current_player"></param>
-    /// <param name="offset"></param>
-    public void MovePlayer(Player current_player, int offset)
+    /// <param name="diceRolled"></param>
+    public void MovePlayer(Player current_player, int diceRolled)
     {
         //get current and new locations
         int cur_loc = current_player.Position;
-        int new_loc = cur_loc + offset;
+        int new_loc = cur_loc + diceRolled;
         if (new_loc >= Board.Length - 1 )
         {
             new_loc = Board.Length - 1;
@@ -90,15 +113,6 @@ public class Game
                     p.Turn -= 1;
             }
 
-        }
-    }
-
-    //clear all players from all spaces, used if update is needed
-    public void ClearBoard()
-    {
-        for (int i = 0; i < Board.Length; i++)
-        {
-            Board[i].Clear();
         }
     }
 
@@ -204,20 +218,7 @@ public class Game
         }
     }
 
-    public bool Over
-    {
-        get { return Winner != null;  }
-    }
-
-    public Player Winner
-    {
-        get { return winner; }
-        private set {
-            if (!Over) { 
-                winner = value;
-            }
-        }
-    }
+   
 
        
 }

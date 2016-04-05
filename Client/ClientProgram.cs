@@ -468,7 +468,7 @@ namespace Client
                     {
                         // Leave the server if a game was matched, 
                         //   proceed to p2p connection with other players
-                        if (client.Connected)
+                        if (client.Client != null &&  client.Connected)
                         {
                             client.Close();
                         }

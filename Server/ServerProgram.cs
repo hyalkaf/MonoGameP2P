@@ -41,7 +41,9 @@ namespace Server
 
 
         private ReplicationManager rm;
-        public IPAddress ipAddr;
+
+        public IPAddress IPAddr { get; private set; }
+
         private GameMatchmaker _gameMatchmaker;
 
         // Will use index as number of clients who want to be matched with this amount of other clients
@@ -79,7 +81,7 @@ namespace Server
                     localIP = ip.ToString();
                 }
             }
-            ipAddr =  IPAddress.Parse(localIP);
+            IPAddr =  IPAddress.Parse(localIP);
 
             // Initalize a replica and make it listen
             rm = new ReplicationManager(this);
@@ -110,7 +112,7 @@ namespace Server
             }
         }
 
-        void EstablishConnection(TcpClient tcpclient)
+        private void EstablishConnection(TcpClient tcpclient)
         {
             NetworkStream netStream = tcpclient.GetStream();
 
@@ -321,12 +323,20 @@ namespace Server
                 MessageParser.ParseNext(requestMessage, out playername, out gameSessionId);
 
                 GameSession gs = _gameMatchmaker.GetGameSession(int.Parse(gameSessionId));
-                gs.RemovePlayer(playername);
+                int status = gs.RemovePlayer(playername);
 
-                // Trigger update
-                MatchMakerChangedEvent(null, null, "session");
+                if (status == 0)
+                {
+                    // Trigger update
+                    MatchMakerChangedEvent(null, null, "session");
 
-                responseMessage = Response.SUCCESS + " " + Request.RMPLAYER;
+                    responseMessage = Response.SUCCESS + " " + Request.RMPLAYER;
+                }
+                else
+                {
+                    responseMessage = Response.ERROR + " " + Request.RMPLAYER + " This player was not in the game.";
+                }
+              
 
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
@@ -360,7 +370,7 @@ namespace Server
         public void StartListen()
         {
             /* Start Listeneting at the specified port */
-            listener = new TcpListener(ipAddr, 8001);
+            listener = new TcpListener(IPAddr, 8001);
             listener.Start();
 
             Console.WriteLine("The server is running at port 8001...");

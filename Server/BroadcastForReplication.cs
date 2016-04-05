@@ -15,7 +15,7 @@ namespace Server
         // TODO: Write a method to calculate IP address of broadcast so you don't
         // have to do it every time.
         // IP Endpoints that will be used to send broadcast messages and another one for receiving.
-        IPEndPoint sendingIP = new IPEndPoint(IPAddress.Parse("10.1.15.255"), 15000);
+        IPEndPoint sendingIP;
         IPEndPoint receivingIP = new IPEndPoint(IPAddress.Any, 0);
 
         // Udp client listening for broadcast messages that are sent by every new server 
@@ -66,6 +66,17 @@ namespace Server
             receiveBroadcastUDPClient.EnableBroadcast = isBroadCast;
             this.associatedReplicationManager = associatedReplicationManager;
 
+            byte[] thisIPBytes = associatedReplicationManager.thisServer.IPAddr.GetAddressBytes();
+            byte[] broadcastIPBytes = new byte[4];
+
+            broadcastIPBytes[0] = thisIPBytes[0];
+            broadcastIPBytes[1] = thisIPBytes[1];
+            broadcastIPBytes[2] = 15;
+            broadcastIPBytes[3] = 255;
+
+            IPAddress broadcastIP = new IPAddress(broadcastIPBytes);
+            sendingIP = new IPEndPoint(broadcastIP, 15000);
+
             Thread udpListenThread = new Thread(() =>
             {
                StartListening();
@@ -102,7 +113,7 @@ namespace Server
                 string message = Encoding.ASCII.GetString(bytes);
                 Console.WriteLine("I received {0}", message);
                 // todo: disable sending messages to yourself by default
-                if (!receivingIP.Address.Equals(associatedReplicationManager.thisServer.ipAddr)) ParseBroadcastMessages(message, receivingIP);
+                if (!receivingIP.Address.Equals(associatedReplicationManager.thisServer.IPAddr)) ParseBroadcastMessages(message, receivingIP);
             }
         }
 
@@ -113,7 +124,7 @@ namespace Server
         private void SendMessage(string message)
         {
             // Initialize a new udp client
-            IPEndPoint ipEndPoint = new IPEndPoint(associatedReplicationManager.thisServer.ipAddr, portNumber);
+            IPEndPoint ipEndPoint = new IPEndPoint(associatedReplicationManager.thisServer.IPAddr, portNumber);
             using (UdpClient client = new UdpClient(ipEndPoint))
             {
                 client.EnableBroadcast = true;
