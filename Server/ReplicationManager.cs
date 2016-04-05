@@ -23,22 +23,23 @@ namespace Server
     {
         // List of all ip addresses of backup servers currently existing
         // Zero position will have the primary server IP address.
+        // and sequentially the list of backups in positions 1, 2 and so on 
+        // for backup servers that should take position of primary.
         public static List<IPAddress> serversAddresses = new List<IPAddress>();
 
         // This timer will be running every 5 seconds to check the primary server's existence
         // This will be used when primary server is died or out of connection.
-        //private static readonly int CHECK_MESSAGE_INTERVAL = 5000;
+        private static readonly int CHECK_MESSAGE_INTERVAL = 5000;
         private Timer timerForCheckingPrimaryExistence;
 
         // lock object for callback method that checks primary existence.
         // this will prevent multiple threads from queueing the callback.
         private Object checkPrimaryCallbackLock = new Object();
 
-        // GLOBAL variables for states of the program
-        // backupWasUpdated is needed to prevent the case where a backup replication manager
-        // receives an update for a new elected primary while it still has queued callbacks for 
-        // check messages making it become the primary in that case. this will happend when replication
-        // managers have almost the exact starting time checking primary existence timer.
+        // backupWasUpdated is needed to prevent the case when a backup replication manager
+        // receives an update for a new elected primary while it has queued callbacks for 
+        // check messages making it become the primary in that case. this will happen when replication
+        // managers have almost the exact starting time for the timer that checks primary existence.
         bool backupWasUpdated = false;
 
         // Request and response messsages between backup servers and primary server
@@ -46,14 +47,19 @@ namespace Server
         // REQ_BACKUP is a request message that will be sent whenever a new backup is initialized
         // It will be sending this request message with its own IP address to the primary.
         private static readonly string REQ_BACKUP = "backup";
-        // RES_ADDRESSES is a response message that will be sent on the request of a backup from
-        // The backup server. it will contain all ip addresses of all backups including primary server.
-        private static readonly string RES_ADDRESSES = "address";
-        // REQ_NAMES is a request and response message that will be sent from backup to primary
-        // as well as from primary to backup. As a request from backup to server it will not 
-        // contain any information. As a response, it will contain the names of all players currently
-        // in the system that are waiting for a game.
+        // REQ_ADDRESSES is a request message from primary servers to backup servers 
+        // sending them information about addresses of all backup server currently in 
+        // pool of servers. This will be sent after a new backup server have entered the pool
+        // and have already sent its own ip address.
+        private static readonly string REQ_ADDRESSES = "address";
+        // REQ_NAMES is a request message that will be sent from backup to primary.
+        // It will not contain any information. 
         private static readonly string REQ_NAMES = "name";
+        // RES_NAMES is a response message that will be sent from primary server to all 
+        // back ups
+        // RES_NAMES is a response message acknowledging whoever sent the request "name" that
+        // it was received correctly.
+        private static readonly string RES_NAMES = "success-name";
         // REQ_GAMESESSIONS is a request and response message. As a request from backup to server it will not 
         // contain any information. As a response, it will the information stored in the game session
         // like sessionID, and players (player name, ID, Port and IP) that are currently
@@ -81,6 +87,9 @@ namespace Server
         // through the network.
         private static readonly int SIZE_OF_BUFFER = 4096;
 
+        // This is the default port used for broadcasting and listening to 
+        // UDP messages. Make sure that firewall is not blocking it as well as
+        // Cybera can receive and listen on it.
         private static readonly int PORT_NUMBER_FOR_BROADCASTING_UDP = 15000;
 
         // Server program assoicated with this replication manager
@@ -89,22 +98,24 @@ namespace Server
         /// <summary>
         /// Main constructor for initalization of the replication manager. It will
         /// initialize listeners (UDP for broadcast from other replication managers, TCP for
-        /// primary sending messages). It will also look for primary.
+        /// replication manager lisening and sending to other backups). It will also look for primary.
         /// </summary>
-        /// <param name="associatedServer">The associated server that initialized the this replication manager.</param>
+        /// <param name="associatedServer">The associated server that initialized this replication manager.</param>
         public ReplicationManager(ServerProgram associatedServer)
         {
             // assoicate the server with this replication manager
             thisServer = associatedServer;
 
-            // Run listening on its own thread
+            // Run listening to other backups in it's own thread
             Thread tcpBackupListenThread = new Thread(() =>
             {
                 ListenReplica();
             });
 
+            // Start thread lisening for other backup replication managers TCP messages
             tcpBackupListenThread.Start();
 
+            // Start lisening and broadcasting for UDP channel as well.
             BroadcastForReplication replicationManagerUDP = new BroadcastForReplication(true, PORT_NUMBER_FOR_BROADCASTING_UDP, this);            
   
         }
@@ -133,7 +144,8 @@ namespace Server
             }
             else
             {
-                addReplica(thisServer);
+                //
+                serversAddresses.Add(thisServer.ipAddr);
 
                 // Make this server start listening
                 thisServer.StartListen();
@@ -273,7 +285,7 @@ namespace Server
                     || requestMessage.StartsWith(REQ_GAMESESSIONS)
                     || requestMessage.StartsWith(REQ_MATCH)
                     || requestMessage.StartsWith(REQ_UPDATE_BACKUP)
-                    || requestMessage.StartsWith(RES_ADDRESSES))
+                    || requestMessage.StartsWith(REQ_ADDRESSES))
                     && !thisServer.isPrimaryServer)
             {
                 //Console.WriteLine("Received messages from primary of this type {0}", requestMessage);
@@ -386,7 +398,7 @@ namespace Server
 
                     // Create a response back to the replicationManager of the backup server
                     // add required information to be sent back
-                    responseMessage = RES_ADDRESSES + " ";
+                    responseMessage = REQ_ADDRESSES + " ";
 
                     // Send backup servers ip addresses starting from first backup server exculding primary server
                     for (int i = 0; i < serversAddresses.Count; i++)
@@ -443,7 +455,7 @@ namespace Server
             messageParam = reposnseMessage.Substring(responseType.Length).Trim();
 
 
-            if (responseType.Equals(RES_ADDRESSES) || responseType.Equals(REQ_UPDATE_BACKUP))
+            if (responseType.Equals(REQ_ADDRESSES) || responseType.Equals(REQ_UPDATE_BACKUP))
             {
                 // get IP Addresses of all the other programs 
                 string[] arrayOfIPAddresses = messageParam.Split(',');
