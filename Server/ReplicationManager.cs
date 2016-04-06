@@ -100,6 +100,8 @@ namespace Server
 
         TCPMessageHandler tcpClientMessageHandler;
 
+        Thread tcpBackupListenThread;
+
         /// <summary>
         /// Main constructor for initalization of the replication manager. It will
         /// initialize listeners (UDP for broadcast from other replication managers, TCP for
@@ -115,7 +117,7 @@ namespace Server
             tcpClientMessageHandler = new TCPMessageHandler();
 
             // Run listening to other backups in it's own thread
-            Thread tcpBackupListenThread = new Thread(() =>
+            tcpBackupListenThread = new Thread(() =>
             {
                 ListenReplica();
             });
