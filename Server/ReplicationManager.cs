@@ -153,7 +153,6 @@ namespace Server
             }
             else
             {
-                // Add primary server to list of servers
                 serversAddresses.Add(thisServer.IPAddr);
 
                 // Make this server start listening
@@ -790,7 +789,7 @@ namespace Server
             {
                 try
                 {
-                    SendFromReplicaToServerAndParseResponse("check");
+                    SendFromReplicaToServerAndParseResponse(REQ_CHECK);
                     backupWasUpdated = false;
                 }
                 catch (SocketException)
@@ -860,9 +859,9 @@ namespace Server
                 // Prepare another response to backups
                 parseResponseMessageForBackup(responseMessage);
             }
-            catch
+            catch(Exception e)
             {
-
+                Console.WriteLine("exception in SendFromReplicaToServerAndParseResponse with {0} ", e.Message);
             }
             
         }
