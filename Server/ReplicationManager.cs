@@ -329,7 +329,7 @@ namespace Server
                         .Aggregate(new StringBuilder(), (sb, s) =>
                         {
                             if (sb.Length > 0)
-                                sb.Append(",");
+                                sb.Append(" ");
                             sb.Append(s);
                             return sb;
                         })).ToList(), "\n");
