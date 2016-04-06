@@ -129,7 +129,10 @@ namespace Server
             // Start lisening and broadcasting for UDP channel as well.
             BroadcastForReplication replicationManagerUDP = new BroadcastForReplication(true, PORT_NUMBER_FOR_BROADCASTING_UDP, this);
 
-            timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+            if (thisServer.isPrimaryServer)
+            {
+                timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+            }
 
         }
 
