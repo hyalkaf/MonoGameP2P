@@ -205,6 +205,7 @@ public class Game
     /// </summary>
     public void PauseTimer()
     {
+        Thread.Sleep(60);
         lock (timerLock)
         {
             try { 
@@ -222,6 +223,7 @@ public class Game
     /// </summary>
     public void StartTimer()
     {
+        Thread.Sleep(60);
         lock (timerLock)
         {
             try
