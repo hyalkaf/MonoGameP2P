@@ -245,7 +245,7 @@ namespace Server
                     foreach (ClientInfo client in clientsWaitingForGame[i])
                     {
 
-                        if (!server.TestAndDisconnectClients(client))
+                        if (client == null || !server.TestAndDisconnectClients(client))
                         {
                             stillConnected--;
                             ClientInfo firstInQueue;
