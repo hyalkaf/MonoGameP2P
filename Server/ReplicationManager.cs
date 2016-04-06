@@ -338,7 +338,7 @@ namespace Server
             {
                 responseMessage += RES_MATCH + " ";
                 responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetClientWaitingForGame()
-                    .Select((clientWaitingForGame, gameRequestForThisClient) => gameRequestForThisClient + " " + clientWaitingForGame
+                    .Select((clientWaitingForGame, gameRequestForThisClient) => clientWaitingForGame.Count > 0 ? gameRequestForThisClient + " " + clientWaitingForGame
                         .Select(player => player.ToMessage())
                         .Aggregate(new StringBuilder(), (sb, s) =>
                         {
@@ -346,7 +346,7 @@ namespace Server
                                 sb.Append(",");
                             sb.Append(s);
                             return sb;
-                        })).ToList(), "\n");
+                        }) : "").ToList(), "\n");
             }
             else if (requestType.Equals(REQ_UPDATE_BACKUP))
             {
