@@ -329,7 +329,7 @@ namespace Server
                         .Aggregate(new StringBuilder(), (sb, s) =>
                         {
                             if (sb.Length > 0)
-                                sb.Append(" ");
+                                sb.Append(",");
                             sb.Append(s);
                             return sb;
                         })).ToList(), "\n");
@@ -450,7 +450,7 @@ namespace Server
             foreach (string tempSession in arrayOfSessions)
             {
                 // Split each game session by comma serperator
-                string[] arrayOfSpecificSession = tempSession.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
+                string[] arrayOfSpecificSession = tempSession.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
                 GameSession gameSession = null;
                 List<ClientInfo> players = new List<ClientInfo>();
                 string gameID = "";
