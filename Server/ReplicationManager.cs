@@ -177,7 +177,12 @@ namespace Server
             }
 
             // Depending on whether server is primary or backup parse messages accrodingly
-            if (thisServer.isPrimaryServer)
+            if (thisServer.isPrimaryServer && 
+                (requestMessage.StartsWith(REQ_BACKUP) ||
+                requestMessage.StartsWith(RES_NAMES) ||
+                requestMessage.StartsWith(RES_GAMESESSIONS) ||
+                requestMessage.StartsWith(RES_MATCH) ||
+                requestMessage.StartsWith(REQ_UPDATE_BACKUP)))
             {
                 // Get appeopraite response
                 string responseMessage = parseRequestMessageForPrimary(requestMessage);
@@ -201,23 +206,16 @@ namespace Server
                 }
                 else
                 {
-                    // sendback
+
                     try
                     {
-                        try
-                        {
-                            backupClient.GetStream().Write(new byte[1], 0, 0);
-                        }
-                        catch
-                        {
-                            Console.WriteLine("Failed");
-                        }
-                        backupClient.Close();
+                        backupClient.GetStream().Write(new byte[1], 0, 0);
                     }
                     catch
                     {
                         Console.WriteLine("Failed");
                     }
+                    backupClient.Close();
 
                     // Send to all backups
                     IEnumerable<IPAddress> backupsIPs = serversAddresses.SkipWhile((backup, indexOfBackup) => indexOfBackup != 0);
@@ -234,7 +232,12 @@ namespace Server
                     
             }
             // Server is not primary
-            else
+            else if (!thisServer.isPrimaryServer &&
+                (requestMessage.StartsWith(RES_ADDRESSES) ||
+                requestMessage.StartsWith(REQ_NAMES) ||
+                requestMessage.StartsWith(REQ_GAMESESSIONS) ||
+                requestMessage.StartsWith(REQ_MATCH) ||
+                requestMessage.StartsWith(REQ_CHECK)))
             {
                 //Console.WriteLine("Received messages from primary of this type {0}", requestMessage);
 
@@ -370,7 +373,7 @@ namespace Server
             }
             else if (responseType == RES_NAMES)
             {
-                if (!string.IsNullOrEmpty(messageParam) || responseType.Equals(REQ_MATCH))
+                if (!string.IsNullOrEmpty(messageParam))
                 {
                     ParseServerResponsePlayerNames(messageParam);
                 }
@@ -378,14 +381,14 @@ namespace Server
             }
             else if (responseType == RES_GAMESESSIONS)
             {
-                if (!string.IsNullOrEmpty(messageParam) || responseType.Equals(REQ_MATCH))
+                if (!string.IsNullOrEmpty(messageParam))
                 {
                     ParseServerResponseGameSession(messageParam);
                 }
             }
             else if(responseType == RES_MATCH)
             {
-                if (!string.IsNullOrEmpty(messageParam) || responseType.Equals(REQ_MATCH))
+                if (!string.IsNullOrEmpty(messageParam))
                 {
                     ParseServerResponseGameMatches(messageParam);
                 }

@@ -108,7 +108,7 @@ namespace Server
         {
             if (this.isPrimaryServer)
             {
-                rm.SendFromServerToBackUPSWhenStateChanges(ReplicationManager.REQ_NAMES);
+                rm.SendFromServerToBackUPSWhenStateChanges(ReplicationManager.RES_NAMES);
             }
         }
 
@@ -496,7 +496,7 @@ namespace Server
             this._gameMatchmaker.ClientGameQueue = newClientsWaitingForGame;
 
             // Update all backup servers
-            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges(ReplicationManager.REQ_MATCH);
+            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges(ReplicationManager.RES_MATCH);
         }
         
 

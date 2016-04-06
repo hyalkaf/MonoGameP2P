@@ -46,7 +46,7 @@ namespace Server
         {
             if (MatchMakerWasModifiedEvent != null)
             {
-                changedData = "session";
+                changedData = ReplicationManager.REQ_GAMESESSIONS;
                 MatchMakerWasModifiedEvent(this, null);
             }
         }
