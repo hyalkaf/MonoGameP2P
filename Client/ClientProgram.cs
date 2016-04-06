@@ -117,6 +117,7 @@ namespace Client
                     if (isityou == "y")
                     {
                         checkNameResult = 0;
+                        playerName = pName;
                         SendRequest(Request.SERVRECONN + " " + pName);
                     }
                     else
@@ -128,7 +129,7 @@ namespace Client
 
             } while (checkNameResult == -1);
 
-            playerName = pName;
+           playerName = pName;
         }
 
         /// <summary>
@@ -413,7 +414,7 @@ namespace Client
                             string playerNum = respMsg;
                             Console.WriteLine("You were in Queue for matchmaking for " + playerNum);
 
-                            Task.Factory.StartNew(() => { SendRequest(Request.GAME + " " + playerName +  " " + playerNum); });
+                            Task.Factory.StartNew(() => { SendRequest(Request.GAME +  " " + playerNum); });
                         }
                     }
                     else
