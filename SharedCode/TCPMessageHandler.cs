@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
@@ -68,6 +69,29 @@ namespace SharedCode
             {
                 throw e;
             }
+        }
+
+        public string SendMessage(IPAddress ip, int portNumber, string message)
+        {
+            string response = string.Empty;
+
+            try
+            {
+                using (TcpClient tcpClient = new TcpClient())
+                {
+                    tcpClient.Connect(ip, portNumber);
+
+                    TCPMessageHandler tcpMessagehandler = new TCPMessageHandler();
+
+                    response = tcpMessagehandler.SendMessage(message, tcpClient);
+                }
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+
+            return response;
         }
     }
 }

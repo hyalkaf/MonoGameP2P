@@ -46,7 +46,6 @@
     <Compile Include="ClientInfo.cs" />
     <Compile Include="GameMatchmaker.cs" />
     <Compile Include="GameSession.cs" />
-    <Compile Include="MessageParser.cs" />
     <Compile Include="ReplicationManager.cs" />
     <Compile Include="ServerProgram.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

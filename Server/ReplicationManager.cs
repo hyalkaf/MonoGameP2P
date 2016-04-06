@@ -47,29 +47,29 @@ namespace Server
         // These are mentioned in our design document
         // REQ_BACKUP is a request message that will be sent whenever a new backup is initialized
         // It will be sending this request message with its own IP address to the primary.
-        private static readonly string REQ_BACKUP = "backup";
+        public static readonly string REQ_BACKUP = "backup";
         // REQ_ADDRESSES is a request message from primary servers to backup servers 
         // sending them information about addresses of all backup server currently in 
         // pool of servers. This will be sent after a new backup server have entered the pool
         // and have already sent its own ip address.
-        private static readonly string RES_ADDRESSES = "address";
+        public static readonly string RES_ADDRESSES = "address";
         // REQ_NAMES is a request message that will be sent from backup to primary.
         // It will not contain any information. 
-        private static readonly string REQ_NAMES = "nameRequest";
+        public static readonly string REQ_NAMES = "nameRequest";
         // RES_NAMES is a response message that will be sent from primary server to all 
         // back ups
         // RES_NAMES is a response message acknowledging whoever sent the request "name" that
         // it was received correctly.
-        private static readonly string RES_NAMES = "playerNames";
+        public static readonly string RES_NAMES = "playerNames";
         // REQ_GAMESESSIONS is a request and response message. As a request from backup to server it will not 
         // contain any information. As a response, it will the information stored in the game session
         // like sessionID, and players (player name, ID, Port and IP) that are currently
         // playing a game with that unique sessionID.
-        private static readonly string REQ_GAMESESSIONS = "sessionRequest";
-        private static readonly string RES_GAMESESSIONS = "gameSessions";
+        public static readonly string REQ_GAMESESSIONS = "sessionRequest";
+        public static readonly string RES_GAMESESSIONS = "gameSessions";
         // REQ_CHECK is a request message from backup replication manager to the primary server 
         // checking if it still exists and it can't receive and respond to messages.
-        private static readonly string REQ_CHECK = "check";
+        public static readonly string REQ_CHECK = "check";
         // REQ_MATCH is a request and a response message. As a request from backup to server it will not 
         // contain any information. As a response, it will contain information about the queued players
         // waiting to be assigned and matched to other players. This information is game capacity or number
@@ -80,7 +80,7 @@ namespace Server
         // REQ_UPDATE_BACKUP is a request that will be sent after a new primary is elected.
         // This request holds the new information about the backup servers currently existing
         // in the local network. 
-        private static readonly string REQ_UPDATE_BACKUP = "update-backup";
+        public static readonly string REQ_UPDATE_BACKUP = "update-backup";
         // TODO: Add responses
         //private static readonly string RESP_SUCCESS = "success";
         // Requests that will be sent from backup to primary server every time 
@@ -98,10 +98,6 @@ namespace Server
         // Server program assoicated with this replication manager
         public ServerProgram thisServer;
 
-        TCPMessageHandler tcpClientMessageHandler;
-
-        Thread tcpBackupListenThread;
-
         /// <summary>
         /// Main constructor for initalization of the replication manager. It will
         /// initialize listeners (UDP for broadcast from other replication managers, TCP for
@@ -110,16 +106,16 @@ namespace Server
         /// <param name="associatedServer">The associated server that initialized this replication manager.</param>
         public ReplicationManager(ServerProgram associatedServer)
         {
-            serversAddresses = new List<IPAddress>();
+            // Initialize properties
+            this.serversAddresses = new List<IPAddress>();
+
             // assoicate the server with this replication manager
             thisServer = associatedServer;
 
-            tcpClientMessageHandler = new TCPMessageHandler();
-
-            // Run listening to other backups in it's own thread
-            tcpBackupListenThread = new Thread(() =>
+            // Run listening to other replication managers in it's own thread
+            Thread tcpBackupListenThread = new Thread(() =>
             {
-                ListenReplica();
+                ListenToPrimary();
             });
 
             // Start thread lisening for other backup replication managers TCP messages
@@ -138,18 +134,17 @@ namespace Server
         {
             if (!isServerPrimary)
             {
-                //if (!serversAddresses.Exists(e => e.Equals(primaryServerIP)))
-                //{ 
-                    // Add Primary server ip address to replica
-                    serversAddresses.Add(primaryServerIP);
+                // Add Primary server ip address to replica
+                serversAddresses.Add(primaryServerIP);
 
-                    // Timer for checking if primary is there
-                    timerForCheckingPrimaryExistence = new Timer(CheckServerExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+                // Timer for checking if primary is there
+                timerForCheckingPrimaryExistence = new Timer(CheckServerExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
 
-                    // secondary replica sends a replica request
-                    DecideOnMessagesSendFromBackUpToServer(true);
-                //}
-                
+                // send Initial Request when backup in initalized
+                foreach (string requestMessage in MESSAGES_SENT_AND_RECEIEVED_BY_A_NEW_BACKUP)
+                {
+                    SendFromBackUPToServer(requestMessage);
+                }
             }
             else
             {
@@ -168,13 +163,12 @@ namespace Server
         public void EstablishConnection(TcpClient backupClient)
         {
             Console.WriteLine("Establishing Connection with {0} {1}", (backupClient.Client.LocalEndPoint as IPEndPoint).Address, (backupClient.Client.RemoteEndPoint as IPEndPoint).Address);
-
-            // TODO: Implement try and catch
             
             string requestMessage = string.Empty;
             try
             {
                 // TODO: deal with exceptions in this
+                TCPMessageHandler tcpClientMessageHandler = new TCPMessageHandler();
                 requestMessage = tcpClientMessageHandler.RecieveMessage(backupClient);
             }
             catch(Exception e)
@@ -192,6 +186,7 @@ namespace Server
                 {
                     try
                     {
+                        TCPMessageHandler tcpClientMessageHandler = new TCPMessageHandler();
                         tcpClientMessageHandler.SendResponse("", backupClient);
                     }
                     catch(Exception e)
@@ -224,51 +219,16 @@ namespace Server
                         Console.WriteLine("Failed");
                     }
 
-                    // Accumlate backup indexes from the list of backup ips in case they are died
-                    // TODO: refactor this into a method?
-                    // TODO: Do I need to remove backup non responsive? since I do check? 
-                    // also I have to update others if i find unresponsive ones. What about the fact that I send to everybody too? 
-                    // Just use check i guess
-                    List<int> indexOfDeadBackupServers = new List<int>();
-
-                    bool keepSending = true; 
-
-                    while (keepSending)
+                    // Send to all backups
+                    IEnumerable<IPAddress> backupsIPs = serversAddresses.SkipWhile((backup, indexOfBackup) => indexOfBackup != 0);
+                    if (SendToReplicationManagers(backupsIPs, responseMessage))
                     {
-                        keepSending = false;
-                        // Send all backups updated info
-                        for (int j = 1; j < serversAddresses.Count; j++)
-                        {
-                            // 
-                            IPAddress backupIP = serversAddresses[j];
+                        // Send to everybody the new state if something changed.
+                        // Construct a message to be sent based on type of update
+                        string updateAddresses = REQ_UPDATE_BACKUP + " " + MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
 
-                            try
-                            {
-                                string responseOfBackUpToServerResponseStr = SendMessage(backupIP, 8000, responseMessage);
-
-                                // TODO: Test response again.
-                            }
-                            catch (SocketException)
-                            {
-                                // Remove dead backups
-                                indexOfDeadBackupServers.Add(j);
-                            }
-                        }
-
-                        // Remove all dead backups if there is any
-                        // TODO: Change this to send instead of Ping
-                        foreach (int deadBackupind in indexOfDeadBackupServers)
-                        {
-                            // Ping each backup again 
-                            Ping pingBackups = new Ping();
-                            PingReply reply = pingBackups.Send(serversAddresses[deadBackupind]);
-                            if (!reply.Status.Equals(IPStatus.Success))
-                            {
-                                serversAddresses.RemoveAt(deadBackupind);
-                                keepSending = true;
-                            }
-
-                        }
+                        //
+                        SendToReplicationManagers(serversAddresses, updateAddresses);
                     }
                 }
                     
@@ -300,10 +260,6 @@ namespace Server
                 }
                 backupClient.Close();
             }
-
-            
-
-
         }
             
            
@@ -319,18 +275,7 @@ namespace Server
             string messageParam;
             string responseMessage = string.Empty;
 
-            // get requestType out of the request message
-            if (requestMessage.IndexOf(" ") == -1)
-            {
-                requestType = requestMessage;
-            }
-            else
-            {
-                requestType = requestMessage.Substring(0, requestMessage.IndexOf(" ")).Trim();
-            }
-
-            // Append all other parameters at the end of request message to a new variable
-            messageParam = requestMessage.Substring(requestType.Length).Trim();
+            MessageParser.ParseNext(requestMessage, out requestType, out messageParam);
 
             // Incoming message "replica" from one of the backup servers to primary server.
             if (requestType == REQ_BACKUP)
@@ -359,28 +304,28 @@ namespace Server
                     responseMessage = RES_ADDRESSES + " ";
 
                     // Send backup servers ip addresses starting from first backup server exculding primary server
-                    for (int i = 0; i < serversAddresses.Count; i++)
-                    {
-                        // Comma shouldn't be added at the end of the message
-                        if (i != serversAddresses.Count - 1)
-                        {
-                            responseMessage += serversAddresses[i] + ",";
-                        }
-                        else
-                        {
-                            responseMessage += serversAddresses[i];
-                        }
-
-                    }
-
-                    responseMessage += "\n\n";
+                    responseMessage += MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
                 }
             }
-            else if (requestType == REQ_NAMES || requestType == REQ_GAMESESSIONS || requestType == REQ_MATCH)
+            else if (requestType.Equals(REQ_NAMES))
             {
-                responseMessage = ConstructPrimaryMessageToBackupBasedOnRequestType(requestType);
-
-                responseMessage += "\n\n";
+                responseMessage += requestType + " ";
+                responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetPlayerNames().ToList(), ",");
+            }
+            else if (requestType.Equals(REQ_GAMESESSIONS))
+            {
+                responseMessage += requestType + " ";
+                responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetGameSession().Select(session => session.ID + " " + session.Players.Select(player => player.ToMessage() + ",")).ToList(), "\n");
+            }
+            else if (requestType.Equals(REQ_MATCH))
+            {
+                responseMessage += requestType + " ";
+                responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetClientWaitingForGame().Select((clientWaitingForGame, gameRequestForThisClient) => gameRequestForThisClient + " " + clientWaitingForGame.Select(player => player.ToMessage() + ",")).ToList(), "\n");
+            }
+            else if (requestType.Equals(REQ_UPDATE_BACKUP))
+            {
+                responseMessage += requestType + " ";
+                responseMessage += MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
             }
 
             return responseMessage;
@@ -395,19 +340,7 @@ namespace Server
             string responseType = string.Empty;
             string messageParam = string.Empty;
 
-            // get requestType out of the request message
-            if (reposnseMessage.IndexOf(" ") == -1)
-            {
-                responseType = reposnseMessage;
-            }
-            else
-            {
-                responseType = reposnseMessage.Substring(0, reposnseMessage.IndexOf(" ")).Trim();
-            }
-
-            // Append all other parameters at the end of request message to a new variable
-            messageParam = reposnseMessage.Substring(responseType.Length).Trim();
-
+            MessageParser.ParseNext(reposnseMessage, out responseType, out messageParam);
 
             if (responseType.Equals(RES_ADDRESSES) || responseType.Equals(REQ_UPDATE_BACKUP))
             {
@@ -435,457 +368,231 @@ namespace Server
                 serversAddresses = allReplicaAddrTemp;
 
             }
-            else if (responseType == REQ_NAMES || responseType == REQ_GAMESESSIONS || responseType == REQ_MATCH)
+            else if (responseType == RES_NAMES)
             {
                 if (!string.IsNullOrEmpty(messageParam) || responseType.Equals(REQ_MATCH))
                 {
-                    ParseServerResponseMessageToBackUpForGameInfo(responseType, messageParam);
+                    ParseServerResponsePlayerNames(messageParam);
                 }
                 
             }
-
-        }
-
-
-
-
-        private string ConstructPrimaryMessageToBackupBasedOnRequestType(string requestType)
-        {
-            // Add response Type
-            string responseMessage = string.Empty;
-            ObservableCollection<string> names = thisServer.GetPlayerNames();
-            GameSession[] sessions = thisServer.GetGameSession();
-            ObservableCollection<ConcurrentQueue<ClientInfo>> clientsWaitingForgame = thisServer.GetClientWaitingForGame();
-
-            // based on request get the server info needed
-            /*if (requestType.Equals(RES_ADDRESSES))
+            else if (responseType == RES_GAMESESSIONS)
             {
-                Console.WriteLine("ERROR in ConstructPrimaryMessageToBackupBasedOnRequestType");
-            }*/
-            if (requestType.Equals(REQ_NAMES))
-            {
-                responseMessage = ConstructPrimaryMessageNames(names);
+                if (!string.IsNullOrEmpty(messageParam) || responseType.Equals(REQ_MATCH))
+                {
+                    ParseServerResponseGameSession(messageParam);
+                }
             }
-            else if (requestType.Equals(REQ_GAMESESSIONS))
+            else if(responseType == RES_MATCH)
             {
-                responseMessage = ConstructPrimaryMessageSession(sessions);
+                if (!string.IsNullOrEmpty(messageParam) || responseType.Equals(REQ_MATCH))
+                {
+                    ParseServerResponseGameMatches(messageParam);
+                }
             }
-            else if (requestType.Equals(REQ_MATCH))
-            {
-                responseMessage = ConstructPrimaryMessageMatch(clientsWaitingForgame);
-            }
-            else if (requestType.Equals(REQ_UPDATE_BACKUP))
-            {
-                responseMessage = ConstructPrimaryMessageUpdateAddresses(requestType);
-            }
-            
-            return responseMessage;
+                
+
         }
 
         /// <summary>
         /// 
         /// </summary>
-        /// <returns></returns>
-        private string ConstructPrimaryMessageUpdateAddresses(string updateBackupsRequestMessage)
+        /// <param name="message"></param>
+        public void ParseServerResponsePlayerNames(string message)
         {
+            // get player names
+            string[] arrayOfPlayerNames = message.Split(',');
 
-            // Debug
-            Console.WriteLine("Updating addresses for all backups");
+            // Add player names to a temp variable
+            ObservableCollection<string> tempPlayerNames = new ObservableCollection<string>();
 
-            // Create a response back to the replicationManager of the backup server
-            // add required information to be sent back
-            string requestMessage = updateBackupsRequestMessage + " ";
-
-            // Send backup servers ip addresses starting from first backup server exculding primary server
-            for (int i = 0; i < serversAddresses.Count; i++)
+            // Convert IP address from string to IPAddress
+            foreach (string tempName in arrayOfPlayerNames)
             {
-                // Comma shouldn't be added at the end of the message
-                if (i != serversAddresses.Count - 1)
-                {
-                    requestMessage += serversAddresses[i] + ",";
-                }
-                else
-                {
-                    requestMessage += serversAddresses[i] ;
-                }
-
+                tempPlayerNames.Add(tempName);
             }
 
-            return requestMessage;
-            
+            // Set playerNames
+            thisServer.SetPlayerNames(tempPlayerNames);
         }
 
         /// <summary>
-        /// This method constructs a message that will be sent from primary to replica for name request.
+        /// 
         /// </summary>
-        /// <param name="names">List of names of players to be sent from primary server to replica.</param>
-        /// <returns>Message to be sent to the replica</returns>
-        private string ConstructPrimaryMessageNames(ObservableCollection<string> names)
+        /// <param name="message"></param>
+        public void ParseServerResponseGameSession(string message)
         {
-            string responseMessage = RES_NAMES + " ";
+            // split games sessions
+            string[] arrayOfSessions = message.Split(new string[] { "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
 
-            // send client names on the server
-            for (int i = 0; i < names.Count; i++)
+            // Temp variable for game session
+            List<GameSession> tempGameSession = new List<GameSession>();
+
+            // Convert IP address from string to IPAddress
+            foreach (string tempSession in arrayOfSessions)
             {
-                // Comma shouldn't be added at the end of the message
-                if (i != names.Count - 1)
-                {
-                    responseMessage += names[i] + ",";
-                }
-                else
-                {
-                    responseMessage += names[i];
-                }
-            }
-
-            return responseMessage;
-        }
-
-        /// <summary>
-        /// This method constructs a message that will be sent from primary to replica for session request.
-        /// </summary>
-        /// <param gameSessionInfo="gameSessionInfo">GameSession Object of gameIDs to list of player info to be sent from primary server to replica.</param>
-        /// <returns>Message to be sent to the replica</returns>
-        public string ConstructPrimaryMessageSession(GameSession[] gameSessions)
-        {
-            string responseMessage = "session" + " ";
-            int counter = 0;
-
-            // send client names on the server
-            foreach (GameSession gameSession in gameSessions)
-            {
-                responseMessage += gameSession.ID + " ";
-
-
-                // append all players info to response message
-                for (int j = 0; j < gameSession.Players.Count(); j++)
-                {
-                    if (j != gameSession.Players.Count() - 1)
-                    {
-                        responseMessage += gameSession.Players[j].ToMessage() + ",";
-                    }
-                    else
-                    {
-                        responseMessage += gameSession.Players[j].ToMessage();
-                    }
-                }
-
-                // Append a newline at the end
-                if (counter != gameSessions.Count() - 1)
-                {
-                    responseMessage += "\n";
-                }
-
-                counter++;
-            }
-
-            // Append new lines for end of message
-            responseMessage += "\n\n";
-
-            return responseMessage;
-        }
-
-
-        private string ConstructPrimaryMessageMatch(ObservableCollection<ConcurrentQueue<ClientInfo>> clientsWaitingForGame)
-        {
-            string responseMessage = REQ_MATCH + " ";
-
-            // send client names on the server
-            for (int i = 0; i < clientsWaitingForGame.Count; i++)
-            {
-                for (int j = 0; j < clientsWaitingForGame[i].Count; j++)
-                {
-
-                    if (j.Equals(0))
-                    {
-                        responseMessage += i + " ";
-                    }
-
-                    responseMessage += clientsWaitingForGame[i].ElementAt(j).ToMessage();
-
-                    if (j.Equals(clientsWaitingForGame[i].Count - 1))
-                    {
-                        responseMessage += ",";
-                    }
-                    else
-                    {
-                        responseMessage += " ";
-                    }
-                }
-
-            }
-
-            return responseMessage;
-        }
-
-        /// <summary>
-        /// This method constructs a message that will be sent from primary to replica for name request.
-        /// </summary>
-        /// <param name="names">List of names of players to be sent from primary server to replica.</param>
-        /// <returns>Message to be sent to the replica</returns>
-        public void ParseServerResponseMessageToBackUpForGameInfo(string responseType, string messageParam)
-        {
-            // If 
-            if (responseType == REQ_NAMES)
-            {
-                // get player names
-                string[] arrayOfPlayerNames = messageParam.Split(',');
-
-                // Add player names to a temp variable
-                ObservableCollection<string> tempPlayerNames = new ObservableCollection<string>();
-
-                // Convert IP address from string to IPAddress
-                foreach (string tempName in arrayOfPlayerNames)
-                {
-                    tempPlayerNames.Add(tempName);
-                }
-
-                // Set playerNames
-                thisServer.SetPlayerNames(tempPlayerNames);
-
-            }
-
-            else if (responseType == REQ_GAMESESSIONS)
-            {
-                // split games sessions
-                string[] arrayOfSessions = messageParam.Split(new string[] { "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-
-                // Temp variable for game session
-                List<GameSession> tempGameSession = new List<GameSession>();
-
-                // Convert IP address from string to IPAddress
-                foreach (string tempSession in arrayOfSessions)
-                {
-                    // Split each game session by comma serperator
-                    string[] arrayOfSpecificSession = tempSession.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
-                    GameSession gameSession = null;
-                    List<ClientInfo> players = new List<ClientInfo>();
-                    string gameID = "";
-
-                    // Use an integer to differ between string with gameID and without
-                    // First info will contain a game ID
-                    int extraIndexForGameID = 1;
-
-                    // Extract Game ID and players Info
-                    for (int gameSessionAndPlayerInfoIndex = 0; gameSessionAndPlayerInfoIndex < arrayOfSpecificSession.Count(); gameSessionAndPlayerInfoIndex++)
-                    {
-                        // Split speicific info by spaces
-                        string[] arrayOfGameSessionAndPlayerSpecificInfo = arrayOfSpecificSession[gameSessionAndPlayerInfoIndex].Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries); ;
-
-                        // TODO: Add TCP client
-                        ClientInfo player;
-                        if (extraIndexForGameID == 1)
-                        {
-                            gameID = arrayOfGameSessionAndPlayerSpecificInfo[0];
-                            // TODO: TryParse
-                            gameSession = new GameSession(int.Parse(gameID));
-                        }
-
-                        // Check that the gameSession doesn't alreay exist on this backup server
-                        // if (!thisServer.GetGameSession().All(gameSessionparam => gameSessionparam.ID.Equals(gameID)))
-                        //{
-                        // TODO: TryPArse
-                        player = new ClientInfo(IPAddress.Parse(arrayOfGameSessionAndPlayerSpecificInfo[0 + extraIndexForGameID]),
-                            int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[1 + extraIndexForGameID]), 
-                            arrayOfGameSessionAndPlayerSpecificInfo[2 + extraIndexForGameID], 
-                            int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[3 + extraIndexForGameID]));
-                        //}
-
-
-                        // After extracting gameID, index goes back to zero.
-                        extraIndexForGameID = 0;
-
-                        players.Add(player);
-
-                        
-                    }
-
-                    // After extracting gameID, index goes back to zero.
-                    extraIndexForGameID = 1;
-
-
-                    // Add to the gamesession
-                    gameSession.SetPlayers = players;
-
-                    // Add game session
-                    tempGameSession.Add(gameSession);
-                }
-
-                // Add to game session of server
-                thisServer.SetGameSession(tempGameSession.ToArray());
-
-            }
-            else if (responseType.Equals(REQ_MATCH))
-            {
-                // Split game queue by delimiter comma
-                string[] arrayOfGameQueues = messageParam.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
-
-                ObservableCollection<ConcurrentQueue<ClientInfo>> tempQueues = new ObservableCollection<ConcurrentQueue<ClientInfo>>();
-
-                int gameCapacity = -1;
+                // Split each game session by comma serperator
+                string[] arrayOfSpecificSession = tempSession.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
+                GameSession gameSession = null;
+                List<ClientInfo> players = new List<ClientInfo>();
+                string gameID = "";
 
                 // Use an integer to differ between string with gameID and without
                 // First info will contain a game ID
-                int extraIndexForGameCapacity = 1;
+                int extraIndexForGameID = 1;
 
-                foreach (string gameQueue in arrayOfGameQueues)
+                // Extract Game ID and players Info
+                for (int gameSessionAndPlayerInfoIndex = 0; gameSessionAndPlayerInfoIndex < arrayOfSpecificSession.Count(); gameSessionAndPlayerInfoIndex++)
                 {
-                    
+                    // Split speicific info by spaces
+                    string[] arrayOfGameSessionAndPlayerSpecificInfo = arrayOfSpecificSession[gameSessionAndPlayerInfoIndex].Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries); ;
 
-                    // Extract index of gameQueue
-                    string[] arrayOfGameQueue = gameQueue.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
-
-                    if (extraIndexForGameCapacity == 1)
+                    // TODO: Add TCP client
+                    ClientInfo player;
+                    if (extraIndexForGameID == 1)
                     {
-                        gameCapacity = int.Parse(arrayOfGameQueue[0]);
+                        gameID = arrayOfGameSessionAndPlayerSpecificInfo[0];
                         // TODO: TryParse
-                        for (int i = tempQueues.Count; i <= gameCapacity; i++)
-                        {
-                            tempQueues.Add(new ConcurrentQueue<ClientInfo>());
-                        }
+                        gameSession = new GameSession(int.Parse(gameID));
                     }
 
-                    for (int i = 1; i < arrayOfGameQueue.Count(); i += 4)
-                    {
-                        ClientInfo player;
-                        // For every four enteries get the relvent info
-                        player = new ClientInfo(IPAddress.Parse(arrayOfGameQueue[i]),
-                            int.Parse(arrayOfGameQueue[i + 1]),
-                            arrayOfGameQueue[i + 2],
-                            int.Parse(arrayOfGameQueue[i + 3]));
-
-                        tempQueues[gameCapacity].Enqueue(player);
-                    }
+                    // Check that the gameSession doesn't alreay exist on this backup server
+                    // if (!thisServer.GetGameSession().All(gameSessionparam => gameSessionparam.ID.Equals(gameID)))
+                    //{
+                    // TODO: TryPArse
+                    player = new ClientInfo(IPAddress.Parse(arrayOfGameSessionAndPlayerSpecificInfo[0 + extraIndexForGameID]),
+                        int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[1 + extraIndexForGameID]),
+                        arrayOfGameSessionAndPlayerSpecificInfo[2 + extraIndexForGameID],
+                        int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[3 + extraIndexForGameID]));
+                    //}
 
 
                     // After extracting gameID, index goes back to zero.
-                    extraIndexForGameCapacity = 1;
+                    extraIndexForGameID = 0;
+
+                    players.Add(player);
+
 
                 }
 
-                thisServer.SetClientsWaitingForGame(tempQueues);
+                // After extracting gameID, index goes back to zero.
+                extraIndexForGameID = 1;
 
-                // Debug
-                for (int i = 0; i < thisServer.GetClientWaitingForGame().Count; i++)
+
+                // Add to the gamesession
+                gameSession.SetPlayers = players;
+
+                // Add game session
+                tempGameSession.Add(gameSession);
+            }
+
+            // Add to game session of server
+            thisServer.SetGameSession(tempGameSession.ToArray());
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="message"></param>
+        public void ParseServerResponseGameMatches(string message)
+        {
+            // Split game queue by delimiter comma
+            string[] arrayOfGameQueues = message.Split(new string[] { "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+            ObservableCollection<ConcurrentQueue<ClientInfo>> tempQueues = new ObservableCollection<ConcurrentQueue<ClientInfo>>();
+
+            int gameCapacity = -1;
+
+            // Use an integer to differ between string with gameID and without
+            // First info will contain a game ID
+            int extraIndexForGameCapacity = 1;
+
+            foreach (string gameQueue in arrayOfGameQueues)
+            {
+
+
+                // Extract index of gameQueue
+                string[] arrayOfGameQueue = gameQueue.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
+
+                if (extraIndexForGameCapacity == 1)
                 {
-                    foreach (ClientInfo cli in thisServer.GetClientWaitingForGame()[i])
+                    gameCapacity = int.Parse(arrayOfGameQueue[0]);
+                    // TODO: TryParse
+                    for (int i = tempQueues.Count; i <= gameCapacity; i++)
                     {
-                        Console.WriteLine("backup received match of queue number {0} and player address {1} and port {2} and id {3} and playername {4} ", i, cli.IPAddr, cli.ListeningPort, cli.PlayerId, cli.PlayerName);
+                        tempQueues.Add(new ConcurrentQueue<ClientInfo>());
                     }
                 }
+
+                for (int i = 1; i < arrayOfGameQueue.Count(); i += 4)
+                {
+                    ClientInfo player;
+                    // For every four enteries get the relvent info
+                    player = new ClientInfo(IPAddress.Parse(arrayOfGameQueue[i]),
+                        int.Parse(arrayOfGameQueue[i + 1]),
+                        arrayOfGameQueue[i + 2],
+                        int.Parse(arrayOfGameQueue[i + 3]));
+
+                    tempQueues[gameCapacity].Enqueue(player);
+                }
+
+
+                // After extracting gameID, index goes back to zero.
+                extraIndexForGameCapacity = 1;
+
             }
+
+            thisServer.SetClientsWaitingForGame(tempQueues);
         }
+
+        
 
         /// <summary>
         /// This method chooses between either sending initial messages from backup to primary or 
         /// check message for server existence.
         /// </summary>
         /// <param name="tempMsg">what replicas are trying to send as clients</param>
-        public void DecideOnMessagesSendFromBackUpToServer(bool OnInitialize)
+        public void SendFromBackUPToServer(string messageToSend)
         {
-
-            if (OnInitialize)
+            try
             {
-
-                // Catch errors 
-                try
-                {
-                    // Loop through three requests for duplicating data
-                    for (int i = 0; i < 4; i++)
-                    {
-                        SendFromReplicaToServerAndParseResponse(MESSAGES_SENT_AND_RECEIEVED_BY_A_NEW_BACKUP[i]);
-                    }
-
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("sending from replica to primary for replica, name, and session is not working {0}", e.Message);
-                }
+                string messageToBeSent = ConstructBackUPToServerMessages(messageToSend);
+                TCPMessageHandler tcpMessageHandler = new TCPMessageHandler();
+                string responseMessage = tcpMessageHandler.SendMessage(serversAddresses[0], 8000, messageToBeSent);
+                // Prepare another response to backups
+                parseResponseMessageForBackup(responseMessage);
             }
-            else
+            catch (Exception e)
             {
-                try
-                {
-                    Console.WriteLine("Send check messages");
-                    SendFromReplicaToServerAndParseResponse(REQ_CHECK);
-                    backupWasUpdated = false;
-                }
-                catch (SocketException)
-                {
-                    // In this case: server must have crashed
-                    // take over and become the primary 
-                    // TODO: This won't work for multiple servers
-                    if (!backupWasUpdated && serversAddresses[1].Equals(thisServer.IPAddr))
-                    {
-                        Console.WriteLine("This server is becoming a primary");
-                        MakeThisServerPrimary();
-                    }
-                }
+                Console.WriteLine("sending from replica to primary for replica, name, and session is not working {0}", e.Message);
             }
-  
         }
+  
+        
 
         /// <summary>
         /// This method build up message to be sent from each replica to the server.
         /// </summary>
         /// <param name="replicaMsg">request that should be sent to the primary server</param>
         /// <returns>Complete message that should be sent to the primary server</returns>
-        private string ConstructReplicaMessagesFromReplicaToServer(string replicaMsg)
+        private string ConstructBackUPToServerMessages(string replicaMsg)
         {
             string messageToBeSent = string.Empty;
 
-            // Check type of Message 
-            if (replicaMsg.StartsWith(REQ_NAMES))
-            {
-                // add required information to be sent back
-                messageToBeSent = REQ_NAMES + " "; 
-            }
-            else if (replicaMsg.StartsWith(REQ_BACKUP))
+            if (replicaMsg.StartsWith(REQ_BACKUP))
             {
                 // Message to be sent 
-                messageToBeSent = REQ_BACKUP + " " + thisServer.IPAddr;
+                messageToBeSent = REQ_BACKUP + " " + thisServer.IPAddr + "\n\n";
             }
-            else if (replicaMsg.StartsWith(REQ_CHECK))
+            else
             {
-                // Message to be sent 
-                messageToBeSent = REQ_CHECK + " ";
-            }
-            else if (replicaMsg.StartsWith(REQ_GAMESESSIONS))
-            {
-                messageToBeSent = REQ_GAMESESSIONS + " ";
-            }
-            else if (replicaMsg.StartsWith(REQ_MATCH))
-            {
-                messageToBeSent = REQ_MATCH + " ";
+                messageToBeSent = replicaMsg + "\n\n";
             }
 
             return messageToBeSent;
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="tempMsg"></param>
-        private void SendFromReplicaToServerAndParseResponse(string tempMsg)
-        {
-            string messageToBeSent = ConstructReplicaMessagesFromReplicaToServer(tempMsg);
 
-            // replica TCP Client for sending requests to primary server
-            // Initalize a new TcpClient
-            try
-            {
-                Console.WriteLine("SendFromReplicaToServerAndParseResponse this message {0}", tempMsg);
-                string responseMessage = SendMessage(serversAddresses[0], 8000, messageToBeSent);
-                // Prepare another response to backups
-                parseResponseMessageForBackup(responseMessage);
-            }
-            catch(Exception e)
-            {
-                Console.WriteLine("exception in SendFromReplicaToServerAndParseResponse with {0} ", e.Message);
-                throw e;
-            }
-            
-        }
 
         /// <summary>
         /// This method get triggered whenever a change in the game state or the list of backup servers happen
@@ -894,90 +601,66 @@ namespace Server
         public void SendFromServerToBackUPSWhenStateChanges(string updateType)
         {
             // Construct a message to be sent based on type of update
-            string messageUpdate = ConstructPrimaryMessageToBackupBasedOnRequestType(updateType);
+            string messageUpdate = updateType + " " + MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
 
-            // Send back to all backups the new updated information
-            // TODO: We know primary only sends so remove zeroth position
-            // Accumlate backup indexes from the list of backup ips in case they are died
-            List<int> indexOfDeadBackupServers = new List<int>();
-            bool keepSending = true;
-
-            while (keepSending)
+            // Send to all backups
+            IEnumerable<IPAddress> backupsIPs = serversAddresses.SkipWhile((backup, indexOfBackup) => indexOfBackup != 0);
+            if (SendToReplicationManagers(backupsIPs, messageUpdate))
             {
-                keepSending = false;
-                // Send all backups updated info
-                for (int j = 1; j < serversAddresses.Count; j++)
-                {
-                    // 
-                    IPAddress backupIP = serversAddresses[j];
+                // Send to everybody the new state if something changed.
+                // Construct a message to be sent based on type of update
+                string updateAddresses = REQ_UPDATE_BACKUP + " " + MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
 
-                    try
-                    {
-                        string responseOfBackUpToServerResponseStr = SendMessage(backupIP, 8000, messageUpdate);
-
-                        // TODO: Test response again.
-                    }
-                    catch (SocketException)
-                    {
-                        // Remove dead backups
-                        indexOfDeadBackupServers.Add(j);
-                    }
-                }
-
-                // Remove all dead backups if there is any
-                // TODO: Change this to send instead of Ping
-                foreach (int deadBackupind in indexOfDeadBackupServers)
-                {
-                    // Ping each backup again 
-                    Ping pingBackups = new Ping();
-                    PingReply reply = pingBackups.Send(serversAddresses[deadBackupind]);
-                    if (!reply.Status.Equals(IPStatus.Success))
-                    {
-                        serversAddresses.RemoveAt(deadBackupind);
-                        keepSending = true;
-                    }
-
-                }
+                // update everybody
+                SendToReplicationManagers(serversAddresses, updateAddresses);
             }
-        
         }
 
 
-        private string SendMessage(IPAddress ip, int portNumber, string message)
+        private bool SendToReplicationManagers(IEnumerable<IPAddress> replicationManagersAddresses, string message)
         {
-            string responseOfBackUpToServerResponseStr = string.Empty;
+            bool updateReplicationManagers = false;
 
-            try
+            Parallel.ForEach(replicationManagersAddresses, (backupIP) =>
             {
-                using (TcpClient tcpClient = new TcpClient())
+                int counterForSendingTimes = 0;
+                while (true)
                 {
-                    tcpClient.Connect(ip, portNumber);
+                    try
+                    {
+                        TCPMessageHandler tcpMessageHandler = new TCPMessageHandler();
+                        string responseOfBackUpToServerResponseStr = tcpMessageHandler.SendMessage(backupIP, 8000, message);
+                        break;
+                    }
+                    catch (SocketException)
+                    {
+                        counterForSendingTimes++;
 
-                    TCPMessageHandler tcpMessagehandler = new TCPMessageHandler();
-
-                    responseOfBackUpToServerResponseStr = tcpMessagehandler.SendMessage(message, tcpClient);
+                        // Remove dead backups
+                        if (counterForSendingTimes == 2)
+                        {
+                            serversAddresses.Remove(backupIP);
+                            updateReplicationManagers = true;
+                            break;
+                        }
+                    }
                 }
-            }
-            catch(Exception e)
-            {
-                Console.WriteLine("Failed in SendMessage");
-                throw e;
-            }
+            });
 
-            return responseOfBackUpToServerResponseStr;
+            return updateReplicationManagers;
+            
         }
 
         /// <summary>
         /// This will be used to listen on incoming requests from the server.
         /// </summary>
-        public void ListenReplica()
+        public void ListenToPrimary()
         {
             TcpListener rmListener = new TcpListener(thisServer.IPAddr, 8000) ;
             rmListener.Start();
             while (true)
             {
                 Console.WriteLine("Listening");
-                //Socket sock = rmListener.AcceptSocket();
                 TcpClient backupClient = rmListener.AcceptTcpClient();
                 
                 new Thread(() =>
@@ -1014,7 +697,26 @@ namespace Server
             // Send to primary a message
             lock (checkPrimaryCallbackLock)
             {
-                DecideOnMessagesSendFromBackUpToServer(false);
+                try
+                {
+                    string messageToBeSent = ConstructBackUPToServerMessages(REQ_CHECK);
+                    TCPMessageHandler tcpMessageHandler = new TCPMessageHandler();
+                    string responseMessage = tcpMessageHandler.SendMessage(serversAddresses[0], 8000, messageToBeSent);
+                    // Prepare another response to backups
+                    parseResponseMessageForBackup(responseMessage);
+                    backupWasUpdated = false;
+                }
+                catch (SocketException)
+                {
+                    // In this case: server must have crashed
+                    // take over and become the primary 
+                    // TODO: This won't work for multiple servers
+                    if (!backupWasUpdated && serversAddresses[1].Equals(thisServer.IPAddr))
+                    {
+                        Console.WriteLine("This server is becoming a primary");
+                        MakeThisServerPrimary();
+                    }
+                }
             }
         }
 
