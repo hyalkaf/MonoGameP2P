@@ -256,7 +256,7 @@ namespace Server
                             }
                         }
 
-                        Console.WriteLine("DEBUG: client " + client.PlayerName + client.IPAddr + " connected is " + client.TcpClient.Client.Connected);
+                        Console.WriteLine("DEBUG: client " + client.PlayerName + client.IPAddr + " connected is " + client.TcpClient != null ? client.TcpClient.Client.Connected.ToString() : "false");
                     }
                     // If amount of current connected players is not sufficient to form a game, returns.
                     if (stillConnected < i) return;
@@ -279,7 +279,7 @@ namespace Server
                        
 
                         // Assign the ip address to a port
-                        if (client.TcpClient.Client.Connected)
+                        if (client.TcpClient != null && client.TcpClient.Client.Connected)
                         {
                             client.PlayerId = playerId;
                             client.ListeningPort = portNumber++;
