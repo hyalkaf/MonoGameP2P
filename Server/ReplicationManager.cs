@@ -342,7 +342,7 @@ namespace Server
                 responseMessage += RES_GAMESESSIONS + " ";
                 responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetGameSession()
                     .Select(session => session.ID + " " + session.Players
-                        .Select(player => player.ToMessage())
+                        .Select(player => player.ToMessageForGameSession())
                         .Aggregate(new StringBuilder(), (sb, s) =>
                         {
                             if (sb.Length > 0)
@@ -356,7 +356,7 @@ namespace Server
                 responseMessage += RES_MATCH + " ";
                 responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetClientWaitingForGame()
                     .Select((clientWaitingForGame, gameRequestForThisClient) => clientWaitingForGame.Count > 0 ? gameRequestForThisClient + " " + clientWaitingForGame
-                        .Select(player => player.ToMessage())
+                        .Select(player => player.ToMessageForGameQueue())
                         .Aggregate(new StringBuilder(), (sb, s) =>
                         {
                             if (sb.Length > 0)
@@ -565,14 +565,15 @@ namespace Server
                     }
                 }
 
-                for (int i = 1; i < arrayOfGameQueue.Count(); i += 4)
+                for (int i = 1; i < arrayOfGameQueue.Count(); i += 5)
                 {
                     ClientInfo player;
                     // For every four enteries get the relvent info
                     player = new ClientInfo(IPAddress.Parse(arrayOfGameQueue[i]),
                         int.Parse(arrayOfGameQueue[i + 1]),
                         arrayOfGameQueue[i + 2],
-                        int.Parse(arrayOfGameQueue[i + 3]));
+                        int.Parse(arrayOfGameQueue[i + 3]),
+                        arrayOfGameQueue[i + 4].Equals("0") ? false : true);
 
                     tempQueues[gameCapacity].Enqueue(player);
                 }
@@ -768,25 +769,33 @@ namespace Server
                     SendToServer(REQ_CHECK);
                     backupWasUpdated = false;
                 }
-                catch (SocketException)
+                catch (Exception ex)
                 {
-                    // In this case: server must have crashed
-                    // take over and become the primary 
-                    // TODO: This won't work for multiple servers
-                    if (!backupWasUpdated && serversAddresses[1].Equals(thisServer.IPAddr))
-                    {
-                        Console.WriteLine("This server is becoming a primary");
-                        MakeThisServerPrimary();
+                    if (ex is SocketException || ex is IOException)
+                    { 
+                        // In this case: server must have crashed
+                        // take over and become the primary 
+                        // TODO: This won't work for multiple servers
+                        if (!backupWasUpdated && serversAddresses[1].Equals(thisServer.IPAddr))
+                        {
+                            Console.WriteLine("This server is becoming a primary");
+                            MakeThisServerPrimary();
+                        }
                     }
                 }
             }
         }
 
-
+        /// <summary>
+        /// This method is the callback function for the timer that checks all backup servers.
+        /// </summary>
+        /// <param name="state"></param>
         private void CheckBackupExistence(object state)
         {
+            // lock sending for timer not to queue multiple threads in timer
             lock(checkBackupCallbackLock)
             {
+                // Send Check from primary to all connected servers
                 SendToBackUPs(REQ_CHECK);
             }
         }
