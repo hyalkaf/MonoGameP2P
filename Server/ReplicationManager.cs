@@ -283,7 +283,6 @@ namespace Server
 
                 // TODO: how does socket differ from tcp client.
             }
-
             backupClient.Close();
 
 
