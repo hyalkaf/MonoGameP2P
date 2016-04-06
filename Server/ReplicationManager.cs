@@ -180,6 +180,7 @@ namespace Server
                 // TODO: deal with exceptions in this
                 TCPMessageHandler tcpClientMessageHandler = new TCPMessageHandler();
                 requestMessage = tcpClientMessageHandler.RecieveMessage(backupClient);
+                Console.WriteLine(requestMessage);
             }
             catch(Exception e)
             {
