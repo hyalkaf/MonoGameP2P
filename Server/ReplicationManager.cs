@@ -40,6 +40,7 @@ namespace Server
         // lock object for callback method that checks primary existence.
         // this will prevent multiple threads from queueing the callback.
         private Object checkPrimaryCallbackLock = new Object();
+        private Object checkBackupCallbackLock = new Object();
 
         // backupWasUpdated is needed to prevent the case when a backup replication manager
         // receives an update for a new elected primary while it has queued callbacks for 
@@ -126,8 +127,10 @@ namespace Server
             tcpBackupListenThread.Start();
 
             // Start lisening and broadcasting for UDP channel as well.
-            BroadcastForReplication replicationManagerUDP = new BroadcastForReplication(true, PORT_NUMBER_FOR_BROADCASTING_UDP, this);            
-  
+            BroadcastForReplication replicationManagerUDP = new BroadcastForReplication(true, PORT_NUMBER_FOR_BROADCASTING_UDP, this);
+
+            timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+
         }
 
         /// <summary>
@@ -153,8 +156,6 @@ namespace Server
             else
             {
                 serversAddresses.Add(thisServer.IPAddr);
-
-                timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
 
                 // Make this server start listening
                 thisServer.StartListen();
@@ -245,7 +246,6 @@ namespace Server
                 requestMessage.StartsWith(REQ_MATCH) ||
                 requestMessage.StartsWith(REQ_CHECK)))
             {
-                //Console.WriteLine("Received messages from primary of this type {0}", requestMessage);
 
                 // Update information for backup 
                 // Here we are parsing request but since method is same use same
@@ -256,9 +256,6 @@ namespace Server
                 }
                 parseResponseMessageForBackup(requestMessage);
 
-                // TODO: Response of success
-
-                // TODO: how does socket differ from tcp client.
                 try
                 {
                     backupClient.GetStream().Write(new byte[1], 0, 0);
