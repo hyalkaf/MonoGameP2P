@@ -131,7 +131,10 @@ namespace Server
                 Console.WriteLine("Cancel Response Failed, Client already disconnected...");
             }
 
-            gameReqClient.Close();
+            if (gameReqClient != null)
+            {
+                gameReqClient.Close();
+            }
         }
 
         /// <summary>
