@@ -242,7 +242,8 @@ namespace Server
                 (requestMessage.StartsWith(RES_ADDRESSES) ||
                 requestMessage.StartsWith(REQ_NAMES) ||
                 requestMessage.StartsWith(REQ_GAMESESSIONS) ||
-                requestMessage.StartsWith(REQ_MATCH)))
+                requestMessage.StartsWith(REQ_MATCH) ||
+                requestMessage.StartsWith(REQ_CHECK)))
             {
                 //Console.WriteLine("Received messages from primary of this type {0}", requestMessage);
 
