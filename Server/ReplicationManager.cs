@@ -882,6 +882,7 @@ namespace Server
             catch(Exception e)
             {
                 Console.WriteLine("exception in SendFromReplicaToServerAndParseResponse with {0} ", e.Message);
+                throw e;
             }
             
         }
