@@ -25,7 +25,7 @@ namespace Server
         // Zero position will have the primary server IP address.
         // and sequentially the list of backups in positions 1, 2 and so on 
         // for backup servers that should take position of primary.
-        public static List<IPAddress> serversAddresses = new List<IPAddress>();
+        public List<IPAddress> serversAddresses { get; set; }
 
 
         // This timer will be running every 5 seconds to check the primary server's existence
@@ -52,20 +52,21 @@ namespace Server
         // sending them information about addresses of all backup server currently in 
         // pool of servers. This will be sent after a new backup server have entered the pool
         // and have already sent its own ip address.
-        private static readonly string REQ_ADDRESSES = "address";
+        private static readonly string RES_ADDRESSES = "address";
         // REQ_NAMES is a request message that will be sent from backup to primary.
         // It will not contain any information. 
-        private static readonly string REQ_NAMES = "name";
+        private static readonly string REQ_NAMES = "nameRequest";
         // RES_NAMES is a response message that will be sent from primary server to all 
         // back ups
         // RES_NAMES is a response message acknowledging whoever sent the request "name" that
         // it was received correctly.
-        private static readonly string RES_NAMES = "success-name";
+        private static readonly string RES_NAMES = "playerNames";
         // REQ_GAMESESSIONS is a request and response message. As a request from backup to server it will not 
         // contain any information. As a response, it will the information stored in the game session
         // like sessionID, and players (player name, ID, Port and IP) that are currently
         // playing a game with that unique sessionID.
-        private static readonly string REQ_GAMESESSIONS = "session";
+        private static readonly string REQ_GAMESESSIONS = "sessionRequest";
+        private static readonly string RES_GAMESESSIONS = "gameSessions";
         // REQ_CHECK is a request message from backup replication manager to the primary server 
         // checking if it still exists and it can't receive and respond to messages.
         private static readonly string REQ_CHECK = "check";
@@ -74,7 +75,8 @@ namespace Server
         // waiting to be assigned and matched to other players. This information is game capacity or number
         // of matched clients, and players info in that specific game capacity which is player name, player ID
         // port and IP address.
-        public static readonly string REQ_MATCH = "match";
+        public static readonly string REQ_MATCH = "matchesRequest";
+        public static readonly string RES_MATCH = "matchesResponse";
         // REQ_UPDATE_BACKUP is a request that will be sent after a new primary is elected.
         // This request holds the new information about the backup servers currently existing
         // in the local network. 
@@ -96,6 +98,8 @@ namespace Server
         // Server program assoicated with this replication manager
         public ServerProgram thisServer;
 
+        TCPMessageHandler tcpClientMessageHandler;
+
         /// <summary>
         /// Main constructor for initalization of the replication manager. It will
         /// initialize listeners (UDP for broadcast from other replication managers, TCP for
@@ -106,6 +110,8 @@ namespace Server
         {
             // assoicate the server with this replication manager
             thisServer = associatedServer;
+
+            tcpClientMessageHandler = new TCPMessageHandler();
 
             // Run listening to other backups in it's own thread
             Thread tcpBackupListenThread = new Thread(() =>
@@ -129,23 +135,22 @@ namespace Server
         {
             if (!isServerPrimary)
             {
-                if (!serversAddresses.Exists(e => e.Equals(primaryServerIP)))
-                { 
+                //if (!serversAddresses.Exists(e => e.Equals(primaryServerIP)))
+                //{ 
                     // Add Primary server ip address to replica
-                    //TODO dont need this, get list update from primary
-                    serversAddresses.Add(primaryServerIP);
+                    // serversAddresses.Add(primaryServerIP);
 
                     // Timer for checking if primary is there
                     timerForCheckingPrimaryExistence = new Timer(CheckServerExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
 
                     // secondary replica sends a replica request
                     DecideOnMessagesSendFromBackUpToServer(true);
-                }
+                //}
                 
             }
             else
             {
-                //
+                // Add primary server to list of servers
                 serversAddresses.Add(thisServer.IPAddr);
 
                 // Make this server start listening
@@ -154,140 +159,113 @@ namespace Server
         }
 
         /// <summary>
-        /// This method is responsible for taking a socket connection and receiving incoming message parse it and then send a response.
+        /// This method is responsible for listening to clients(other replication managers)
+        /// for their requests.
         /// </summary>
-        /// <param name="sock">Socket that was listened on</param>
+        /// <param name="backupClient">Client sending messages to this replication manager</param>
         public void EstablishConnection(TcpClient backupClient)
         {
             //Console.WriteLine("Establishing Connection with {0} {1}", (backupClient.Client.LocalEndPoint as IPEndPoint).Address, (backupClient.Client.RemoteEndPoint as IPEndPoint).Address);
 
-            // TODO: Add try and catch in here
-            TCPMessageHandler tcpClientMessageHandler = new TCPMessageHandler();
-
-            string requestMessage = tcpClientMessageHandler.RecieveMessage(backupClient);
-           
-            byte[] responseMessageForBackupOrCheck = new byte[SIZE_OF_BUFFER];
-
-            if (requestMessage.StartsWith(REQ_CHECK))
+            // TODO: Implement try and catch
+            
+            string requestMessage = string.Empty;
+            try
             {
-                responseMessageForBackupOrCheck = parseRequestMessageForPrimary(requestMessage);
+                // TODO: deal with exceptions in this
+                requestMessage = tcpClientMessageHandler.RecieveMessage(backupClient);
             }
-            // Here we want to send back to all backups
-            if ((requestMessage.StartsWith(REQ_NAMES)
-                || requestMessage.StartsWith(REQ_GAMESESSIONS)
-                || requestMessage.StartsWith(REQ_MATCH)
-                || requestMessage.StartsWith(REQ_BACKUP))
-                && thisServer.isPrimaryServer)
+            catch(Exception e)
             {
-                // add success message and respond back to the server.
-                backupClient.GetStream().Write(new byte[1],0,0);
+                Console.WriteLine("Failed");
+            }
 
-                backupClient.Close();
-
+            // Depending on whether server is primary or backup parse messages accrodingly
+            if (thisServer.isPrimaryServer)
+            {
                 // Get appeopraite response
-                byte[] responseMessage = parseRequestMessageForPrimary(requestMessage);
+                string responseMessage = parseRequestMessageForPrimary(requestMessage);
 
-                // Accumlate backup indexes from the list of backup ips in case they are died
-                List<int> indexOfDeadBackupServers = new List<int>();
-
-                // Send all backups updated info
-                for (int j = 1; j < serversAddresses.Count; j++) 
+                if (requestMessage.StartsWith(REQ_CHECK))
                 {
-                    // 
-                    IPAddress backupIP = serversAddresses[j];
-
-                    
-
                     try
                     {
-                        TcpClient primaryClientToBackup = new TcpClient();
-                        primaryClientToBackup.Connect(backupIP, 8000);
-
-                        //Console.WriteLine("Sending to every backup this {0}", responseMessage);
-
-                        Stream stm = primaryClientToBackup.GetStream();
-
-                        ASCIIEncoding asen = new ASCIIEncoding();
-
-                        stm.Write(responseMessage, 0, responseMessage.Length);
-                        byte[] responseOfBackUpToServerResponse = new byte[SIZE_OF_BUFFER];
-
-                        // Receive response from primary
-                        int k = stm.Read(responseOfBackUpToServerResponse, 0, SIZE_OF_BUFFER);
-
-                        string responseOfBackUpToServerResponseStr = "";
-                        char c = ' ';
-                        for (int i = 0; i < k; i++)
-                        {
-                            c = Convert.ToChar(responseOfBackUpToServerResponse[i]);
-                            responseOfBackUpToServerResponseStr += c;
-                        }
-
-                        primaryClientToBackup.Close();
-                        // TODO: Test response again.
+                        tcpClientMessageHandler.SendMessage(responseMessage, backupClient);
                     }
-                    catch (SocketException)
+                    catch(Exception e)
                     {
-                        // Remove dead backups
-                        indexOfDeadBackupServers.Add(j);
-                    }
 
-                    bool areDead = false;
-                    // Remove all dead backups if there is any
-                    foreach (int deadBackupind in indexOfDeadBackupServers)
+                    }
+                    //backupClient.Client.Send(responseMessage);
+
+                    //backupClient.Close();
+
+                    
+                }
+                else
+                {
+                    // sendback
+                    try
                     {
-                        // Ping each backup again 
-                        Ping pingBackups = new Ping();
-                        PingReply reply = pingBackups.Send(serversAddresses[deadBackupind]);
-                        if (!reply.Status.Equals(IPStatus.Success))
-                        {
-                            serversAddresses.RemoveAt(deadBackupind);
-                            areDead = true;
-                        }
+                        backupClient.GetStream().Write(new byte[1], 0, 0);
+                        backupClient.Close();
+                    }
+                    catch
+                    {
 
                     }
 
-                    // Send messages again
-                    // Send all backups updated info
-                    // TODO: Refactor this code.
-                    if (areDead)
+                    // Accumlate backup indexes from the list of backup ips in case they are died
+                    // TODO: refactor this into a method?
+                    // TODO: Do I need to remove backup non responsive? since I do check? 
+                    // also I have to update others if i find unresponsive ones. What about the fact that I send to everybody too? 
+                    // Just use check i guess
+                    List<int> indexOfDeadBackupServers = new List<int>();
+
+                    bool keepSending = true; 
+
+                    while (keepSending)
                     {
-                        for (int z = 1; z < serversAddresses.Count; z++)
+                        keepSending = false;
+                        // Send all backups updated info
+                        for (int j = 1; j < serversAddresses.Count; j++)
                         {
-                            // Catch exceptions when backup is not there
                             // 
+                            IPAddress backupIP = serversAddresses[j];
+
                             try
                             {
-                                sendMessage(serversAddresses[j], Encoding.ASCII.GetString(responseMessage));
+                                string responseOfBackUpToServerResponseStr = SendMessage(backupIP, 8000, responseMessage);
+
+                                // TODO: Test response again.
                             }
                             catch (SocketException)
                             {
-                                // Remove the backup server that is not responding to messages
+                                // Remove dead backups
                                 indexOfDeadBackupServers.Add(j);
                             }
                         }
-                    }
 
-                }
+                        // Remove all dead backups if there is any
+                        // TODO: Change this to send instead of Ping
+                        foreach (int deadBackupind in indexOfDeadBackupServers)
+                        {
+                            // Ping each backup again 
+                            Ping pingBackups = new Ping();
+                            PingReply reply = pingBackups.Send(serversAddresses[deadBackupind]);
+                            if (!reply.Status.Equals(IPStatus.Success))
+                            {
+                                serversAddresses.RemoveAt(deadBackupind);
+                                keepSending = true;
+                            }
 
-                foreach(int deadBackupInd in indexOfDeadBackupServers)
-                {
-                    // Ping each backup again 
-                    Ping pingBackups = new Ping();
-                    PingReply reply = pingBackups.Send(serversAddresses[deadBackupInd]);
-                    if (!reply.Status.Equals(IPStatus.Success))
-                    {
-                        serversAddresses.RemoveAt(deadBackupInd);
+                        }
                     }
                 }
+                    
             }
-            // Messages receivied from primary by backup after listening
-            else if ((requestMessage.StartsWith(REQ_NAMES)
-                    || requestMessage.StartsWith(REQ_GAMESESSIONS)
-                    || requestMessage.StartsWith(REQ_MATCH)
-                    || requestMessage.StartsWith(REQ_UPDATE_BACKUP)
-                    || requestMessage.StartsWith(REQ_ADDRESSES))
-                    && !thisServer.isPrimaryServer)
+            // Server is not primary
+            else
             {
                 //Console.WriteLine("Received messages from primary of this type {0}", requestMessage);
 
@@ -303,64 +281,22 @@ namespace Server
                 // TODO: Response of success
 
                 // TODO: how does socket differ from tcp client.
-
-                backupClient.Close();
-
             }
-            else
-            {
-                // ????
-                backupClient.Client.Send(responseMessageForBackupOrCheck);
-
-                backupClient.Close();
-            }
-           
-
-
+                
         }
-
-        /// <summary>
-        /// This method takes a string that was sent through the network and parses it and return a respons to it.
-        /// </summary>
-        /// <param name="requestMessage">This parameter contains what was sent through the network.</param>
-        /// <returns>response message in bytes array.</returns>
-        private byte[] parseRequestMessageForBackup(string requestMessage)
-        {
-            string requestType;
-            string messageParam;
-            string responseMessage = string.Empty;
-            byte[] b = new byte[SIZE_OF_BUFFER];
-
-            // get requestType out of the request message
-            if (requestMessage.IndexOf(" ") == -1)
-            {
-                requestType = requestMessage;
-            }
-            else
-            {
-                requestType = requestMessage.Substring(0, requestMessage.IndexOf(" ")).Trim();
-            }
-
-            // Append all other parameters at the end of request message to a new variable
-            messageParam = requestMessage.Substring(requestType.Length).Trim();
-
             
-
-            return b;
-        }
-
+           
         /// <summary>
         /// This method takes a request that was sent through the network from backup to primary and parses it 
         /// and return a response to it.
         /// </summary>
         /// <param name="requestMessage">This parameter contains what was sent through the network.</param>
         /// <returns>response message in bytes array.</returns>
-        private byte[] parseRequestMessageForPrimary(string requestMessage)
+        private string parseRequestMessageForPrimary(string requestMessage)
         {
             string requestType;
             string messageParam;
             string responseMessage = string.Empty;
-            byte[] b = new byte[SIZE_OF_BUFFER];
 
             // get requestType out of the request message
             if (requestMessage.IndexOf(" ") == -1)
@@ -399,7 +335,7 @@ namespace Server
 
                     // Create a response back to the replicationManager of the backup server
                     // add required information to be sent back
-                    responseMessage = REQ_ADDRESSES + " ";
+                    responseMessage = RES_ADDRESSES + " ";
 
                     // Send backup servers ip addresses starting from first backup server exculding primary server
                     for (int i = 0; i < serversAddresses.Count; i++)
@@ -416,21 +352,17 @@ namespace Server
 
                     }
 
-                    ASCIIEncoding asen = new ASCIIEncoding();
-
-                    b = asen.GetBytes(responseMessage + "\n\n");
+                    responseMessage += "\n\n";
                 }
             }
             else if (requestType == REQ_NAMES || requestType == REQ_GAMESESSIONS || requestType == REQ_MATCH)
             {
                 responseMessage = ConstructPrimaryMessageToBackupBasedOnRequestType(requestType);
 
-                ASCIIEncoding asen = new ASCIIEncoding();
-
-                b = asen.GetBytes(responseMessage + "\n\n");
+                responseMessage += "\n\n";
             }
 
-            return b;
+            return responseMessage;
         }
 
         /// <summary>
@@ -456,7 +388,7 @@ namespace Server
             messageParam = reposnseMessage.Substring(responseType.Length).Trim();
 
 
-            if (responseType.Equals(REQ_ADDRESSES) || responseType.Equals(REQ_UPDATE_BACKUP))
+            if (responseType.Equals(RES_ADDRESSES) || responseType.Equals(REQ_UPDATE_BACKUP))
             {
                 // get IP Addresses of all the other programs 
                 string[] arrayOfIPAddresses = messageParam.Split(',');
@@ -481,15 +413,6 @@ namespace Server
                 //
                 serversAddresses = allReplicaAddrTemp;
 
-                //if (responseType.Equals(REQ_UPDATE_BACKUP))
-                //{
-                //    primaryServerIp = serversAddresses[0];
-                //}
-
-                /*foreach (IPAddress ip in serversAddresses)
-                {
-                    Console.WriteLine("in method parseResponseMessageForBackup, server addresses are {0}", ip);
-                }*/
             }
             else if (responseType == REQ_NAMES || responseType == REQ_GAMESESSIONS || responseType == REQ_MATCH)
             {
@@ -503,14 +426,7 @@ namespace Server
         }
 
 
-        ///// <summary>
-        ///// This method is used to parse reponse messages after sending requests. 
-        ///// </summary>
-        ///// <param name="reposnseMessage">Response messages</param>
-        //private void parseResponseMessageForPrimary(string reposnseMessage)
-        //{
-        //    throw new NotImplementedException();
-        //}
+
 
         private string ConstructPrimaryMessageToBackupBasedOnRequestType(string requestType)
         {
@@ -576,15 +492,6 @@ namespace Server
 
             return requestMessage;
             
-        }
-
-        /// <summary>
-        /// This method constructs broadcasting messages.
-        /// </summary>
-        /// <returns>A string that will be send to all existing IP Addresses in the network.</returns>
-        private string ConstructBroadcastMessage()
-        {
-            return "isPrimary" + "\n" + "\n";
         }
 
         /// <summary>
@@ -849,15 +756,6 @@ namespace Server
         }
 
         /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="replica"></param>
-        public void addReplica(ServerProgram replica)
-        {
-            serversAddresses.Add(replica.IPAddr);
-        }
-
-        /// <summary>
         /// This method chooses between either sending initial messages from backup to primary or 
         /// check message for server existence.
         /// </summary>
@@ -888,7 +786,6 @@ namespace Server
                 try
                 {
                     SendFromReplicaToServerAndParseResponse("check");
-                    //checkTimerCounter = 0;
                     backupWasUpdated = false;
                 }
                 catch (SocketException)
@@ -950,36 +847,19 @@ namespace Server
         {
             string messageToBeSent = ConstructReplicaMessagesFromReplicaToServer(tempMsg);
 
-            //Console.WriteLine("in method SendFromReplicaToServerAndParseResponse, message to be sent from backup to server {0}", messageToBeSent);
-
             // replica TCP Client for sending requests to primary server
             // Initalize a new TcpClient
-            using (TcpClient replicaClient = new TcpClient())
+            try
             {
-
-            // will send a message to the primary server
-                replicaClient.Connect(serversAddresses[0], 8000);
-
-                Stream stm = replicaClient.GetStream();
-
-                byte[] bytesToSend = Encoding.ASCII.GetBytes(messageToBeSent);
-                stm.Write(bytesToSend, 0, bytesToSend.Length);
-
-                replicaClient.ReceiveBufferSize = SIZE_OF_BUFFER;
-                byte[] bytesRead = new byte[replicaClient.ReceiveBufferSize];
-
-                stm.Read(bytesRead, 0, (int)replicaClient.ReceiveBufferSize);
-
-                string responseMessage = Encoding.ASCII.GetString(bytesRead);
-                responseMessage = responseMessage.Substring(0, responseMessage.IndexOf("\0")).Trim();
-
-                //Console.WriteLine("in method SendFromReplicaToServerAndParseResponse, response message {0}", responseMessage);
-
+                string responseMessage = SendMessage(serversAddresses[0], 8000, messageToBeSent);
                 // Prepare another response to backups
                 parseResponseMessageForBackup(responseMessage);
-
+            }
+            catch
+            {
 
             }
+            
         }
 
         /// <summary>
@@ -993,123 +873,72 @@ namespace Server
 
             // Send back to all backups the new updated information
             // TODO: We know primary only sends so remove zeroth position
-            
-
             // Accumlate backup indexes from the list of backup ips in case they are died
             List<int> indexOfDeadBackupServers = new List<int>();
+            bool keepSending = true;
 
-            // Send all backups updated info
-            for (int j = 1; j < serversAddresses.Count; j++)
+            while (keepSending)
             {
-                // Catch exceptions when backup is not there
-                // 
-                try
-                {
-                    IPAddress backupIP = serversAddresses[j];
-                    TcpClient primaryClientToBackup = new TcpClient();
-                    primaryClientToBackup.Connect(backupIP, 8000);
-
-                    Console.WriteLine("Sending to every backup this {0}", messageUpdate);
-
-                    Stream stm = primaryClientToBackup.GetStream();
-
-                    ASCIIEncoding asen = new ASCIIEncoding();
-
-                    byte[] messageUpdateBytes = asen.GetBytes(messageUpdate);
-
-                    stm.Write(messageUpdateBytes, 0, messageUpdateBytes.Length);
-                    byte[] responseOfBackUp = new byte[SIZE_OF_BUFFER];
-
-                    // Receive response from primary
-                    int k = stm.Read(responseOfBackUp, 0, SIZE_OF_BUFFER);
-
-                    string responseOfBackUpToServerResponseStr = "";
-                    char c = ' ';
-                    for (int i = 0; i < k; i++)
-                    {
-                        c = Convert.ToChar(responseOfBackUp[i]);
-                        responseOfBackUpToServerResponseStr += c;
-                    }
-
-                    // TODO: Check if response has success
-
-                    primaryClientToBackup.Close();
-                }
-                catch (SocketException)
-                {
-                    // Remove the backup server that is not responding to messages
-                    indexOfDeadBackupServers.Add(j);
-                }
-            }
-
-            bool areDead = false;
-            // Remove all dead backups if there is any
-            foreach (int deadBackupind in indexOfDeadBackupServers)
-            {
-                // Ping each backup again 
-                Ping pingBackups = new Ping();
-                PingReply reply = pingBackups.Send(serversAddresses[deadBackupind]);
-                if (!reply.Status.Equals(IPStatus.Success))
-                {
-                    serversAddresses.RemoveAt(deadBackupind);
-                    areDead = true;
-                }
-                
-            }
-
-            // Send messages again
-            // Send all backups updated info
-            // TODO: Refactor this code.
-            if (areDead)
-            {
+                keepSending = false;
+                // Send all backups updated info
                 for (int j = 1; j < serversAddresses.Count; j++)
                 {
-                    // Catch exceptions when backup is not there
                     // 
+                    IPAddress backupIP = serversAddresses[j];
+
                     try
                     {
-                        sendMessage(serversAddresses[j], messageUpdate);
+                        string responseOfBackUpToServerResponseStr = SendMessage(backupIP, 8000, messageUpdate);
+
+                        // TODO: Test response again.
                     }
                     catch (SocketException)
                     {
-                        // Remove the backup server that is not responding to messages
+                        // Remove dead backups
                         indexOfDeadBackupServers.Add(j);
                     }
                 }
+
+                // Remove all dead backups if there is any
+                // TODO: Change this to send instead of Ping
+                foreach (int deadBackupind in indexOfDeadBackupServers)
+                {
+                    // Ping each backup again 
+                    Ping pingBackups = new Ping();
+                    PingReply reply = pingBackups.Send(serversAddresses[deadBackupind]);
+                    if (!reply.Status.Equals(IPStatus.Success))
+                    {
+                        serversAddresses.RemoveAt(deadBackupind);
+                        keepSending = true;
+                    }
+
+                }
             }
+        
         }
 
 
-        private void sendMessage(IPAddress ip, string message)
+        private string SendMessage(IPAddress ip, int portNumber, string message)
         {
-            TcpClient tcpClient = new TcpClient();
-            tcpClient.Connect(ip, 8000);
+            string responseOfBackUpToServerResponseStr = string.Empty;
 
-            //Console.WriteLine("Sending to every backup this {0}", messageUpdate);
-
-            Stream stm = tcpClient.GetStream();
-
-            ASCIIEncoding asen = new ASCIIEncoding();
-
-            byte[] messageUpdateBytes = asen.GetBytes(message);
-
-            stm.Write(messageUpdateBytes, 0, messageUpdateBytes.Length);
-            byte[] responseOfBackUp = new byte[SIZE_OF_BUFFER];
-
-            // Receive response from primary
-            int k = stm.Read(responseOfBackUp, 0, SIZE_OF_BUFFER);
-
-            string responseOfBackUpToServerResponseStr = "";
-            char c = ' ';
-            for (int i = 0; i < k; i++)
+            try
             {
-                c = Convert.ToChar(responseOfBackUp[i]);
-                responseOfBackUpToServerResponseStr += c;
+                using (TcpClient tcpClient = new TcpClient())
+                {
+                    tcpClient.Connect(ip, portNumber);
+
+                    TCPMessageHandler tcpMessagehandler = new TCPMessageHandler();
+
+                    responseOfBackUpToServerResponseStr = tcpMessagehandler.SendMessage(message, tcpClient);
+                }
+            }
+            catch(Exception e)
+            {
+
             }
 
-            // TODO: Check if response has success
-
-            tcpClient.Close();
+            return responseOfBackUpToServerResponseStr;
         }
 
         /// <summary>
@@ -1123,10 +952,13 @@ namespace Server
             {
                 Console.WriteLine("Listening");
                 //Socket sock = rmListener.AcceptSocket();
-                TcpClient backupClient = rmListener.AcceptTcpClient();
-                new Thread(() => {
-                    EstablishConnection(backupClient);
-                }).Start();
+                using (TcpClient backupClient = rmListener.AcceptTcpClient())
+                {
+                    new Thread(() =>
+                    {
+                        EstablishConnection(backupClient);
+                    }).Start();
+                }
             }
         }
 

@@ -69,7 +69,7 @@ namespace Server
             byte[] broadcastIPBytes = GetBroadcastAddress(associatedReplicationManager.thisServer.IPAddr);
 
             IPAddress broadcastIP = new IPAddress(broadcastIPBytes);
-            sendingIP = new IPEndPoint(broadcastIP, 15000);
+            sendingIP = new IPEndPoint(broadcastIP, portNumber);
 
             Thread udpListenThread = new Thread(() =>
             {
@@ -178,7 +178,7 @@ namespace Server
             associatedReplicationManager.thisServer.isPrimaryServer = true;
 
             Console.WriteLine("I'm primary");
-            associatedReplicationManager.addReplica(associatedReplicationManager.thisServer);
+            associatedReplicationManager.serversAddresses.Add(associatedReplicationManager.thisServer.IPAddr);
 
             associatedReplicationManager.thisServer.StartListen();
 
