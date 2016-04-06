@@ -323,12 +323,30 @@ namespace Server
             else if (requestType.Equals(REQ_GAMESESSIONS))
             {
                 responseMessage += RES_GAMESESSIONS + " ";
-                responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetGameSession().Select(session => session.ID + " " + session.Players.Select(player => player.ToMessage()).Aggregate((player1, player2) => player1 + "," + player2)).ToList(), "\n");
+                responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetGameSession()
+                    .Select(session => session.ID + " " + session.Players
+                        .Select(player => player.ToMessage())
+                        .Aggregate(new StringBuilder(), (sb, s) =>
+                        {
+                            if (sb.Length > 0)
+                                sb.Append(",");
+                            sb.Append(s);
+                            return sb;
+                        })).ToList(), "\n");
             }
             else if (requestType.Equals(REQ_MATCH))
             {
                 responseMessage += RES_MATCH + " ";
-                responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetClientWaitingForGame().Select((clientWaitingForGame, gameRequestForThisClient) => gameRequestForThisClient + " " + clientWaitingForGame.Select(player => player.ToMessage()).Aggregate((player1, player2) => player1 + "," + player2)).ToList(), "\n");
+                responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetClientWaitingForGame()
+                    .Select((clientWaitingForGame, gameRequestForThisClient) => gameRequestForThisClient + " " + clientWaitingForGame
+                        .Select(player => player.ToMessage())
+                        .Aggregate(new StringBuilder(), (sb, s) =>
+                        {
+                            if (sb.Length > 0)
+                                sb.Append(",");
+                            sb.Append(s);
+                            return sb;
+                        })).ToList(), "\n");
             }
             else if (requestType.Equals(REQ_UPDATE_BACKUP))
             {
