@@ -287,8 +287,15 @@ namespace Client
                     {
                         Dispose();
                         Console.Clear();
-                        if(!allPeersInfo.Contains(myPeerInfo)) Console.WriteLine("\n\nYou have been removed from the game!\n");
-                        Console.WriteLine("\n\t!! You have quit the game !!\t");
+                        if (Game.Over)
+                        {
+                            Game.Display();
+                            Console.WriteLine("\n\t!! Game Over !!\t");
+                        }
+                        else { 
+                            if(!allPeersInfo.Contains(myPeerInfo)) Console.WriteLine("\n\nYou have been removed from the game!\n");
+                            Console.WriteLine("\n\t!! You have quit the game !!\t");
+                        }
                         break;
                     }
 
@@ -395,8 +402,20 @@ namespace Client
                             Console.WriteLine("\nIt is your turn now :)");
 
                         }
-                        Game.ResetTime();
-                        Game.StartTimer();
+
+                        if (Game.Over)
+                        {
+                            quitGame = true;
+                            var hWnd = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+                            PostMessage(hWnd, WM_KEYDOWN, VK_RETURN, 0);
+
+                        }
+                        else
+                        {
+                            Game.ResetTime();
+                            Game.StartTimer();
+                        }
+
                     }
                     else
                     {
@@ -508,12 +527,8 @@ namespace Client
                 {
                     msgHandler.SendResponse(responseMessage, tcpclient);
                 }
-
-
             }
-        }
-
-    
+        }   
 
         /// <summary>
         /// Sync game state
@@ -539,6 +554,7 @@ namespace Client
                 }
             }
         }
+
         /// <summary>
         /// Sync peer info list 
         /// </summary>
@@ -625,8 +641,16 @@ namespace Client
                     Console.WriteLine("\nYOU moved " + dice + " steps.");
                     
                     Game.UpdateTurn();
-                    Game.ResetTime();
-                    Game.StartTimer();
+
+                    if (Game.Over)
+                    {
+                        quitGame = true;
+
+                    }else { 
+
+                        Game.ResetTime();
+                        Game.StartTimer();
+                    }
                 }
   
             }
@@ -963,6 +987,14 @@ namespace Client
             {
                 Console.Write("Sending to server: Removing peer {0} from game session...", peerToBeRemoved.PlayerInfo.PlayerId);
                 await Task.Run(()=>SendMessageToServer(Request.RMPLAYER + " " + peerToBeRemoved.PlayerInfo.Name + " " + peerToBeRemoved.GameSessionId));  
+            }
+
+            if (Game.Over)
+            {
+                quitGame = true;
+                var hWnd = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+                PostMessage(hWnd, WM_KEYDOWN, VK_RETURN, 0);
+                return;
             }
 
         }
