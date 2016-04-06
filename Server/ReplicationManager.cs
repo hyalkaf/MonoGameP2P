@@ -530,7 +530,7 @@ namespace Server
 
 
                 // Extract index of gameQueue
-                string[] arrayOfGameQueue = gameQueue.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
+                string[] arrayOfGameQueue = gameQueue.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
 
                 if (extraIndexForGameCapacity == 1)
                 {
