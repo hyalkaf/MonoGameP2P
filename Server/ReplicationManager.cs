@@ -227,7 +227,7 @@ namespace Server
                     backupClient.Close();
 
                     // Send to all backups
-                    IEnumerable<IPAddress> backupsIPs = serversAddresses.SkipWhile((backup, indexOfBackup) => indexOfBackup != 0);
+                    IEnumerable<IPAddress> backupsIPs = serversAddresses.Where((backup, indexOfBackup) => indexOfBackup != 0 && !backup.Equals(thisServer.IPAddr));
                     if (SendToReplicationManagers(backupsIPs, responseMessage))
                     {
                         // Send to everybody the new state if something changed.
@@ -317,22 +317,22 @@ namespace Server
             }
             else if (requestType.Equals(REQ_NAMES))
             {
-                responseMessage += requestType + " ";
+                responseMessage += RES_NAMES + " ";
                 responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetPlayerNames().ToList(), ",");
             }
             else if (requestType.Equals(REQ_GAMESESSIONS))
             {
-                responseMessage += requestType + " ";
+                responseMessage += RES_GAMESESSIONS + " ";
                 responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetGameSession().Select(session => session.ID + " " + session.Players.Select(player => player.ToMessage() + ",")).ToList(), "\n");
             }
             else if (requestType.Equals(REQ_MATCH))
             {
-                responseMessage += requestType + " ";
+                responseMessage += RES_MATCH + " ";
                 responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetClientWaitingForGame().Select((clientWaitingForGame, gameRequestForThisClient) => gameRequestForThisClient + " " + clientWaitingForGame.Select(player => player.ToMessage() + ",")).ToList(), "\n");
             }
             else if (requestType.Equals(REQ_UPDATE_BACKUP))
             {
-                responseMessage += requestType + " ";
+                responseMessage += REQ_UPDATE_BACKUP + " ";
                 responseMessage += MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
             }
 
