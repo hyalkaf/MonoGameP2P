@@ -14,6 +14,7 @@ namespace Client
         public string Name { get; set; }
         public int Position { get; set; }
 
+        // Turn number
         public int Turn
         {
             get { return inGameTurn; }
@@ -26,7 +27,7 @@ namespace Client
 
         private int inGameTurn = -1;
         /// <summary>
-        /// 
+        /// Constructor with name and id
         /// </summary>
         /// <param name="playername"></param>
         /// <param name="playerId"></param>
@@ -36,12 +37,9 @@ namespace Client
             PlayerId = playerId;
         }
 
-        public Player(string playername)
-        {
-            Name = playername;
-            PlayerId = -1;
-        }
-
+        /// <summary>
+        /// Display if it is this player's turn 
+        /// </summary>
         public void IsItMyTurn()
         {
             if (Turn == 0)

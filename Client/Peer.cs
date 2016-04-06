@@ -402,8 +402,15 @@ namespace Client {
             TCPMessageHandler msgHandler = new TCPMessageHandler();
 
             // Continously process incoming requests until the peer disconnects
-            while (true) { 
-                string requestMessage = msgHandler.RecieveMessage(tcpclient);
+            while (true) {
+                string requestMessage = "";
+                try { 
+                  requestMessage = msgHandler.RecieveMessage(tcpclient);
+                }
+                catch (Exception)
+                {
+                    return;
+                }
 
                 string reqType;
                 string reqMsg;
