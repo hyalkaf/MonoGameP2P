@@ -30,7 +30,7 @@ namespace Server
 
         // This timer will be running every 5 seconds to check the primary server's existence
         // This will be used when primary server is died or out of connection.
-        private static readonly int CHECK_MESSAGE_INTERVAL = 5000;
+        private static readonly int CHECK_MESSAGE_INTERVAL_IN_SECONDS = 5;
         private Timer timerForCheckingPrimaryExistence;
 
         // This timer will be running every 5 seconds to check the primary server's existence
@@ -91,9 +91,6 @@ namespace Server
         // Requests that will be sent from backup to primary server every time 
         // a new backup is initalized. 
         private static readonly string[] MESSAGES_SENT_AND_RECEIEVED_BY_A_NEW_BACKUP = { REQ_BACKUP, REQ_NAMES, REQ_GAMESESSIONS, REQ_MATCH };
-        // SIZE_OF_BUGGER is used for initalizing byte array of this size to receive information
-        // through the network.
-        private static readonly int SIZE_OF_BUFFER = 4096;
 
         // This is the default port used for broadcasting and listening to 
         // UDP messages. Make sure that firewall is not blocking it as well as
@@ -131,8 +128,9 @@ namespace Server
 
             if (thisServer.isPrimaryServer)
             {
-                timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+                timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS), TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS));
             }
+
 
         }
 
@@ -148,7 +146,7 @@ namespace Server
                 serversAddresses.Add(primaryServerIP);
 
                 // Timer for checking if primary is there
-                timerForCheckingPrimaryExistence = new Timer(CheckServerExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+                timerForCheckingPrimaryExistence = new Timer(CheckServerExistence, null, TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS), TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS));
 
                 // send Initial Request when backup in initalized
                 foreach (string requestMessage in MESSAGES_SENT_AND_RECEIEVED_BY_A_NEW_BACKUP)
@@ -182,6 +180,7 @@ namespace Server
                 // TODO: deal with exceptions in this
                 TCPMessageHandler tcpClientMessageHandler = new TCPMessageHandler();
                 requestMessage = tcpClientMessageHandler.RecieveMessage(backupClient);
+                Console.WriteLine(requestMessage);
             }
             catch(Exception e)
             {
@@ -191,9 +190,9 @@ namespace Server
             // Depending on whether server is primary or backup parse messages accrodingly
             if (thisServer.isPrimaryServer && 
                 (requestMessage.StartsWith(REQ_BACKUP) ||
-                requestMessage.StartsWith(RES_NAMES) ||
-                requestMessage.StartsWith(RES_GAMESESSIONS) ||
-                requestMessage.StartsWith(RES_MATCH) ||
+                requestMessage.StartsWith(REQ_NAMES) ||
+                requestMessage.StartsWith(REQ_GAMESESSIONS) ||
+                requestMessage.StartsWith(REQ_MATCH) ||
                 requestMessage.StartsWith(REQ_UPDATE_BACKUP) ||
                 requestMessage.StartsWith(REQ_CHECK)))
             {
@@ -244,9 +243,9 @@ namespace Server
             // Server is not primary
             else if (!thisServer.isPrimaryServer &&
                 (requestMessage.StartsWith(RES_ADDRESSES) ||
-                requestMessage.StartsWith(REQ_NAMES) ||
-                requestMessage.StartsWith(REQ_GAMESESSIONS) ||
-                requestMessage.StartsWith(REQ_MATCH) ||
+                requestMessage.StartsWith(RES_NAMES) ||
+                requestMessage.StartsWith(RES_GAMESESSIONS) ||
+                requestMessage.StartsWith(RES_MATCH) ||
                 requestMessage.StartsWith(REQ_CHECK)))
             {
 
@@ -591,7 +590,7 @@ namespace Server
             string messageUpdate = updateType + " " + MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
 
             // Send to all backups
-            IEnumerable<IPAddress> backupsIPs = serversAddresses.SkipWhile((backup, indexOfBackup) => indexOfBackup != 0);
+            IEnumerable<IPAddress> backupsIPs = serversAddresses.Where((backup, indexOfBackup) => indexOfBackup != 0 && !backup.Equals(thisServer.IPAddr));
             if (SendToReplicationManagers(backupsIPs, messageUpdate))
             {
                 // Send to everybody the new state if something changed.
