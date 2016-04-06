@@ -559,7 +559,15 @@ namespace Server
         {
             try
             {
-                string messageToBeSent = ConstructBackUPToServerMessages(messageToSend);
+                string messageToBeSent = string.Empty;
+                if (messageToSend.Equals(REQ_BACKUP))
+                {
+                    messageToBeSent = MessageConstructor.ConstructMessageToSend(new List<string>() { messageToSend, thisServer.IPAddr.ToString() });
+                }
+                else
+                {
+                    messageToBeSent = MessageConstructor.ConstructMessageToSend(new List<string>() { messageToSend });
+                }
                 TCPMessageHandler tcpMessageHandler = new TCPMessageHandler();
                 string responseMessage = tcpMessageHandler.SendMessage(serversAddresses[0], 8000, messageToBeSent);
                 // Prepare another response to backups
