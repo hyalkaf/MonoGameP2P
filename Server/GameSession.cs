@@ -89,15 +89,15 @@ namespace Server
                 // Don't add comma at the end of the string
                 if (clientInfoIndex == 0)
                 {
-                    msg += ID + " " + players[clientInfoIndex].ToMessage() + ",";
+                    msg += ID + " " + players[clientInfoIndex].ToMessageForGameSession() + ",";
                 }
                 else if (clientInfoIndex.Equals(players.Count - 1))
                 {
-                    msg += players[clientInfoIndex].ToMessage();
+                    msg += players[clientInfoIndex].ToMessageForGameSession();
                 }
                 else
                 {
-                    msg += players[clientInfoIndex].ToMessage() + ",";
+                    msg += players[clientInfoIndex].ToMessageForGameSession() + ",";
                 }
             }
 

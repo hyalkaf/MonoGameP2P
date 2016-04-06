@@ -202,16 +202,16 @@ namespace Server
                     // If element is last, then append comma to the end as a delimiter for different game capacities.
                     if (clientInQueueIndex.Equals(clientsWaitingForGame[clientsWaitingIndex].Count - 1))
                     {
-                        message += clientsWaitingForGame[clientsWaitingIndex].ElementAt(clientInQueueIndex).ToMessage() + ",";
+                        message += clientsWaitingForGame[clientsWaitingIndex].ElementAt(clientInQueueIndex).ToMessageForGameQueue() + ",";
                     }
                     // If element is first, message will have the capacity first then each player delimited by spaces.
                     else if (clientInQueueIndex.Equals(0))
                     {
-                        message += clientsWaitingIndex + " " + clientsWaitingForGame[clientsWaitingIndex].ElementAt(clientInQueueIndex).ToMessage() + " ";
+                        message += clientsWaitingIndex + " " + clientsWaitingForGame[clientsWaitingIndex].ElementAt(clientInQueueIndex).ToMessageForGameQueue() + " ";
                     }
                     else
                     {
-                        message += clientsWaitingForGame[clientsWaitingIndex].ElementAt(clientInQueueIndex).ToMessage() + " ";
+                        message += clientsWaitingForGame[clientsWaitingIndex].ElementAt(clientInQueueIndex).ToMessageForGameQueue() + " ";
                     }
 
                 }
