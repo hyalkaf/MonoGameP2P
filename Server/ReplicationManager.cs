@@ -192,15 +192,15 @@ namespace Server
                 {
                     try
                     {
-                        tcpClientMessageHandler.SendMessage(responseMessage, backupClient);
+                        tcpClientMessageHandler.SendResponse("", backupClient);
                     }
                     catch(Exception e)
                     {
                         Console.WriteLine("Failed");
                     }
 
-                    backupClient.GetStream().Write(new byte[1], 0, 0);
                     backupClient.Close();
+
 
 
                 }
@@ -209,7 +209,14 @@ namespace Server
                     // sendback
                     try
                     {
-                        backupClient.GetStream().Write(new byte[1], 0, 0);
+                        try
+                        {
+                            backupClient.GetStream().Write(new byte[1], 0, 0);
+                        }
+                        catch
+                        {
+                            Console.WriteLine("Failed");
+                        }
                         backupClient.Close();
                     }
                     catch
@@ -283,7 +290,14 @@ namespace Server
                 // TODO: Response of success
 
                 // TODO: how does socket differ from tcp client.
-                backupClient.GetStream().Write(new byte[1], 0, 0);
+                try
+                {
+                    backupClient.GetStream().Write(new byte[1], 0, 0);
+                }
+                catch
+                {
+                    Console.WriteLine("Failed");
+                }
                 backupClient.Close();
             }
 
