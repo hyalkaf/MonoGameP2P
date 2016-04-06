@@ -789,6 +789,7 @@ namespace Server
             {
                 try
                 {
+                    Console.WriteLine("Send check messages");
                     SendFromReplicaToServerAndParseResponse(REQ_CHECK);
                     backupWasUpdated = false;
                 }
@@ -799,6 +800,7 @@ namespace Server
                     // TODO: This won't work for multiple servers
                     if (!backupWasUpdated && serversAddresses[1].Equals(thisServer.IPAddr))
                     {
+                        Console.WriteLine("This server is becoming a primary");
                         MakeThisServerPrimary();
                     }
                 }
@@ -855,6 +857,7 @@ namespace Server
             // Initalize a new TcpClient
             try
             {
+                Console.WriteLine("SendFromReplicaToServerAndParseResponse this message {0}", tempMsg);
                 string responseMessage = SendMessage(serversAddresses[0], 8000, messageToBeSent);
                 // Prepare another response to backups
                 parseResponseMessageForBackup(responseMessage);
