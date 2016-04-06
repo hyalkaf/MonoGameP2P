@@ -141,7 +141,7 @@ namespace Server
                 //if (!serversAddresses.Exists(e => e.Equals(primaryServerIP)))
                 //{ 
                     // Add Primary server ip address to replica
-                    // serversAddresses.Add(primaryServerIP);
+                    serversAddresses.Add(primaryServerIP);
 
                     // Timer for checking if primary is there
                     timerForCheckingPrimaryExistence = new Timer(CheckServerExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
