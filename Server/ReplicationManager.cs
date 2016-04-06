@@ -227,7 +227,7 @@ namespace Server
                     backupClient.Close();
 
                     // Send to all backups
-                    IEnumerable<IPAddress> backupsIPs = serversAddresses.SkipWhile((backup, indexOfBackup) => indexOfBackup != 0 && !backup.Equals(thisServer.IPAddr));
+                    IEnumerable<IPAddress> backupsIPs = serversAddresses.Where((backup, indexOfBackup) => indexOfBackup != 0 && !backup.Equals(thisServer.IPAddr));
                     if (SendToReplicationManagers(backupsIPs, responseMessage))
                     {
                         // Send to everybody the new state if something changed.
