@@ -108,6 +108,7 @@ namespace Server
         /// <param name="associatedServer">The associated server that initialized this replication manager.</param>
         public ReplicationManager(ServerProgram associatedServer)
         {
+            serversAddresses = new List<IPAddress>();
             // assoicate the server with this replication manager
             thisServer = associatedServer;
 
