@@ -66,16 +66,10 @@ namespace Server
             receiveBroadcastUDPClient.EnableBroadcast = isBroadCast;
             this.associatedReplicationManager = associatedReplicationManager;
 
-            byte[] thisIPBytes = associatedReplicationManager.thisServer.IPAddr.GetAddressBytes();
-            byte[] broadcastIPBytes = new byte[4];
-
-            broadcastIPBytes[0] = thisIPBytes[0];
-            broadcastIPBytes[1] = thisIPBytes[1];
-            broadcastIPBytes[2] = 15;
-            broadcastIPBytes[3] = 255;
+            byte[] broadcastIPBytes = GetBroadcastAddress(associatedReplicationManager.thisServer.IPAddr);
 
             IPAddress broadcastIP = new IPAddress(broadcastIPBytes);
-            sendingIP = new IPEndPoint(broadcastIP, 15000);
+            sendingIP = new IPEndPoint(broadcastIP, portNumber);
 
             Thread udpListenThread = new Thread(() =>
             {
@@ -85,7 +79,7 @@ namespace Server
             udpListenThread.Start();
 
             // Initalize timer countdown before becoming primary server
-            timerForFindingPrimary = new Timer(timerCallBackForFindingPrimary, REQ_IS_PRIMARY_THERE, FINDING_PRIMARY_COUNTDOWN, Timeout.Infinite);
+            timerForFindingPrimary = new Timer(TimerCallBackForFindingPrimary, REQ_IS_PRIMARY_THERE, FINDING_PRIMARY_COUNTDOWN, Timeout.Infinite);
 
             // While primary hasn't been found and there wasn't any reply from other server 
             // continue sending messages number of times. 
@@ -152,26 +146,7 @@ namespace Server
                 // Check if this backup server is primary
                 if (associatedReplicationManager.thisServer.isPrimaryServer)
                 {
-                    // Send a response back
-                    // TODO: Only send to specific ip.
-                    // Don't broadcast 
                     SendMessage(RES_PRIMARY_FOUND);
-                    // Test: send to specific ip
-                    // Initialize a new udp client
-                    //UdpClient client = new UdpClient(AddressFamily.InterNetwork);
-
-                    //// Send a request message asking if primary exists.
-                    //byte[] bytes = Encoding.ASCII.GetBytes("primary");
-
-                    //// Send message
-                    //ip.Port = 15000;
-                    //client.Send(bytes, bytes.Length, ip);
-
-                    //Console.WriteLine("I sent {0}", "primary");
-
-                    //// Close client
-                    //client.Close();
-
 
                 }
             }
@@ -198,15 +173,34 @@ namespace Server
         /// The server becomes the primary server when that happens.
         /// </summary>
         /// <param name="state">Passed parameter to the call back -> Object</param>
-        private void timerCallBackForFindingPrimary(object state)
+        private void TimerCallBackForFindingPrimary(object state)
         {
             associatedReplicationManager.thisServer.isPrimaryServer = true;
 
             Console.WriteLine("I'm primary");
-            associatedReplicationManager.addReplica(associatedReplicationManager.thisServer);
+            associatedReplicationManager.serversAddresses.Add(associatedReplicationManager.thisServer.IPAddr);
 
             associatedReplicationManager.thisServer.StartListen();
 
+        }
+
+        /// <summary>
+        /// This method figures out the broadcast IP address of the local network.
+        /// </summary>
+        /// <param name="thisServerIPAddress"></param>
+        /// <returns>Broadcast ip address of this network</returns>
+        private byte[] GetBroadcastAddress(IPAddress thisServerIPAddress)
+        {
+            // Get components of ip address
+            byte[] thisIPBytes = associatedReplicationManager.thisServer.IPAddr.GetAddressBytes();
+            byte[] broadcastIPBytes = new byte[4];
+
+            broadcastIPBytes[0] = thisIPBytes[0];
+            broadcastIPBytes[1] = thisIPBytes[1];
+            broadcastIPBytes[2] = 15;
+            broadcastIPBytes[3] = 255;
+
+            return broadcastIPBytes;
         }
     }
 }
