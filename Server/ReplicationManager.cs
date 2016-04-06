@@ -195,7 +195,7 @@ namespace Server
                     }
                     catch(Exception e)
                     {
-
+                        Console.WriteLine("Failed");
                     }
                     //backupClient.Client.Send(responseMessage);
 
@@ -213,7 +213,7 @@ namespace Server
                     }
                     catch
                     {
-
+                        Console.WriteLine("Failed");
                     }
 
                     // Accumlate backup indexes from the list of backup ips in case they are died
@@ -283,7 +283,10 @@ namespace Server
 
                 // TODO: how does socket differ from tcp client.
             }
-                
+
+            backupClient.Close();
+
+
         }
             
            
@@ -936,7 +939,7 @@ namespace Server
             }
             catch(Exception e)
             {
-
+                Console.WriteLine("Failed");
             }
 
             return responseOfBackUpToServerResponseStr;
@@ -953,13 +956,13 @@ namespace Server
             {
                 Console.WriteLine("Listening");
                 //Socket sock = rmListener.AcceptSocket();
-                using (TcpClient backupClient = rmListener.AcceptTcpClient())
+                TcpClient backupClient = rmListener.AcceptTcpClient();
+                
+                new Thread(() =>
                 {
-                    new Thread(() =>
-                    {
-                        EstablishConnection(backupClient);
-                    }).Start();
-                }
+                    EstablishConnection(backupClient);
+                }).Start();
+                
             }
         }
 
