@@ -49,7 +49,7 @@ namespace Client
             
         }
         /// <summary>
-        /// Initialize 
+        /// Initialize IP, port , Player Info , and game session ID to this peer info
         /// </summary>
         /// <param name="ip"></param>
         /// <param name="port"></param>
@@ -73,27 +73,46 @@ namespace Client
         }
 
       
-        
+        /// <summary>
+        /// to string
+        /// </summary>
+        /// <returns></returns>
         public override string ToString()
         {
             return "(" + PlayerInfo.PlayerId + ")" + PlayerInfo.Name;
         }
 
-
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns>bool: whether if this peer is max penalty strike</returns>
         public bool IsStrikeOutOnNextAdd()
         {
             return Strike + 1 > 2;
         }
+
+        /// <summary>
+        /// Increment and return strike value
+        /// </summary>
+        /// <returns></returns>
         public int AddStrike()
         {
             Strike++;
             return Strike;
         }
+        /// <summary>
+        /// Reset strike value to 0
+        /// </summary>
         public void ResetStrike()
         {
             Strike = 0;
         }
 
+        /// <summary>
+        /// Compare with other peer info by ID number
+        /// </summary>
+        /// <param name="other"></param>
+        /// <returns></returns>
         public int CompareTo(PeerInfo other)
         {
             return this.PlayerInfo.PlayerId.CompareTo(other.PlayerInfo.PlayerId);

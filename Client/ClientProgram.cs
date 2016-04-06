@@ -16,7 +16,9 @@ namespace Client
     /// </summary>
     public class ClientProgram
     {
-
+        /// <summary>
+        /// Main request message type
+        /// </summary>
         private class Request
         {
             public const string GAME = "game";
@@ -27,17 +29,23 @@ namespace Client
             public const string SERVRECONN = "servreconn";
         }
 
+        /// <summary>
+        /// Main response message type
+        /// 
+        /// </summary>
         private class Response
         {
             public const string SUCCESS = "success";
             public const string FAILURE = "failure";
             public const string ERROR = "error";
         }
-
+        // Game connect type : New game or Reconnect
         enum GameConnectType
         {
            NewGame,Reconnect 
         }
+
+        // Resoponse status
         enum ResponseStatus
         {
             Ok,Game,Error
@@ -80,13 +88,17 @@ namespace Client
             Login();
 
         }
-
+        /// <summary>
+        /// Check with server if player exists
+        /// 
+        /// </summary>
         private void Login()
         {
             // Connect to server and set unique player name 
             string pName = String.Empty;
             int checkNameResult = -1;
 
+            // Until user login to server by confirming player name
             do
             {
                 ConnectToServer();
@@ -95,6 +107,7 @@ namespace Client
                 pName = Console.ReadLine();
                 pName = pName.Replace(" ", "").Replace("\t", "");
 
+                // Send CHECKNAME request
                 checkNameResult = SendRequest(Request.CHECKNAME + " " + pName);
                 if (checkNameResult == -1)
                 {
@@ -119,14 +132,16 @@ namespace Client
         }
 
         /// <summary>
-        /// This method connects to the server for estiblishing a game.
-        /// TODO: Should we have a specific IP and port or we should change it.
+        /// This method connects to the server.
         /// </summary>
+        /// <param name="reqServReconn"> Determine if the client is reconnecting</param>
         private void ConnectToServer(bool reqServReconn = false)
         {
-
+            // If not in game, safely connect to server
             if (!inGame) { 
                 bool connected = true;
+
+                // Number to try if fail to connect on initial attempt
                 int tryTimes = 10;
                 do
                 {
@@ -147,6 +162,7 @@ namespace Client
                         connected = false;
                         tryTimes--;
                         client.Close();
+                        // Prompt for new IP address if fail to connect
                         if (tryTimes < 1)
                         {
                             Console.Write("Did you have the wrong Server IP Address? (Press Enter or enter new IP Address: )");
@@ -169,6 +185,7 @@ namespace Client
 
                 } while (!connected);
 
+                // Send SERVRECONN request if the client is reconnecting to server
                 if (reqServReconn)
                 {
             
@@ -199,6 +216,7 @@ namespace Client
 
             switch (reqType)
             {
+                // Game request
                 case Request.GAME:
                     thisTcpClient = new TcpClient();
                     thisTcpClient.Connect(SERVER_IP, SERVER_PORT);
@@ -216,6 +234,7 @@ namespace Client
                     reqMessage = reqType + " " + playerName + " " + numOfPeersToMatch;
                     break;
 
+                // Reconnect back to game
                 case Request.RECONN:
                     int numTest;
                     if (reqMsg == "" || !int.TryParse(reqMsg, out numTest))
@@ -231,12 +250,16 @@ namespace Client
                     reqMessage = reqType + " " + playerName + " " + gameId;
                     break;
 
+                // Cancel game request
                 case Request.CANCEL:
                     reqMessage = reqType + " " + playerName;
                     break;
-
-                case Request.PLAYERS:                 
+                
+                 // Number of current players
+                case Request.PLAYERS:        
+                    // Check player name existence         
                 case Request.CHECKNAME:
+                    // Server reconnecting request
                 case Request.SERVRECONN:
                     reqMessage = reqType + " " + reqMsg;
                     break;
@@ -250,6 +273,7 @@ namespace Client
                 string responseMessage = msgHandler.SendMessage(reqMessage, thisTcpClient);
                 //Done writing to server
 
+                // Get response status
                 ResponseStatus status = ProcessResponseMessage(responseMessage);
 
                 switch (status)
@@ -263,6 +287,7 @@ namespace Client
                             ConnectToServer();
                         }
                         break;
+                    // Game match found, interrupt user input and close the client socket
                     case ResponseStatus.Game:
                         Console.WriteLine("!!!!!!!!!!!\nGame Matched!\n!!!!!!!!!!!\n");
                         Console.WriteLine("\tstarting...");
@@ -302,6 +327,7 @@ namespace Client
             string respMsg;
             MessageParser.ParseNext(responseMessage, out respType, out respMsg);
 
+            // If message success
             if (respType == Response.SUCCESS)
             {
                 string reqType;
@@ -309,15 +335,17 @@ namespace Client
                 MessageParser.ParseNext(respMsg, out reqType, out respMsg);
 
                 Console.WriteLine("\nDEBUG: " + reqType + "\n");
+                // If connecting to a p2p game
                 if (reqType == Request.GAME || reqType == Request.RECONN)
                 {
+                    
                     allPeersInfo = new List<PeerInfo>();
-  
+                    
                     string gameSessionId;
                     MessageParser.ParseNext(respMsg, out gameSessionId, out respMsg);
                     IEnumerable<string> temp = respMsg.Split(',');
-
-
+                    // Get all players info
+                    // Parse from message
                     allPeersInfo = temp.Where(elem => !string.IsNullOrEmpty(elem)).Select(info =>
                     {
                         string[] parsedInfo = info.Trim().Split(' ');
@@ -338,8 +366,10 @@ namespace Client
                        
                     }).ToList();
                     
+                    // Set in game flag to true
                     inGame = true;
 
+                    // Indicates if the client is reconnecting or starting a new game
                     switch (reqType)
                     {
                         case Request.GAME:
@@ -350,6 +380,7 @@ namespace Client
 
                     return ResponseStatus.Game;
                 }
+                // Number of players
                 else if (reqType == Request.PLAYERS)
                 {
                     // DISPLAY playernum ON GUI
@@ -357,18 +388,23 @@ namespace Client
                     Console.WriteLine("\nNum of Players on server now: " + playernum);
                     return ResponseStatus.Ok;
                 }
+                // Cancel request
                 else if (reqType == Request.CANCEL)
                 {
                     // INDICATES THAT THE USER HAVE CANCELED 
                     Console.WriteLine("\nYou have CANCELED your match making.");
                     return ResponseStatus.Ok;
                 }
+                // Name does not exist on server
                 else if (reqType == Request.CHECKNAME)
                 {
                     Console.WriteLine("\nName is available!");
                     return ResponseStatus.Ok;
-                }else if (reqType == Request.SERVRECONN)
+                }
+                // Reconnected back to server
+                else if (reqType == Request.SERVRECONN)
                 {
+                    // If user was in game queue, re request game 
                     if(respMsg != "") {
                         string reconnRespReqType;
                         MessageParser.ParseNext(respMsg, out reconnRespReqType, out respMsg);
@@ -388,6 +424,7 @@ namespace Client
                 }
 
             }
+            // FAILURE/ERROR message : just print server response
             else if (respType == Response.FAILURE)
             {
 
@@ -433,25 +470,24 @@ namespace Client
 
         }
 
+        /// <summary>
+        /// Main user prompt for this client program
+        /// </summary>
         public void StartClient()
         {
 
-            // Continously stay connected to the server
-    
-                
+            // Continously stay connected to the server                
             while (true)
             {
                 try
                 {
-
+                    // If not in game, keep prompting
                     if (!inGame)
                     {
                          
                         Console.Write("Send request (game, players, cancel, reconn): ");
                         var request = Console.ReadLine().Trim().ToLower();
-
-
-
+                        // IF not in game after prompt, send message to server
                         if (!inGame)
                         {
                                        
@@ -463,7 +499,7 @@ namespace Client
                        
                            
                     }
-
+                    // If in game
                     if(inGame)
                     {
                         // Leave the server if a game was matched, 
@@ -500,7 +536,7 @@ namespace Client
                
         }
 
-
+        // Main method
         static void Main(string[] args)
         {
             try

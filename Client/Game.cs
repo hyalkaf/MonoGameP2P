@@ -40,7 +40,10 @@ public class Game
     object timerLock = new object();
     object timeChangeLock = new object();
 
-    //construvtor
+    /// <summary>
+    /// Constructor
+    /// </summary>
+    /// <param name="players">list of all players</param>
     public Game(List<PeerInfo> players)
     {
         ResetTime();
@@ -72,7 +75,7 @@ public class Game
     }
 
     /// <summary>
-    /// 
+    /// Move player to spot
     /// 
     /// </summary>
     /// <param name="current_player"></param>
@@ -99,7 +102,9 @@ public class Game
 
         Display();
     }
-
+    /// <summary>
+    /// Update turn number for players by decrementing turn number
+    /// </summary>
     public void UpdateTurn()
     {
         foreach (List<Player> players in Board)
@@ -116,7 +121,10 @@ public class Game
         }
     }
 
-    //updated player is added to correct place on board
+    /// <summary>
+    ///  updated player is added to correct place on board, use for reconnecting/syncing game state
+    /// </summary>
+    /// <param name="p"></param>
     public void UpdatePlayer(Player p)
     {
         foreach(List<Player> players in Board)
@@ -131,7 +139,10 @@ public class Game
     }
 
        
-
+    /// <summary>
+    /// Remove player from game board
+    /// </summary>
+    /// <param name="pToBeRemoved"></param>
     public void RemovePlayer(Player pToBeRemoved)
     {
         int removedPlayerTurnNum = pToBeRemoved.Turn;
@@ -159,7 +170,9 @@ public class Game
         Display();
     }
 
-
+    /// <summary>
+    /// Display game board
+    /// </summary>
     public void Display()
     {
         string display = "\n-------------------------------\n";
@@ -187,7 +200,9 @@ public class Game
         }
 
     }
-
+    /// <summary>
+    /// Pause timer
+    /// </summary>
     public void PauseTimer()
     {
         lock (timerLock)
@@ -202,7 +217,9 @@ public class Game
         }
        
     }
-
+    /// <summary>
+    /// Start timer
+    /// </summary>
     public void StartTimer()
     {
         lock (timerLock)
@@ -217,12 +234,18 @@ public class Game
             }
         }
     }
-
+    /// <summary>
+    /// Reset time back to MAX time
+    /// </summary>
     public void ResetTime()
     {
         SetTime(TIMER_START_TIME);
     }
 
+    /// <summary>
+    /// Set timer to specific value
+    /// </summary>
+    /// <param name="t"></param>
     public void SetTime(int t)
     {
         lock (timeChangeLock)
@@ -231,8 +254,6 @@ public class Game
         }
     }
 
-   
 
-       
 }
 
