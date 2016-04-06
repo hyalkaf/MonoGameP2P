@@ -182,7 +182,8 @@ namespace Server
                 requestMessage.StartsWith(RES_NAMES) ||
                 requestMessage.StartsWith(RES_GAMESESSIONS) ||
                 requestMessage.StartsWith(RES_MATCH) ||
-                requestMessage.StartsWith(REQ_UPDATE_BACKUP)))
+                requestMessage.StartsWith(REQ_UPDATE_BACKUP) ||
+                requestMessage.StartsWith(REQ_CHECK)))
             {
                 // Get appeopraite response
                 string responseMessage = parseRequestMessageForPrimary(requestMessage);
@@ -236,8 +237,7 @@ namespace Server
                 (requestMessage.StartsWith(RES_ADDRESSES) ||
                 requestMessage.StartsWith(REQ_NAMES) ||
                 requestMessage.StartsWith(REQ_GAMESESSIONS) ||
-                requestMessage.StartsWith(REQ_MATCH) ||
-                requestMessage.StartsWith(REQ_CHECK)))
+                requestMessage.StartsWith(REQ_MATCH)))
             {
                 //Console.WriteLine("Received messages from primary of this type {0}", requestMessage);
 
@@ -570,32 +570,6 @@ namespace Server
                 Console.WriteLine("sending from replica to primary for replica, name, and session is not working {0}", e.Message);
             }
         }
-  
-        
-
-        /// <summary>
-        /// This method build up message to be sent from each replica to the server.
-        /// </summary>
-        /// <param name="replicaMsg">request that should be sent to the primary server</param>
-        /// <returns>Complete message that should be sent to the primary server</returns>
-        private string ConstructBackUPToServerMessages(string replicaMsg)
-        {
-            string messageToBeSent = string.Empty;
-
-            if (replicaMsg.StartsWith(REQ_BACKUP))
-            {
-                // Message to be sent 
-                messageToBeSent = REQ_BACKUP + " " + thisServer.IPAddr + "\n\n";
-            }
-            else
-            {
-                messageToBeSent = replicaMsg + "\n\n";
-            }
-
-            return messageToBeSent;
-        }
-
-
 
         /// <summary>
         /// This method get triggered whenever a change in the game state or the list of backup servers happen
@@ -702,7 +676,8 @@ namespace Server
             {
                 try
                 {
-                    string messageToBeSent = ConstructBackUPToServerMessages(REQ_CHECK);
+                    
+                    string messageToBeSent = MessageConstructor.ConstructMessageToSend(new List<string>() { REQ_CHECK, thisServer.IPAddr.ToString() });
                     TCPMessageHandler tcpMessageHandler = new TCPMessageHandler();
                     string responseMessage = tcpMessageHandler.SendMessage(serversAddresses[0], 8000, messageToBeSent);
                     // Prepare another response to backups
