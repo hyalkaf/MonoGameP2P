@@ -58,7 +58,7 @@ namespace Client
 
         private string playerName;
         public bool inGame = false;
-
+        private bool reconnecting = false;
         public static string SERVER_IP = "";
 
         // For interrupting user input
@@ -138,8 +138,10 @@ namespace Client
         /// <param name="reqServReconn"> Determine if the client is reconnecting</param>
         private void ConnectToServer(bool reqServReconn = false)
         {
+
             // If not in game, safely connect to server
-            if (!inGame) { 
+            if (!inGame) {
+                if (client != null && client.Client != null && client.Connected ) return;
                 bool connected = true;
 
                 // Number to try if fail to connect on initial attempt
@@ -158,6 +160,7 @@ namespace Client
                     }
                     catch (Exception)
                     {
+                        reconnecting = true;
                         reqServReconn = true;
                         Console.WriteLine("Retrying...");
                         connected = false;
@@ -166,26 +169,14 @@ namespace Client
                         // Prompt for new IP address if fail to connect
                         if (tryTimes < 1)
                         {
-                            Console.Write("Did you have the wrong Server IP Address? (Press Enter or enter new IP Address: )");
-                            string result = Console.ReadLine();
-
-                            IPAddress newip;
-                            if(result.Trim() != String.Empty)
-                            {
-                                while(!IPAddress.TryParse(result,out newip))
-                                {
-                                    Console.Write("Invalid IP address, Please enter again: ");
-                                    result = Console.ReadLine();
-                                }
-
-                                SERVER_IP = result;
-                            }
+                            Console.Write("Did you have the wrong Server IP Address? (Quit and Restart or Press Enter)");
+                            string result = Console.ReadLine();                            
                             tryTimes = 4;
                         }
                     }
 
                 } while (!connected);
-
+                reconnecting = false;
                 // Send SERVRECONN request if the client is reconnecting to server
                 if (reqServReconn)
                 {
@@ -195,7 +186,7 @@ namespace Client
                 }
 
                 Console.WriteLine("Connected! Server IP: {0} Port: {1}", SERVER_IP, 8001);
-
+               
             }
         }
 
@@ -309,8 +300,13 @@ namespace Client
             catch (Exception)
             {
                 thisTcpClient.Close();
-                ConnectToServer(true);
-                
+                if (reqType != Request.GAME && !reconnecting)
+                {
+                    reconnecting = true;
+                    ConnectToServer(true);
+                    
+                }
+
             }
 
             return 0;

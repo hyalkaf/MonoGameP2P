@@ -512,7 +512,6 @@ namespace Server
             {
                 Console.WriteLine("ERROR from server listening.....\n" + e.Message);
                 Console.WriteLine(e.StackTrace);
-                //Console.ReadLine();
             }
         }
 
