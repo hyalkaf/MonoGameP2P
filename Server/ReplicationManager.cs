@@ -193,7 +193,6 @@ namespace Server
                 requestMessage.StartsWith(REQ_NAMES) ||
                 requestMessage.StartsWith(REQ_GAMESESSIONS) ||
                 requestMessage.StartsWith(REQ_MATCH) ||
-                requestMessage.StartsWith(REQ_UPDATE_BACKUP) ||
                 requestMessage.StartsWith(REQ_CHECK)))
             {
                 // Get appeopraite response
@@ -246,6 +245,7 @@ namespace Server
                 requestMessage.StartsWith(RES_NAMES) ||
                 requestMessage.StartsWith(RES_GAMESESSIONS) ||
                 requestMessage.StartsWith(RES_MATCH) ||
+                requestMessage.StartsWith(REQ_UPDATE_BACKUP) ||
                 requestMessage.StartsWith(REQ_CHECK)))
             {
 
