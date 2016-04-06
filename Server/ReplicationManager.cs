@@ -240,6 +240,8 @@ namespace Server
                     }
                     backupClient.Close();
 
+                    Console.WriteLine("Sending to all backups {0}", responseMessage);
+
                     // Send to all backups
                     IEnumerable<IPAddress> backupsIPs = serversAddresses.Where((backup, indexOfBackup) => indexOfBackup != 0 && !backup.Equals(thisServer.IPAddr));
                     if (SendToReplicationManagers(backupsIPs, responseMessage))
