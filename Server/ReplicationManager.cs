@@ -587,8 +587,15 @@ namespace Server
         public void SendToBackUPs(string updateType)
         {
             // Construct a message to be sent based on type of update
-            string messageUpdate = updateType + " " + MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
-
+            string messageUpdate = string.Empty;
+            if (updateType != REQ_CHECK)
+            {
+                messageUpdate = updateType + " " + MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
+            }
+            else
+            {
+                messageUpdate = REQ_CHECK + "\n\n";
+            }
             // Send to all backups
             IEnumerable<IPAddress> backupsIPs = serversAddresses.Where((backup, indexOfBackup) => indexOfBackup != 0 && !backup.Equals(thisServer.IPAddr));
             if (SendToReplicationManagers(backupsIPs, messageUpdate))
