@@ -31,7 +31,9 @@ namespace Server
             public const string RMPLAYER = "rmplayer";
         }
 
-       
+        /// <summary>
+        /// Response messages
+        /// </summary>
         public class Response
         {
             public const string SUCCESS = "success";
@@ -39,38 +41,49 @@ namespace Server
             public const string ERROR = "error";
         }
 
-
+        // replication manager assoicated with this server
         private ReplicationManager rm;
 
+        // IP of this server
         public IPAddress IPAddr { get; private set; }
 
+        // Game Match Maker responsible for matching peers with games
         private GameMatchmaker _gameMatchmaker;
 
-        // Will use index as number of clients who want to be matched with this amount of other clients
-        // then once that index has fullfilled its number we will match those in that index to a game.
-        //private List<ConcurrentDictionary<string, Socket>> socketsForGameRequests;
-
-
+        // connected clients to server.
         private List<ClientInfo> connectedClients;
+
+        // Player names 
         private ObservableCollection<string> allPlayerNamesUsed;
 
+        // Flag for primary or backup condition of servers
         public bool isPrimaryServer = false;
 
+        // TCP Listener for this server
         private TcpListener listener;
 
+        // Size of buffer for receiving messages
+        private static readonly int SIZE_OF_BUFFER = 2048;
 
+        /// <summary>
+        /// Constructor for server
+        /// </summary>
         public ServerProgram()
         {
-               
+            // Initialize fields of class   
             connectedClients = new List<ClientInfo>();
             _gameMatchmaker = new GameMatchmaker();
-            _gameMatchmaker.MatchMakerWasModifiedEvent += new EventHandler((sender, e) => MatchMakerChangedEvent(sender, e, _gameMatchmaker.changedData));
-            //socketsForGameRequests = new List<ConcurrentDictionary<string, Socket>>();
-           // clientsWaitingForGame = new List<ConcurrentQueue<ClientInfo>>();
 
+            // Initialize Event handler for when match maker has changes in it.
+            _gameMatchmaker.MatchMakerWasModifiedEvent += new EventHandler((sender, e) => MatchMakerChangedEvent(sender, e, _gameMatchmaker.changedData));
+
+            // Initialize player names and their event handler when they change
+            // so that all backups are update using replication manager
             allPlayerNamesUsed = new ObservableCollection<string>();
             allPlayerNamesUsed.CollectionChanged += PlayerNamesChangedEvent;
+
             /* Initializes the Listener */
+            // GET IP address
             IPHostEntry host;
             string localIP = "";
             host = Dns.GetHostEntry(Dns.GetHostName());
@@ -83,14 +96,17 @@ namespace Server
             }
             IPAddr =  IPAddress.Parse(localIP);
 
-            // Initalize a replica and make it listen
+            // Initalize replication manager
             rm = new ReplicationManager(this);
-
-            // Initalize a listening port for replication Manager.
-            // TODO: Might need to change the way this code is being called. 
-            // new Task(() => { rm.ListenReplica(); }).Start();
         }
 
+        /// <summary>
+        /// This method is an event handler that fires whenever there is a change in match maker internal
+        /// fields namely Game queue and game sessions
+        /// </summary>
+        /// <param name="sender">Sender for event</param>
+        /// <param name="e">Event parameters</param>
+        /// <param name="fieldThatChanged">This field is used to distinguish which field is concerned in game match maker</param>
         private void MatchMakerChangedEvent(object sender, EventArgs e, string fieldThatChanged)
         {
             if (this.isPrimaryServer)
@@ -102,8 +118,8 @@ namespace Server
         /// <summary>
         /// This method is called every time a change happens in the list of player names.
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
+        /// <param name="sender">Sender for event</param>
+        /// <param name="e">Event parameters</param>
         private void PlayerNamesChangedEvent(object sender, NotifyCollectionChangedEventArgs e)
         {
             if (this.isPrimaryServer)
@@ -112,6 +128,10 @@ namespace Server
             }
         }
 
+        /// <summary>
+        /// Method responsible for receiving and parsing message using a tcpClient
+        /// </summary>
+        /// <param name="tcpclient">client that receives the message</param>
         private void EstablishConnection(TcpClient tcpclient)
         {
             NetworkStream netStream = tcpclient.GetStream();
@@ -121,7 +141,7 @@ namespace Server
 
             Console.WriteLine("Connection accepted from client " + aConnectedClient.IPAddr); 
 
-            tcpclient.ReceiveBufferSize = 2048;
+            tcpclient.ReceiveBufferSize = SIZE_OF_BUFFER;
             byte[] bytes = new byte[tcpclient.ReceiveBufferSize];
 
             try {
@@ -433,6 +453,9 @@ namespace Server
             return true;
         }
 
+        /// <summary>
+        /// List of connected clients as array
+        /// </summary>
         public List<ClientInfo> ConnectedClients
         {
             get { return connectedClients; }
@@ -490,7 +513,7 @@ namespace Server
         /// <summary>
         /// Setter for clients who are waiting for game to be matched.
         /// </summary>
-        /// <param name="newClientsWaitingForGame"></param>
+        /// <param name="newClientsWaitingForGame">The new collection to take place</param>
         public void SetClientsWaitingForGame(ObservableCollection<ConcurrentQueue<ClientInfo>> newClientsWaitingForGame)
         {
             // Change game session
@@ -500,7 +523,10 @@ namespace Server
             if (isPrimaryServer) rm.SendToBackUPsGameState(ReplicationManager.REQ_MATCH);
         }
         
-
+        /// <summary>
+        /// Main server method
+        /// </summary>
+        /// <param name="args">console args that are not being used here</param>
         static void Main(string[] args)
         {
             try
