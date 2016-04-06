@@ -616,7 +616,7 @@ namespace Server
                         string responseOfBackUpToServerResponseStr = tcpMessageHandler.SendMessage(backupIP, 8000, message);
                         break;
                     }
-                    catch (SocketException)
+                    catch (Exception ex) when (ex is SocketException || ex is IOException)
                     {
                         counterForSendingTimes++;
 
