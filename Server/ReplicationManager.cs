@@ -619,16 +619,24 @@ namespace Server
                         string responseOfBackUpToServerResponseStr = tcpMessageHandler.SendMessage(backupIP, 8000, message);
                         break;
                     }
-                    catch (Exception ex) when (ex is SocketException || ex is IOException)
+                    catch (Exception ex) 
                     {
-                        counterForSendingTimes++;
-
-                        // Remove dead backups
-                        if (counterForSendingTimes == 2)
+                        if (ex is SocketException || ex is IOException)
                         {
-                            serversAddresses.Remove(backupIP);
-                            updateReplicationManagers = true;
-                            break;
+                            counterForSendingTimes++;
+
+                            // Remove dead backups
+                            if (counterForSendingTimes == 2)
+                            {
+                                serversAddresses.Remove(backupIP);
+                                updateReplicationManagers = true;
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("another exception");
+                            throw ex;
                         }
                     }
                 }
