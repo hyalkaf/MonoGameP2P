@@ -95,7 +95,7 @@ namespace Server
         {
             if (this.isPrimaryServer)
             {
-                rm.SendFromServerToBackUPSWhenStateChanges(fieldThatChanged);
+                rm.SendToBackUPs(fieldThatChanged);
             }
         }
 
@@ -108,7 +108,7 @@ namespace Server
         {
             if (this.isPrimaryServer)
             {
-                rm.SendFromServerToBackUPSWhenStateChanges(ReplicationManager.RES_NAMES);
+                rm.SendToBackUPs(ReplicationManager.RES_NAMES);
             }
         }
 
@@ -455,7 +455,7 @@ namespace Server
             this._gameMatchmaker.GameSessions = newGameSessions;
 
             // Update all backup servers
-            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges(ReplicationManager.RES_GAMESESSIONS);
+            if (isPrimaryServer) rm.SendToBackUPs(ReplicationManager.RES_GAMESESSIONS);
         }
 
         /// <summary>
@@ -475,7 +475,7 @@ namespace Server
             allPlayerNamesUsed = newPlayerNames;
 
             // Update all backup servers
-            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges(ReplicationManager.RES_NAMES);
+            if (isPrimaryServer) rm.SendToBackUPs(ReplicationManager.RES_NAMES);
         }
 
         /// <summary>
@@ -496,7 +496,7 @@ namespace Server
             this._gameMatchmaker.ClientGameQueue = newClientsWaitingForGame;
 
             // Update all backup servers
-            if (isPrimaryServer) rm.SendFromServerToBackUPSWhenStateChanges(ReplicationManager.RES_MATCH);
+            if (isPrimaryServer) rm.SendToBackUPs(ReplicationManager.RES_MATCH);
         }
         
 

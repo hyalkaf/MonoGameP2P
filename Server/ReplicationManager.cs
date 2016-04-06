@@ -33,6 +33,10 @@ namespace Server
         private static readonly int CHECK_MESSAGE_INTERVAL = 5000;
         private Timer timerForCheckingPrimaryExistence;
 
+        // This timer will be running every 5 seconds to check the primary server's existence
+        // This will be used when primary server is died or out of connection.
+        private Timer timerForCheckingReplicasExistence;
+
         // lock object for callback method that checks primary existence.
         // this will prevent multiple threads from queueing the callback.
         private Object checkPrimaryCallbackLock = new Object();
@@ -143,17 +147,21 @@ namespace Server
                 // send Initial Request when backup in initalized
                 foreach (string requestMessage in MESSAGES_SENT_AND_RECEIEVED_BY_A_NEW_BACKUP)
                 {
-                    SendFromBackUPToServer(requestMessage);
+                    SendToServer(requestMessage);
                 }
             }
             else
             {
                 serversAddresses.Add(thisServer.IPAddr);
 
+                timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+
                 // Make this server start listening
                 thisServer.StartListen();
             }
         }
+
+        
 
         /// <summary>
         /// This method is responsible for listening to clients(other replication managers)
@@ -201,9 +209,6 @@ namespace Server
                     }
 
                     backupClient.Close();
-
-
-
                 }
                 else
                 {
@@ -373,25 +378,17 @@ namespace Server
             }
             else if (responseType == RES_NAMES)
             {
-                if (!string.IsNullOrEmpty(messageParam))
-                {
-                    ParseServerResponsePlayerNames(messageParam);
-                }
+                ParseServerResponsePlayerNames(messageParam);
                 
             }
             else if (responseType == RES_GAMESESSIONS)
             {
-                if (!string.IsNullOrEmpty(messageParam))
-                {
-                    ParseServerResponseGameSession(messageParam);
-                }
+                ParseServerResponseGameSession(messageParam);
             }
             else if(responseType == RES_MATCH)
             {
-                if (!string.IsNullOrEmpty(messageParam))
-                {
-                    ParseServerResponseGameMatches(messageParam);
-                }
+                ParseServerResponseGameMatches(messageParam);
+               
             }
                 
 
@@ -555,7 +552,7 @@ namespace Server
         /// check message for server existence.
         /// </summary>
         /// <param name="tempMsg">what replicas are trying to send as clients</param>
-        public void SendFromBackUPToServer(string messageToSend)
+        public void SendToServer(string messageToSend)
         {
             try
             {
@@ -575,6 +572,10 @@ namespace Server
             }
             catch (Exception e)
             {
+                if (messageToSend.Equals(REQ_CHECK))
+                {
+                    throw e;
+                }
                 Console.WriteLine("sending from replica to primary for replica, name, and session is not working {0}", e.Message);
             }
         }
@@ -583,7 +584,7 @@ namespace Server
         /// This method get triggered whenever a change in the game state or the list of backup servers happen
         /// </summary>
         /// <param name="tempMsg"></param>
-        public void SendFromServerToBackUPSWhenStateChanges(string updateType)
+        public void SendToBackUPs(string updateType)
         {
             // Construct a message to be sent based on type of update
             string messageUpdate = updateType + " " + MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
@@ -668,7 +669,7 @@ namespace Server
             timerForCheckingPrimaryExistence.Change(Timeout.Infinite, Timeout.Infinite);
 
             // Update backup servers 
-            SendFromServerToBackUPSWhenStateChanges(REQ_UPDATE_BACKUP);
+            SendToBackUPs(REQ_UPDATE_BACKUP);
 
             thisServer.StartListen();
         }
@@ -684,12 +685,8 @@ namespace Server
             {
                 try
                 {
-                    
-                    string messageToBeSent = MessageConstructor.ConstructMessageToSend(new List<string>() { REQ_CHECK, thisServer.IPAddr.ToString() });
-                    TCPMessageHandler tcpMessageHandler = new TCPMessageHandler();
-                    string responseMessage = tcpMessageHandler.SendMessage(serversAddresses[0], 8000, messageToBeSent);
-                    // Prepare another response to backups
-                    parseResponseMessageForBackup(responseMessage);
+
+                    SendToServer(REQ_CHECK);
                     backupWasUpdated = false;
                 }
                 catch (SocketException)
@@ -704,6 +701,12 @@ namespace Server
                     }
                 }
             }
+        }
+
+
+        private void CheckBackupExistence(object state)
+        {
+            SendToBackUPs(REQ_CHECK);
         }
 
     }
