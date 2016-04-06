@@ -192,7 +192,13 @@ public class Game
     {
         lock (timerLock)
         {
-            TurnTimer.Change(Timeout.Infinite, Timeout.Infinite);
+            try { 
+                TurnTimer.Change(Timeout.Infinite, Timeout.Infinite);
+            }
+            catch (ObjectDisposedException)
+            {
+                Console.Write("TIMER DISPOSED");
+            }
         }
        
     }
@@ -201,7 +207,14 @@ public class Game
     {
         lock (timerLock)
         {
-            TurnTimer.Change(1000, 1000);
+            try
+            {
+                TurnTimer.Change(1000, 1000);
+            }
+            catch (ObjectDisposedException)
+            {
+                Console.Write("TIMER DISPOSED");
+            }
         }
     }
 
