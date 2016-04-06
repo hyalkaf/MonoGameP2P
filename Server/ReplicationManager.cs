@@ -184,7 +184,7 @@ namespace Server
                 // Receive message from the client
                 TCPMessageHandler tcpClientMessageHandler = new TCPMessageHandler();
                 requestMessage = tcpClientMessageHandler.RecieveMessage(backupClient);
-                // Console.WriteLine(requestMessage);
+                Console.WriteLine(requestMessage);
             }
             catch(Exception e)
             {
@@ -197,7 +197,7 @@ namespace Server
                 // backup received session
                 // backup received match
                 // backup received names
-                //Console.WriteLine("Establish Connection exception in receive message");
+                Console.WriteLine("Establish Connection exception in receive message");
             }
 
             // Depending on whether server is primary or backup parse messages accrodingly
@@ -221,7 +221,8 @@ namespace Server
                     }
                     catch(Exception e)
                     {
-                        //Console.WriteLine("Failed");
+                        Console.WriteLine("check message coming to primary failed");
+                        Console.WriteLine("Failed");
                     }
 
                     backupClient.Close();
