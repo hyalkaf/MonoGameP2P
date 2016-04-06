@@ -420,9 +420,9 @@ namespace Client
                     else
                     {
                         responseMessage = Response.ERROR + " " + Request.TURN + " Hey " + playerName + ", it's not your turn yet";
-                        msgHandler.SendResponse(responseMessage, tcpclient);
+                        
                     }
-            
+                    msgHandler.SendResponse(responseMessage, tcpclient);
 
                     // Update IP in case of IP changes
                     if (pi.IPAddr != (tcpclient.Client.RemoteEndPoint as IPEndPoint).Address)
