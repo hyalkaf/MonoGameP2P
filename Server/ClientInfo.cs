@@ -54,14 +54,14 @@ namespace Server
         /// </summary>
         /// <param name="ip"></param>
         /// <param name=""></param>
-        public ClientInfo(IPAddress ip, int port,string playerName, int playerId)
+        public ClientInfo(IPAddress ip, int port,string playerName, int playerId, bool inQueue = false)
         {
             IPAddr = ip;
             ListeningPort = port;
             PlayerName = playerName;
             PlayerId = playerId;
             TcpClient = null;
-            InQueue = false;
+            this.InQueue = inQueue;
         }
 
         /// <summary>
@@ -81,9 +81,18 @@ namespace Server
         /// Convert client info to a string message delimited by spaces in between each piece of information
         /// </summary>
         /// <returns>This client Info in a string delimited by spaces.</returns>
-        public string ToMessage()
+        public string ToMessageForGameSession()
         {
             return IPAddr + " " + ListeningPort + " " + PlayerName + " " + PlayerId;
+        }
+
+        /// <summary>
+        /// Convert client info to a string message delimited by spaces in between each piece of information
+        /// </summary>
+        /// <returns>This client Info in a string delimited by spaces.</returns>
+        public string ToMessageForGameQueue()
+        {
+            return IPAddr + " " + ListeningPort + " " + PlayerName + " " + PlayerId + " " + (InQueue.Equals(0) ? 0 : 1);
         }
     }
 }
