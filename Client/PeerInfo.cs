@@ -23,7 +23,7 @@ namespace Client
         public TcpClient ReceiverClient { get; set; }
 
         /// <summary>
-        ///
+        /// Constructor 
         /// </summary>
         /// <param name="ip"></param>
         /// <param name="port"></param>
@@ -37,7 +37,7 @@ namespace Client
         }
 
         /// <summary>
-        ///  
+        ///  Constructor
         /// </summary>
         /// <param name="ip"></param>
         /// <param name="port"></param>
@@ -48,6 +48,13 @@ namespace Client
             Initialize(ip,port,p, gameSessionId);
             
         }
+        /// <summary>
+        /// Initialize 
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="port"></param>
+        /// <param name="p"></param>
+        /// <param name="gameSessionId"></param>
         private void Initialize(string ip, int port, Player p, int gameSessionId)
         {
             PlayerInfo = p;
