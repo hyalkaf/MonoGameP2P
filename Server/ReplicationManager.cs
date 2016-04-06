@@ -30,7 +30,7 @@ namespace Server
 
         // This timer will be running every 5 seconds to check the primary server's existence
         // This will be used when primary server is died or out of connection.
-        private static readonly int CHECK_MESSAGE_INTERVAL_IN_SECONDS = 5;
+        private static readonly int CHECK_MESSAGE_INTERVAL_IN_SECONDS = 1;
         private Timer timerForCheckingPrimaryExistence;
 
         // This timer will be running every 5 seconds to check the primary server's existence
@@ -96,6 +96,8 @@ namespace Server
         // UDP messages. Make sure that firewall is not blocking it as well as
         // Cybera can receive and listen on it.
         private static readonly int PORT_NUMBER_FOR_BROADCASTING_UDP = 15000;
+        private static readonly int NEXT_BACKUP_INDEX = 1;
+        private static readonly int PRIMARY_INDEX = 0;
 
         // Server program assoicated with this replication manager
         public ServerProgram thisServer;
@@ -735,21 +737,25 @@ namespace Server
             }
         }
 
+        /// <summary>
+        /// This method is responsible for making a backup server a primary.
+        /// </summary>
         public void MakeThisServerPrimary()
         {
-            // Update addresses
+            // Update addresses by removing primary.
             serversAddresses.RemoveAt(0);
 
+            // Set flag for checking if this server is primary or not.
             thisServer.isPrimaryServer = true;
-            // TODO: change this to try Parse
-            // primaryServerIp = IPAddress.Parse("162.246.157.120");
             
+            // Start timer that checks primary existence
             timerForCheckingPrimaryExistence.Change(Timeout.Infinite, Timeout.Infinite);
 
-            // Update backup servers 
+            // Update backup servers with the newly elected primary
             SendToBackUPs(REQ_UPDATE_BACKUP);
 
-            timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+            // Initialize timer for 
+            timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS), TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS));
 
             thisServer.StartListen();
         }
@@ -760,25 +766,29 @@ namespace Server
         /// <param name="state">This parameter has to be passed even though we don't need it here.</param>
         private void CheckServerExistence(object state)
         {
-            // Send to primary a message
+            // Add a lock for timer callback queueing issues with threads.
             lock (checkPrimaryCallbackLock)
             {
                 try
                 {
-
+                    // Check primary server existence
                     SendToServer(REQ_CHECK);
+
+                    // Flag for when backup have been updated with the new addresses so that it won't 
+                    // run into race conditions when checking its position.
                     backupWasUpdated = false;
                 }
                 catch (Exception ex)
                 {
+                    // Check if exception is of certain types
                     if (ex is SocketException || ex is IOException)
                     { 
-                        // In this case: server must have crashed
-                        // take over and become the primary 
-                        // TODO: This won't work for multiple servers
-                        if (!backupWasUpdated && serversAddresses[1].Equals(thisServer.IPAddr))
+                        // in the case that this backup is the second to take over
+                        // It will be the new one
+                        if (!backupWasUpdated && serversAddresses[NEXT_BACKUP_INDEX].Equals(thisServer.IPAddr))
                         {
                             Console.WriteLine("This server is becoming a primary");
+                            // Make this backup the new primary
                             MakeThisServerPrimary();
                         }
                     }

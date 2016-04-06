@@ -400,6 +400,7 @@ namespace Server
         {
             byte[] testMsg = new byte[1];
             int timeToTry = 2;
+            if (c.TcpClient == null) return true;
             TcpClient tcpclient = c.TcpClient;
             do
             {
