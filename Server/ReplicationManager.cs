@@ -126,11 +126,6 @@ namespace Server
             // Start lisening and broadcasting for UDP channel as well.
             BroadcastForReplication replicationManagerUDP = new BroadcastForReplication(true, PORT_NUMBER_FOR_BROADCASTING_UDP, this);
 
-            if (thisServer.isPrimaryServer)
-            {
-                timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS), TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS));
-            }
-
 
         }
 
@@ -163,7 +158,12 @@ namespace Server
             }
         }
 
-        
+        internal void startTimerPrimaryCheckingBackups()
+        {
+            timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS), TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS));
+        }
+
+
 
         /// <summary>
         /// This method is responsible for listening to clients(other replication managers)
@@ -193,7 +193,6 @@ namespace Server
                 requestMessage.StartsWith(REQ_NAMES) ||
                 requestMessage.StartsWith(REQ_GAMESESSIONS) ||
                 requestMessage.StartsWith(REQ_MATCH) ||
-                requestMessage.StartsWith(REQ_UPDATE_BACKUP) ||
                 requestMessage.StartsWith(REQ_CHECK)))
             {
                 // Get appeopraite response
@@ -246,6 +245,7 @@ namespace Server
                 requestMessage.StartsWith(RES_NAMES) ||
                 requestMessage.StartsWith(RES_GAMESESSIONS) ||
                 requestMessage.StartsWith(RES_MATCH) ||
+                requestMessage.StartsWith(REQ_UPDATE_BACKUP) ||
                 requestMessage.StartsWith(REQ_CHECK)))
             {
 
@@ -762,7 +762,10 @@ namespace Server
 
         private void CheckBackupExistence(object state)
         {
-            SendToBackUPs(REQ_CHECK);
+            lock(checkBackupCallbackLock)
+            {
+                SendToBackUPs(REQ_CHECK);
+            }
         }
 
     }
