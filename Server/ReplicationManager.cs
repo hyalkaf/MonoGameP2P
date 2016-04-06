@@ -671,6 +671,8 @@ namespace Server
             // Update backup servers 
             SendToBackUPs(REQ_UPDATE_BACKUP);
 
+            timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+
             thisServer.StartListen();
         }
 
