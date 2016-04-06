@@ -589,7 +589,7 @@ namespace Server
             string messageUpdate = updateType + " " + MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
 
             // Send to all backups
-            IEnumerable<IPAddress> backupsIPs = serversAddresses.SkipWhile((backup, indexOfBackup) => indexOfBackup == 0 && backup == thisServer.IPAddr);
+            IEnumerable<IPAddress> backupsIPs = serversAddresses.Where((backup, indexOfBackup) => indexOfBackup != 0 && !backup.Equals(thisServer.IPAddr));
             if (SendToReplicationManagers(backupsIPs, messageUpdate))
             {
                 // Send to everybody the new state if something changed.
