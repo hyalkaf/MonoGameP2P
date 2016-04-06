@@ -959,7 +959,8 @@ namespace Server
             }
             catch(Exception e)
             {
-                Console.WriteLine("Failed");
+                Console.WriteLine("Failed in SendMessage");
+                throw e;
             }
 
             return responseOfBackUpToServerResponseStr;
