@@ -270,7 +270,8 @@ namespace Client
                         req = req.Trim().ToLower();
                     }
 
-                    if (NetworkInterface.GetIsNetworkAvailable() && allPeersInfo.Contains(myPeerInfo))
+
+                    if (!quitGame && NetworkInterface.GetIsNetworkAvailable() && allPeersInfo.Contains(myPeerInfo))
                     {
                         try
                         {
@@ -282,6 +283,7 @@ namespace Client
                             break;
                         }
                     }
+
 
                     if (quitGame || !allPeersInfo.Contains(myPeerInfo))
                     {
@@ -1055,11 +1057,12 @@ namespace Client
                     Console.WriteLine("The local End point is  :" + _peerListener.LocalEndpoint);
 
                     do
-                    {                    
+                    {
                         //Console.WriteLine("Waiting for a connection...");
                         TcpClient tcpclient = _peerListener.AcceptTcpClient();
 
                         Thread connectionThread = new Thread(() => {
+                            
                             try { 
                             EstablishAcceptedConnection(tcpclient);
                             }
@@ -1114,7 +1117,9 @@ namespace Client
 
         public void Dispose()
         {
+           
             _peerListener.Stop();
+            _peerListener.Server.Dispose();
             Game.TurnTimer.Dispose();
             listenerThread.Abort();
             allPeersInfo = null;
