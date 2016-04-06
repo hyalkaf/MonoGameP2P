@@ -130,14 +130,14 @@ namespace Server
         }
 
         /// <summary>
-        /// This method is used to initialize replication depedning on whether it's a server.
+        /// This method is used to initialize replication depending on whether it's a server or not.
         /// </summary>
         /// <param name="isServerPrimary">A bool for whether server is primary or not.</param>
         public void InitializeReplicationManager(bool isServerPrimary, IPAddress primaryServerIP)
         {
             if (!isServerPrimary)
             {
-                // Add Primary server ip address to replica
+                // Add Primary server ip address to back up that was passed from udp listener.
                 serversAddresses.Add(primaryServerIP);
 
                 // Timer for checking if primary is there
@@ -151,14 +151,18 @@ namespace Server
             }
             else
             {
+                // Add this server ip address to list of ips
                 serversAddresses.Add(thisServer.IPAddr);
 
-                // Make this server start listening
+                // start listening on this primary server to other backups
                 thisServer.StartListen();
             }
         }
 
-        internal void startTimerPrimaryCheckingBackups()
+        /// <summary>
+        /// This method starts the timer that checks all backup servers.
+        /// </summary>
+        internal void StartTimerPrimaryCheckingBackups()
         {
             timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS), TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS));
         }
@@ -172,18 +176,27 @@ namespace Server
         /// <param name="backupClient">Client sending messages to this replication manager</param>
         public void EstablishConnection(TcpClient backupClient)
         {
-            Console.WriteLine("Establishing Connection with {0} {1}", (backupClient.Client.LocalEndPoint as IPEndPoint).Address, (backupClient.Client.RemoteEndPoint as IPEndPoint).Address);
-            
+            // Message received while listening
             string requestMessage = string.Empty;
+
             try
             {
-                // TODO: deal with exceptions in this
+                // Receive message from the client
                 TCPMessageHandler tcpClientMessageHandler = new TCPMessageHandler();
                 requestMessage = tcpClientMessageHandler.RecieveMessage(backupClient);
                 Console.WriteLine(requestMessage);
             }
             catch(Exception e)
             {
+                // Primary received backup
+                // Primary received name
+                // Primary received session
+                // Primary received match
+                // backup received addresses
+                // backup received update-backup
+                // backup received session
+                // backup received match
+                // backup received names
                 Console.WriteLine("Establish Connection exception in receive message");
             }
 
@@ -195,9 +208,10 @@ namespace Server
                 requestMessage.StartsWith(REQ_MATCH) ||
                 requestMessage.StartsWith(REQ_CHECK)))
             {
-                // Get appeopraite response
+                // parse request message and get a response.
                 string responseMessage = parseRequestMessageForPrimary(requestMessage);
 
+                // In case backup is checking primary existence then 
                 if (requestMessage.StartsWith(REQ_CHECK))
                 {
                     try
@@ -207,6 +221,7 @@ namespace Server
                     }
                     catch(Exception e)
                     {
+                        Console.WriteLine("check message coming to primary failed");
                         Console.WriteLine("Failed");
                     }
 
@@ -224,6 +239,8 @@ namespace Server
                         Console.WriteLine("Failed");
                     }
                     backupClient.Close();
+
+                    Console.WriteLine("Sending to all backups {0}", responseMessage);
 
                     // Send to all backups
                     IEnumerable<IPAddress> backupsIPs = serversAddresses.Where((backup, indexOfBackup) => indexOfBackup != 0 && !backup.Equals(thisServer.IPAddr));
@@ -397,6 +414,12 @@ namespace Server
             else if (responseType == RES_NAMES)
             {
                 ParseServerResponsePlayerNames(messageParam);
+
+                // DEbug
+                foreach (string player in thisServer.GetPlayerNames())
+                {
+                    Console.WriteLine("Backup received this player {0}", player);
+                }
                 
             }
             else if (responseType == RES_GAMESESSIONS)
