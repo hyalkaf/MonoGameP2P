@@ -179,7 +179,7 @@ namespace Server
             }
             catch(Exception e)
             {
-                Console.WriteLine("Failed");
+                Console.WriteLine("Establish Connection exception in receive message");
             }
 
             // Depending on whether server is primary or backup parse messages accrodingly
@@ -198,11 +198,11 @@ namespace Server
                     {
                         Console.WriteLine("Failed");
                     }
-                    //backupClient.Client.Send(responseMessage);
 
-                    //backupClient.Close();
+                    backupClient.GetStream().Write(new byte[1], 0, 0);
+                    backupClient.Close();
 
-                    
+
                 }
                 else
                 {
@@ -283,8 +283,11 @@ namespace Server
                 // TODO: Response of success
 
                 // TODO: how does socket differ from tcp client.
+                backupClient.GetStream().Write(new byte[1], 0, 0);
+                backupClient.Close();
             }
-            backupClient.Close();
+
+            
 
 
         }
