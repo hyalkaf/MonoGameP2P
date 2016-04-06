@@ -117,6 +117,7 @@ namespace Client
                     if (isityou == "y")
                     {
                         checkNameResult = 0;
+                        playerName = pName;
                         SendRequest(Request.SERVRECONN + " " + pName);
                     }
                     else
@@ -128,7 +129,7 @@ namespace Client
 
             } while (checkNameResult == -1);
 
-            playerName = pName;
+           playerName = pName;
         }
 
         /// <summary>
