@@ -504,7 +504,7 @@ namespace Server
         /// <returns>Message to be sent to the replica</returns>
         private string ConstructPrimaryMessageNames(ObservableCollection<string> names)
         {
-            string responseMessage = "name" + " ";
+            string responseMessage = RES_NAMES + " ";
 
             // send client names on the server
             for (int i = 0; i < names.Count; i++)
@@ -818,21 +818,21 @@ namespace Server
             if (replicaMsg.StartsWith(REQ_NAMES))
             {
                 // add required information to be sent back
-                messageToBeSent = "name" + " "; 
+                messageToBeSent = REQ_NAMES + " "; 
             }
             else if (replicaMsg.StartsWith(REQ_BACKUP))
             {
                 // Message to be sent 
-                messageToBeSent = "backup" + " " + thisServer.IPAddr;
+                messageToBeSent = REQ_BACKUP + " " + thisServer.IPAddr;
             }
             else if (replicaMsg.StartsWith(REQ_CHECK))
             {
                 // Message to be sent 
-                messageToBeSent = "check" + " ";
+                messageToBeSent = REQ_CHECK + " ";
             }
             else if (replicaMsg.StartsWith(REQ_GAMESESSIONS))
             {
-                messageToBeSent = "session" + " ";
+                messageToBeSent = REQ_GAMESESSIONS + " ";
             }
             else if (replicaMsg.StartsWith(REQ_MATCH))
             {
