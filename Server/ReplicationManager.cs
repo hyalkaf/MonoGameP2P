@@ -189,9 +189,9 @@ namespace Server
             // Depending on whether server is primary or backup parse messages accrodingly
             if (thisServer.isPrimaryServer && 
                 (requestMessage.StartsWith(REQ_BACKUP) ||
-                requestMessage.StartsWith(RES_NAMES) ||
-                requestMessage.StartsWith(RES_GAMESESSIONS) ||
-                requestMessage.StartsWith(RES_MATCH) ||
+                requestMessage.StartsWith(REQ_NAMES) ||
+                requestMessage.StartsWith(REQ_GAMESESSIONS) ||
+                requestMessage.StartsWith(REQ_MATCH) ||
                 requestMessage.StartsWith(REQ_UPDATE_BACKUP) ||
                 requestMessage.StartsWith(REQ_CHECK)))
             {
@@ -242,9 +242,9 @@ namespace Server
             // Server is not primary
             else if (!thisServer.isPrimaryServer &&
                 (requestMessage.StartsWith(RES_ADDRESSES) ||
-                requestMessage.StartsWith(REQ_NAMES) ||
-                requestMessage.StartsWith(REQ_GAMESESSIONS) ||
-                requestMessage.StartsWith(REQ_MATCH) ||
+                requestMessage.StartsWith(RES_NAMES) ||
+                requestMessage.StartsWith(RES_GAMESESSIONS) ||
+                requestMessage.StartsWith(RES_MATCH) ||
                 requestMessage.StartsWith(REQ_CHECK)))
             {
 
