@@ -166,7 +166,7 @@ namespace Server
         /// <param name="backupClient">Client sending messages to this replication manager</param>
         public void EstablishConnection(TcpClient backupClient)
         {
-            //Console.WriteLine("Establishing Connection with {0} {1}", (backupClient.Client.LocalEndPoint as IPEndPoint).Address, (backupClient.Client.RemoteEndPoint as IPEndPoint).Address);
+            Console.WriteLine("Establishing Connection with {0} {1}", (backupClient.Client.LocalEndPoint as IPEndPoint).Address, (backupClient.Client.RemoteEndPoint as IPEndPoint).Address);
 
             // TODO: Implement try and catch
             
