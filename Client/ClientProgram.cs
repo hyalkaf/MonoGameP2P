@@ -413,7 +413,7 @@ namespace Client
                             string playerNum = respMsg;
                             Console.WriteLine("You were in Queue for matchmaking for " + playerNum);
 
-                            Task.Factory.StartNew(() => { SendRequest(Request.GAME + " " + playerNum); });
+                            Task.Factory.StartNew(() => { SendRequest(Request.GAME + " " + playerName +  " " + playerNum); });
                         }
                     }
                     else
