@@ -28,12 +28,12 @@ namespace Server
         public List<IPAddress> serversAddresses { get; set; }
 
 
-        // This timer will be running every 5 seconds to check the primary server's existence
+        // This timer will be running every 1 seconds to check the primary server's existence
         // This will be used when primary server is died or out of connection.
         private static readonly int CHECK_MESSAGE_INTERVAL_IN_SECONDS = 1;
         private Timer timerForCheckingPrimaryExistence;
 
-        // This timer will be running every 5 seconds to check the primary server's existence
+        // This timer will be running every 1 seconds to check the backups existence
         // This will be used when primary server is died or out of connection.
         private Timer timerForCheckingReplicasExistence;
 
@@ -53,41 +53,31 @@ namespace Server
         // REQ_BACKUP is a request message that will be sent whenever a new backup is initialized
         // It will be sending this request message with its own IP address to the primary.
         public static readonly string REQ_BACKUP = "backup";
-        // REQ_ADDRESSES is a request message from primary servers to backup servers 
+        // REQ_ADDRESSES is a response message from primary servers to backup servers 
         // sending them information about addresses of all backup server currently in 
         // pool of servers. This will be sent after a new backup server have entered the pool
-        // and have already sent its own ip address.
+        // and have already sent its own ip address with a REQ_BACK.
         public static readonly string RES_ADDRESSES = "address";
         // REQ_NAMES is a request message that will be sent from backup to primary.
-        // It will not contain any information. 
+        // Asking for names 
         public static readonly string REQ_NAMES = "nameRequest";
-        // RES_NAMES is a response message that will be sent from primary server to all 
-        // back ups
-        // RES_NAMES is a response message acknowledging whoever sent the request "name" that
-        // it was received correctly.
+        // RES_NAMES is a response message with player names for REQ_NAMES
         public static readonly string RES_NAMES = "playerNames";
-        // REQ_GAMESESSIONS is a request and response message. As a request from backup to server it will not 
-        // contain any information. As a response, it will the information stored in the game session
-        // like sessionID, and players (player name, ID, Port and IP) that are currently
-        // playing a game with that unique sessionID.
+        // REQ_GAMESESSIONS is a request message for game session and 
+        // RES_GAMESESSIONS is a response message for game sessions information
         public static readonly string REQ_GAMESESSIONS = "sessionRequest";
         public static readonly string RES_GAMESESSIONS = "gameSessions";
         // REQ_CHECK is a request message from backup replication manager to the primary server 
         // checking if it still exists and it can't receive and respond to messages.
         public static readonly string REQ_CHECK = "check";
-        // REQ_MATCH is a request and a response message. As a request from backup to server it will not 
-        // contain any information. As a response, it will contain information about the queued players
-        // waiting to be assigned and matched to other players. This information is game capacity or number
-        // of matched clients, and players info in that specific game capacity which is player name, player ID
-        // port and IP address.
+        // REQ_MATCH is a request message to server asking them  for game queue
+        // RES_MATCH is a response message with game queue info
         public static readonly string REQ_MATCH = "matchesRequest";
         public static readonly string RES_MATCH = "matchesResponse";
         // REQ_UPDATE_BACKUP is a request that will be sent after a new primary is elected.
         // This request holds the new information about the backup servers currently existing
         // in the local network. 
         public static readonly string REQ_UPDATE_BACKUP = "update-backup";
-        // TODO: Add responses
-        //private static readonly string RESP_SUCCESS = "success";
         // Requests that will be sent from backup to primary server every time 
         // a new backup is initalized. 
         private static readonly string[] MESSAGES_SENT_AND_RECEIEVED_BY_A_NEW_BACKUP = { REQ_BACKUP, REQ_NAMES, REQ_GAMESESSIONS, REQ_MATCH };
@@ -96,6 +86,7 @@ namespace Server
         // UDP messages. Make sure that firewall is not blocking it as well as
         // Cybera can receive and listen on it.
         private static readonly int PORT_NUMBER_FOR_BROADCASTING_UDP = 15000;
+        // Global variables used in this class
         private static readonly int NEXT_BACKUP_INDEX = 1;
         private static readonly int PRIMARY_INDEX = 0;
         private static readonly int PORT_NUMBER_FOR_LISTENING_AND_SENDING = 8000;
@@ -175,8 +166,6 @@ namespace Server
             timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS), TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS));
         }
 
-
-
         /// <summary>
         /// This method is responsible for listening to clients(other replication managers)
         /// for their requests.
@@ -196,15 +185,6 @@ namespace Server
             }
             catch(Exception e)
             {
-                // Primary received backup
-                // Primary received name
-                // Primary received session
-                // Primary received match
-                // backup received addresses
-                // backup received update-backup
-                // backup received session
-                // backup received match
-                // backup received names
                 Console.WriteLine("Establish Connection exception in receive message");
             }
 
@@ -224,11 +204,21 @@ namespace Server
                 {
                     try
                     {
+                        // Send empty response back
                         TCPMessageHandler tcpClientMessageHandler = new TCPMessageHandler();
                         tcpClientMessageHandler.SendResponse("", backupClient);
                     }
                     catch(Exception e)
                     {
+                        // Primary received backup
+                        // Primary received name
+                        // Primary received session
+                        // Primary received match
+                        // backup received addresses
+                        // backup received update-backup
+                        // backup received session
+                        // backup received match
+                        // backup received names
                         Console.WriteLine("check message coming to primary failed");
                         Console.WriteLine("Failed");
                     }
@@ -237,13 +227,22 @@ namespace Server
                 }
                 else
                 {
-
                     try
                     {
                         backupClient.GetStream().Write(new byte[1], 0, 0);
                     }
                     catch
                     {
+                        // Primary received backup
+                        // Primary received name
+                        // Primary received session
+                        // Primary received match
+                        // backup received addresses
+                        // backup received update-backup
+                        // backup received session
+                        // backup received match
+                        // backup received names
+                        Console.WriteLine("Primary is receiving message other than check and is catching an exception");
                         Console.WriteLine("Failed");
                     }
                     backupClient.Close();
@@ -251,16 +250,7 @@ namespace Server
                     Console.WriteLine("Sending to all backups {0}", responseMessage);
 
                     // Send to all backups
-                    List<IPAddress> backupsIPs = serversAddresses.Where((backup, indexOfBackup) => indexOfBackup != 0 && !backup.Equals(thisServer.IPAddr)).ToList();
-                    if (SendToReplicationManagers(backupsIPs, responseMessage))
-                    {
-                        // Send to everybody the new state if something changed.
-                        // Construct a message to be sent based on type of update
-                        string updateAddresses = REQ_UPDATE_BACKUP + " " + MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
-
-                        //
-                        SendToReplicationManagers(serversAddresses, updateAddresses);
-                    }
+                    SendToBackupsAndCheckDeadOnes(responseMessage);
                 }
                     
             }
@@ -274,9 +264,8 @@ namespace Server
                 requestMessage.StartsWith(REQ_CHECK)))
             {
 
-                // Update information for backup 
-                // Here we are parsing request but since method is same use same
-                // TODO: Update names
+                // in case you received an update for for backups then set flag
+                // that checks if you are second or not in the list when primary dies
                 if (requestMessage.StartsWith(REQ_UPDATE_BACKUP))
                 {
                     backupWasUpdated = true;
@@ -285,10 +274,21 @@ namespace Server
 
                 try
                 {
+                    // Send garbage response back 
                     backupClient.GetStream().Write(new byte[1], 0, 0);
                 }
                 catch
                 {
+                    // Primary received backup
+                    // Primary received name
+                    // Primary received session
+                    // Primary received match
+                    // backup received addresses
+                    // backup received update-backup
+                    // backup received session
+                    // backup received match
+                    // backup received names
+                    Console.WriteLine("Catching exception in receving a message for non primary");
                     Console.WriteLine("Failed");
                 }
                 backupClient.Close();
@@ -347,7 +347,7 @@ namespace Server
                 // Parse game session
                 responseMessage += RES_GAMESESSIONS + SEPERATOR_BETWEEN_WORDS;
                 responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetGameSession()
-                    .Select(session => session.ID + " " + session.Players
+                    .Select(session => session.ID + SEPERATOR_BETWEEN_WORDS + session.Players
                         .Select(player => player.ToMessageForGameSession())
                         .Aggregate(new StringBuilder(), (sb, s) =>
                         {
@@ -423,11 +423,11 @@ namespace Server
             {
                 ParseServerResponsePlayerNames(messageParam);
 
-                /*// DEbug
+                // Print them out
                 foreach (string player in thisServer.GetPlayerNames())
                 {
                     Console.WriteLine("Backup received this player {0}", player);
-                }*/
+                }
                 
             }
             else if (responseType == RES_GAMESESSIONS)
@@ -439,8 +439,6 @@ namespace Server
                 ParseServerResponseGameMatches(messageParam);
                
             }
-                
-
         }
 
         /// <summary>
@@ -472,7 +470,7 @@ namespace Server
         public void ParseServerResponseGameSession(string message)
         {
             // split games sessions
-            string[] arrayOfSessions = message.Split(new string[] { "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+            string[] arrayOfSessions = message.Split(new string[] { SEPERATOR_BETWEEN_SECTIONS_OF_MESSAGES, "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
 
             // Temp variable for game session
             List<GameSession> tempGameSession = new List<GameSession>();
@@ -480,7 +478,7 @@ namespace Server
             foreach (string tempSession in arrayOfSessions)
             {
                 // Split each game session by comma serperator
-                string[] arrayOfSpecificSession = tempSession.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
+                string[] arrayOfSpecificSession = tempSession.Split(new string[] { SEPERATOR_BETWEEN_PLAYERS }, StringSplitOptions.RemoveEmptyEntries);
                 GameSession gameSession = null;
                 List<ClientInfo> players = new List<ClientInfo>();
                 string gameID = "";
@@ -493,7 +491,7 @@ namespace Server
                 for (int gameSessionAndPlayerInfoIndex = 0; gameSessionAndPlayerInfoIndex < arrayOfSpecificSession.Count(); gameSessionAndPlayerInfoIndex++)
                 {
                     // Split speicific info by spaces
-                    string[] arrayOfGameSessionAndPlayerSpecificInfo = arrayOfSpecificSession[gameSessionAndPlayerInfoIndex].Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries); ;
+                    string[] arrayOfGameSessionAndPlayerSpecificInfo = arrayOfSpecificSession[gameSessionAndPlayerInfoIndex].Split(new string[] { SEPERATOR_BETWEEN_WORDS }, StringSplitOptions.RemoveEmptyEntries); ;
 
                     ClientInfo player;
                     if (extraIndexForGameID == 1)
@@ -536,7 +534,7 @@ namespace Server
         public void ParseServerResponseGameMatches(string message)
         {
             // Split game queue by delimiter comma
-            string[] arrayOfGameQueues = message.Split(new string[] { "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+            string[] arrayOfGameQueues = message.Split(new string[] { SEPERATOR_BETWEEN_SECTIONS_OF_MESSAGES, "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
 
             // Queue that will be replaced with the old one after parsing
             ObservableCollection<ConcurrentQueue<ClientInfo>> tempQueues = new ObservableCollection<ConcurrentQueue<ClientInfo>>();
@@ -555,7 +553,7 @@ namespace Server
             foreach (string gameQueue in arrayOfGameQueues)
             {
                 // Split by seperator
-                string[] arrayOfGameQueue = gameQueue.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
+                string[] arrayOfGameQueue = gameQueue.Split(new string[] { SEPERATOR_BETWEEN_WORDS }, StringSplitOptions.RemoveEmptyEntries);
 
                 // Check if this is the first occurence 
                 if (extraIndexForGameCapacity == 1)
@@ -616,7 +614,7 @@ namespace Server
                     messageToBeSent = MessageConstructor.ConstructMessageToSend(new List<string>() { messageToSend });
                 }
                 TCPMessageHandler tcpMessageHandler = new TCPMessageHandler();
-                string responseMessage = tcpMessageHandler.SendMessage(serversAddresses[0], 8000, messageToBeSent);
+                string responseMessage = tcpMessageHandler.SendMessage(serversAddresses[0], PORT_NUMBER_FOR_LISTENING_AND_SENDING, messageToBeSent);
                 // Prepare another response to backups
                 parseResponseMessageForBackup(responseMessage);
             }
@@ -649,16 +647,7 @@ namespace Server
                 messageUpdate = REQ_CHECK + REQUESTS_AND_RESPONSES_SUFFIX;
             }
             // Send to all backups
-            List<IPAddress> backupsIPs = serversAddresses.Where((backup, indexOfBackup) => indexOfBackup != PRIMARY_INDEX && !backup.Equals(thisServer.IPAddr)).ToList();
-            if (SendToReplicationManagers(backupsIPs, messageUpdate))
-            {
-                // Send to everybody the new state if something changed.
-                // Construct a message to be sent based on type of update
-                string updateAddresses = REQ_UPDATE_BACKUP + SEPERATOR_BETWEEN_WORDS + MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), SEPERATOR_BETWEEN_PLAYERS);
-
-                // update everybody
-                SendToReplicationManagers(serversAddresses, updateAddresses);
-            }
+            SendToBackupsAndCheckDeadOnes(messageUpdate);
         }
 
         /// <summary>
@@ -671,16 +660,26 @@ namespace Server
             string messageUpdate = string.Empty;
             messageUpdate = parseRequestMessageForPrimary(updateType);
 
-            // Send to all backups except you and primary
+            // Send to all backups 
+            SendToBackupsAndCheckDeadOnes(messageUpdate);
+
+        }
+
+        /// <summary>
+        /// This method will call send to replicas message to send a message and it will check if
+        /// there are dead servers and update accrodingly
+        /// </summary>
+        /// <param name="message"></param>
+        private void SendToBackupsAndCheckDeadOnes(string message)
+        {
             List<IPAddress> backupsIPs = serversAddresses.Where((backup, indexOfBackup) => indexOfBackup != 0 && !backup.Equals(thisServer.IPAddr)).ToList();
-
-            // Send the message 
-            if (SendToReplicationManagers(backupsIPs, messageUpdate))
+            if (SendToReplicationManagers(backupsIPs, message))
             {
-                // update in case of dead backups
-                string updateAddresses = REQ_UPDATE_BACKUP + " " + MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
+                // Send to everybody the new state if something changed.
+                // Construct a message to be sent based on type of update
+                string updateAddresses = REQ_UPDATE_BACKUP + SEPERATOR_BETWEEN_WORDS + MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), SEPERATOR_BETWEEN_PLAYERS);
 
-                // Send again
+                // Update backups with new server ip list
                 SendToReplicationManagers(serversAddresses, updateAddresses);
             }
         }
