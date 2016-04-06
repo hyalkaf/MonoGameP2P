@@ -609,6 +609,27 @@ namespace Server
             }
         }
 
+        /// <summary>
+        /// This method get triggered whenever a change in the game state or the list of backup servers happen
+        /// </summary>
+        /// <param name="tempMsg"></param>
+        public void SendToBackUPsGameState(string updateType)
+        {
+            // Construct a message to be sent based on type of update
+            string messageUpdate = string.Empty;
+            messageUpdate = parseRequestMessageForPrimary(updateType);
+            // Send to all backups
+            IEnumerable<IPAddress> backupsIPs = serversAddresses.Where((backup, indexOfBackup) => indexOfBackup != 0 && !backup.Equals(thisServer.IPAddr));
+            if (SendToReplicationManagers(backupsIPs, messageUpdate))
+            {
+                // Send to everybody the new state if something changed.
+                // Construct a message to be sent based on type of update
+                string updateAddresses = REQ_UPDATE_BACKUP + " " + MessageConstructor.ConstructMessageToSend(serversAddresses.Select(ip => ip.ToString()).ToList(), ",");
+
+                // update everybody
+                SendToReplicationManagers(serversAddresses, updateAddresses);
+            }
+        }
 
         private bool SendToReplicationManagers(IEnumerable<IPAddress> replicationManagersAddresses, string message)
         {

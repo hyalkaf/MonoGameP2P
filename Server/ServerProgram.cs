@@ -95,7 +95,7 @@ namespace Server
         {
             if (this.isPrimaryServer)
             {
-                rm.SendToBackUPs(fieldThatChanged);
+                rm.SendToBackUPsGameState(fieldThatChanged);
             }
         }
 
