@@ -30,7 +30,7 @@ namespace Server
 
         // This timer will be running every 5 seconds to check the primary server's existence
         // This will be used when primary server is died or out of connection.
-        private static readonly int CHECK_MESSAGE_INTERVAL_IN_SECONDS = 5;
+        private static readonly int CHECK_MESSAGE_INTERVAL_IN_SECONDS = 1;
         private Timer timerForCheckingPrimaryExistence;
 
         // This timer will be running every 5 seconds to check the primary server's existence
@@ -754,8 +754,8 @@ namespace Server
             // Update backup servers with the newly elected primary
             SendToBackUPs(REQ_UPDATE_BACKUP);
 
-            // 
-            timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+            // Initialize timer for 
+            timerForCheckingReplicasExistence = new Timer(CheckBackupExistence, null, TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS), TimeSpan.FromSeconds(CHECK_MESSAGE_INTERVAL_IN_SECONDS));
 
             thisServer.StartListen();
         }
