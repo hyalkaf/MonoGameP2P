@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
+using SharedCode;
 namespace Client
 {
     /// <summary>
@@ -16,29 +16,7 @@ namespace Client
     /// </summary>
     public class ClientProgram
     {
-        /// <summary>
-        /// Main request message type
-        /// </summary>
-        private class Request
-        {
-            public const string GAME = "game";
-            public const string PLAYERS = "players";
-            public const string CANCEL = "cancel";
-            public const string CHECKNAME = "checkname";
-            public const string RECONN = "reconn";
-            public const string SERVRECONN = "servreconn";
-        }
 
-        /// <summary>
-        /// Main response message type
-        /// 
-        /// </summary>
-        private class Response
-        {
-            public const string SUCCESS = "success";
-            public const string FAILURE = "failure";
-            public const string ERROR = "error";
-        }
         // Game connect type : New game or Reconnect
         enum GameConnectType
         {
@@ -108,7 +86,7 @@ namespace Client
                 pName = pName.Replace(" ", "").Replace("\t", "");
 
                 // Send CHECKNAME request
-                checkNameResult = SendRequest(Request.CHECKNAME + " " + pName);
+                checkNameResult = SendRequest(CommunicationProtocol.Server.Request.CHECKNAME + " " + pName);
                 if (checkNameResult == -1)
                 {
                     Console.Write("Name exists on server, is it you? (Y/N)");
@@ -118,7 +96,7 @@ namespace Client
                     {
                         checkNameResult = 0;
                         playerName = pName;
-                        SendRequest(Request.SERVRECONN + " " + pName);
+                        SendRequest(CommunicationProtocol.Server.Request.SERVRECONN + " " + pName);
                     }
                     else
                     {
@@ -156,7 +134,13 @@ namespace Client
                         Console.WriteLine("Connecting to Server.....");
 
                         // Connect to the server
-                        client.ConnectAsync(SERVER_IP, SERVER_PORT).Wait(5000);
+                        client.ConnectAsync(SERVER_IP, SERVER_PORT).Wait(5500);
+                        Console.WriteLine("Connection status: " + client.Connected);
+                        if (!client.Connected)
+                        {
+                            client.Close();
+                            connected = false;
+                        }
                     }
                     catch (Exception)
                     {
@@ -166,11 +150,11 @@ namespace Client
                         connected = false;
                         tryTimes--;
                         client.Close();
-                        // Prompt for new IP address if fail to connect
+                     
                         if (tryTimes < 1)
                         {
                             Console.Write("Did you have the wrong Server IP Address? (Quit and Restart or Press Enter)");
-                            string result = Console.ReadLine();                            
+                            Console.ReadLine();                            
                             tryTimes = 4;
                         }
                     }
@@ -181,7 +165,7 @@ namespace Client
                 if (reqServReconn)
                 {
             
-                  SendRequest(Request.SERVRECONN + " " + playerName);
+                  SendRequest(CommunicationProtocol.Server.Request.SERVRECONN + " " + playerName);
                 
                 }
 
@@ -209,7 +193,7 @@ namespace Client
             switch (reqType)
             {
                 // Game request
-                case Request.GAME:
+                case CommunicationProtocol.Server.Request.GAME:
                     thisTcpClient = new TcpClient();
                     thisTcpClient.Connect(SERVER_IP, SERVER_PORT);
                     int inttest;
@@ -227,7 +211,7 @@ namespace Client
                     break;
 
                 // Reconnect back to game
-                case Request.RECONN:
+                case CommunicationProtocol.Server.Request.RECONN:
                     int numTest;
                     if (reqMsg == "" || !int.TryParse(reqMsg, out numTest))
                     {
@@ -243,16 +227,16 @@ namespace Client
                     break;
 
                 // Cancel game request
-                case Request.CANCEL:
+                case CommunicationProtocol.Server.Request.CANCEL:
                     reqMessage = reqType + " " + playerName;
                     break;
                 
                  // Number of current players
-                case Request.PLAYERS:        
+                case CommunicationProtocol.Server.Request.PLAYERS:        
                     // Check player name existence         
-                case Request.CHECKNAME:
+                case CommunicationProtocol.Server.Request.CHECKNAME:
                     // Server reconnecting request
-                case Request.SERVRECONN:
+                case CommunicationProtocol.Server.Request.SERVRECONN:
                     reqMessage = reqType + " " + reqMsg;
                     break;
             }            
@@ -274,7 +258,7 @@ namespace Client
                     case ResponseStatus.Ok:
                         thisTcpClient.Close();
                         // Connect back to server immediately if user not in game
-                        if (reqType != Request.GAME)
+                        if (reqType != CommunicationProtocol.Server.Request.GAME)
                         {
                             ConnectToServer();
                         }
@@ -300,7 +284,7 @@ namespace Client
             catch (Exception)
             {
                 thisTcpClient.Close();
-                if (reqType != Request.GAME && !reconnecting)
+                if (reqType != CommunicationProtocol.Server.Request.GAME && !reconnecting)
                 {
                     reconnecting = true;
                     ConnectToServer(true);
@@ -325,7 +309,7 @@ namespace Client
             MessageParser.ParseNext(responseMessage, out respType, out respMsg);
 
             // If message success
-            if (respType == Response.SUCCESS)
+            if (respType == CommunicationProtocol.Server.Response.SUCCESS)
             {
                 string reqType;
 
@@ -333,7 +317,7 @@ namespace Client
 
                 Console.WriteLine("\nDEBUG: " + reqType + "\n");
                 // If connecting to a p2p game
-                if (reqType == Request.GAME || reqType == Request.RECONN)
+                if (reqType == CommunicationProtocol.Server.Request.GAME || reqType == CommunicationProtocol.Server.Request.RECONN)
                 {
                     
                     allPeersInfo = new List<PeerInfo>();
@@ -369,16 +353,16 @@ namespace Client
                     // Indicates if the client is reconnecting or starting a new game
                     switch (reqType)
                     {
-                        case Request.GAME:
+                        case CommunicationProtocol.Server.Request.GAME:
                             connectType = GameConnectType.NewGame; break;
-                        case Request.RECONN:
+                        case CommunicationProtocol.Server.Request.RECONN:
                             connectType = GameConnectType.Reconnect; break;
                     }
 
                     return ResponseStatus.Game;
                 }
                 // Number of players
-                else if (reqType == Request.PLAYERS)
+                else if (reqType == CommunicationProtocol.Server.Request.PLAYERS)
                 {
                     // DISPLAY playernum ON GUI
                     string playernum = respMsg;
@@ -386,31 +370,31 @@ namespace Client
                     return ResponseStatus.Ok;
                 }
                 // Cancel request
-                else if (reqType == Request.CANCEL)
+                else if (reqType == CommunicationProtocol.Server.Request.CANCEL)
                 {
                     // INDICATES THAT THE USER HAVE CANCELED 
                     Console.WriteLine("\nYou have CANCELED your match making.");
                     return ResponseStatus.Ok;
                 }
                 // Name does not exist on server
-                else if (reqType == Request.CHECKNAME)
+                else if (reqType == CommunicationProtocol.Server.Request.CHECKNAME)
                 {
                     Console.WriteLine("\nName is available!");
                     return ResponseStatus.Ok;
                 }
                 // Reconnected back to server
-                else if (reqType == Request.SERVRECONN)
+                else if (reqType == CommunicationProtocol.Server.Request.SERVRECONN)
                 {
                     // If user was in game queue, re request game 
                     if(respMsg != "") {
                         string reconnRespReqType;
                         MessageParser.ParseNext(respMsg, out reconnRespReqType, out respMsg);
-                        if(reconnRespReqType == Request.GAME)
+                        if(reconnRespReqType == CommunicationProtocol.Server.Request.GAME)
                         {
                             string playerNum = respMsg;
                             Console.WriteLine("You were in Queue for matchmaking for " + playerNum);
 
-                            Task.Factory.StartNew(() => { SendRequest(Request.GAME +  " " + playerNum); });
+                            Task.Factory.StartNew(() => { SendRequest(CommunicationProtocol.Server.Request.GAME +  " " + playerNum); });
                         }
                     }
                     else
@@ -422,7 +406,7 @@ namespace Client
 
             }
             // FAILURE/ERROR message : just print server response
-            else if (respType == Response.FAILURE)
+            else if (respType == CommunicationProtocol.Server.Response.FAILURE)
             {
 
                 string reqType;
@@ -432,28 +416,28 @@ namespace Client
                 Console.WriteLine("\nDEBUG: " + reqType + "\n");
                 Console.WriteLine("SERVER MESSAGE: " + respMsg);
 
-                if (reqType == Request.GAME)
+                if (reqType == CommunicationProtocol.Server.Request.GAME)
                 {
                     
                     return ResponseStatus.Ok;
                 }
 
-                else if (reqType == Request.CHECKNAME)
+                else if (reqType == CommunicationProtocol.Server.Request.CHECKNAME)
                 {
 
                     return ResponseStatus.Error;
-                }else if(reqType == Request.RECONN)
+                }else if(reqType == CommunicationProtocol.Server.Request.RECONN)
                 {
 
                     return ResponseStatus.Ok;
                 }
-                else if (reqType == Request.CANCEL)
+                else if (reqType == CommunicationProtocol.Server.Request.CANCEL)
                 {
 
                     return ResponseStatus.Ok;
                 }
             }
-            else if (respType == Response.ERROR)
+            else if (respType == CommunicationProtocol.Server.Response.ERROR)
             {
                 Console.WriteLine("\nSERVER MESSAGE: Err " + respMsg);
             }

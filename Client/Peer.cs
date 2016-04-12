@@ -9,42 +9,10 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
+using SharedCode;
 namespace Client { 
     public class Peer : IDisposable
     {
-
-        /// <summary>
-        /// Main request message type
-        /// </summary>
-        private static class Request
-        {
-            /*Request to other peers*/
-            public const string CHANGEIP = "changeip";
-            public const string QUIT = "quit";
-            public const string RECONNECTED = "reconnected";
-            public const string STRIKE = "strike";
-            public const string TIMEUPDATE = "timeupdate";
-            public const string TURN = "turn";
-            public const string WHOISLEADER = "whoisleader";
-            public const string HANDSHAKE = "handshake";
-
-            /*Request to server*/
-            public const string RMPLAYER = "rmplayer";
-
-        }
-
-        /// <summary>
-        /// Main response message type
-        /// </summary>
-        private static class Response
-        {
-            public const string SUCCESS = "success";
-            public const string FAILURE = "failure";
-            public const string ERROR = "error";
-            public const string UNKNOWN = "unknownrequest";
-            public const string NOLEADER = "noleader";
-        }
 
         // All peers information (IP, port, playerID, playerName, etc.)
         private List<PeerInfo> allPeersInfo;
@@ -139,7 +107,7 @@ namespace Client {
             ConnectToEveryone();
 
             // Ask who is the leader from everyone
-            SendTcpRequest(Request.WHOISLEADER);
+            SendTcpRequest(CommunicationProtocol.Peers.Request.WHOISLEADER);
 
             // Small pause
             Thread.Sleep(100);
@@ -163,7 +131,7 @@ namespace Client {
                 myPeerInfo.IsLeader = false;
 
                 Console.WriteLine("Syncing game state...");
-                int status = SendTcpRequest(Request.RECONNECTED + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.IPAddr);
+                int status = SendTcpRequest(CommunicationProtocol.Peers.Request.RECONNECTED + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.IPAddr);
                 if (status == 0)
                 {
                     synced = true;
@@ -206,7 +174,7 @@ namespace Client {
                 if (aPeer.SenderClient != null && aPeer.SenderClient.Client != null && aPeer.SenderClient.Connected)
                 {
                     TCPMessageHandler msgHandler = new TCPMessageHandler();
-                    msgHandler.SendMessage(Request.HANDSHAKE + " " + myPeerInfo.PlayerInfo.PlayerId, aPeer.SenderClient);
+                    msgHandler.SendMessage(CommunicationProtocol.Peers.Request.HANDSHAKE + " " + myPeerInfo.PlayerInfo.PlayerId, aPeer.SenderClient);
                     return 0;
                 }
                 else
@@ -420,16 +388,16 @@ namespace Client {
 
                 
                 // HANDSHAKE request
-                if (reqType == Request.HANDSHAKE)
+                if (reqType == CommunicationProtocol.Peers.Request.HANDSHAKE)
                 {
                     int id = int.Parse(reqMsg);
 
                     allPeersInfo.Find(p=>p.PlayerInfo.PlayerId == id).ReceiverClient = tcpclient;
 
-                    msgHandler.SendResponse(Response.SUCCESS + " " + Request.HANDSHAKE, tcpclient);
+                    msgHandler.SendResponse(CommunicationProtocol.Peers.Response.SUCCESS + " " + CommunicationProtocol.Peers.Request.HANDSHAKE, tcpclient);
                 }
                 // TURN request
-                else if (reqType == Request.TURN)
+                else if (reqType == CommunicationProtocol.Peers.Request.TURN)
                 {
 
                     // Parse the request message
@@ -453,7 +421,7 @@ namespace Client {
                         Console.WriteLine("\nPlayer " + playerId + " (" + playerName + ") move " + diceRolled + " steps.");
                         Game.UpdateTurn();
 
-                        msgHandler.SendResponse(Response.SUCCESS + " " + Request.TURN, tcpclient);
+                        msgHandler.SendResponse(CommunicationProtocol.Peers.Response.SUCCESS + " " + CommunicationProtocol.Peers.Request.TURN, tcpclient);
                         if (myPeerInfo.PlayerInfo.Turn == 0)
                         {
                             Console.WriteLine("\nIt is your turn now :)");
@@ -476,7 +444,7 @@ namespace Client {
                     }
                     else
                     {
-                        msgHandler.SendResponse(Response.ERROR + " " + Request.TURN + " Hey " + playerName + ", it's not your turn yet", tcpclient);
+                        msgHandler.SendResponse(CommunicationProtocol.Peers.Response.ERROR + " " + CommunicationProtocol.Peers.Request.TURN + " Hey " + playerName + ", it's not your turn yet", tcpclient);
                     }
                     
 
@@ -488,11 +456,11 @@ namespace Client {
 
                 }
                 // QUIT request
-                else if (reqType == Request.QUIT)
+                else if (reqType == CommunicationProtocol.Peers.Request.QUIT)
                 {
                     Game.PauseTimer();
 
-                    msgHandler.SendResponse(Response.SUCCESS + " " + Request.QUIT, tcpclient);
+                    msgHandler.SendResponse(CommunicationProtocol.Peers.Response.SUCCESS + " " + CommunicationProtocol.Peers.Request.QUIT, tcpclient);
             
 
                     // Get PlayerId
@@ -513,10 +481,10 @@ namespace Client {
 
                 }
                 // STRIKE request
-                else if (reqType == Request.STRIKE)
+                else if (reqType == CommunicationProtocol.Peers.Request.STRIKE)
                 {
 
-                    msgHandler.SendResponse(Response.SUCCESS + " " + Request.STRIKE, tcpclient);
+                    msgHandler.SendResponse(CommunicationProtocol.Peers.Response.SUCCESS + " " + CommunicationProtocol.Peers.Request.STRIKE, tcpclient);
                     string str_playerId;
                     MessageParser.ParseNext(reqMsg, out str_playerId, out reqMsg);
                     int playerId = int.Parse(str_playerId);
@@ -525,7 +493,7 @@ namespace Client {
 
                 }
                 // RECONNECTED request
-                else if (reqType == Request.RECONNECTED)
+                else if (reqType == CommunicationProtocol.Peers.Request.RECONNECTED)
                 {
        
                     Game.PauseTimer();
@@ -546,34 +514,34 @@ namespace Client {
                         Console.WriteLine("(" + playerId + ")" + reconnectedPeer.PlayerInfo.Name + " reconnected!");
                     }
 
-                    msgHandler.SendResponse(Response.SUCCESS + " " + Request.RECONNECTED + " " + CurrentStateString(), tcpclient);
+                    msgHandler.SendResponse(CommunicationProtocol.Peers.Response.SUCCESS + " " + CommunicationProtocol.Peers.Request.RECONNECTED + " " + CurrentStateString(), tcpclient);
                
                     Game.StartTimer();
              
 
                 }
                 // TIMEUPDATE request
-                else if (reqType == Request.TIMEUPDATE)
+                else if (reqType == CommunicationProtocol.Peers.Request.TIMEUPDATE)
                 {
 
-                    msgHandler.SendResponse(Response.SUCCESS + " " + Request.TIMEUPDATE + " " + Game.TimerTime, tcpclient);
+                    msgHandler.SendResponse(CommunicationProtocol.Peers.Response.SUCCESS + " " + CommunicationProtocol.Peers.Request.TIMEUPDATE + " " + Game.TimerTime, tcpclient);
                 }
                 // WHOISLEADER request
-                else if (reqType == Request.WHOISLEADER)
+                else if (reqType == CommunicationProtocol.Peers.Request.WHOISLEADER)
                 {
                     PeerInfo p = allPeersInfo.Find(peer => peer.IsLeader);
                     string leaderResponse = "";
                     if (p == null)
                     {
-                        leaderResponse = Response.SUCCESS + " " + Request.WHOISLEADER + " " + Response.NOLEADER;
+                        leaderResponse = CommunicationProtocol.Peers.Response.SUCCESS + " " + CommunicationProtocol.Peers.Request.WHOISLEADER + " " + CommunicationProtocol.Peers.Response.NOLEADER;
                     }
                     else {
-                        leaderResponse = Response.SUCCESS + " " + Request.WHOISLEADER + " " + p.PlayerInfo.PlayerId;
+                        leaderResponse = CommunicationProtocol.Peers.Response.SUCCESS + " " + CommunicationProtocol.Peers.Request.WHOISLEADER + " " + p.PlayerInfo.PlayerId;
                     }
                     msgHandler.SendResponse(leaderResponse, tcpclient);
                 }
                 // CHANGEIP request
-                else if(reqType == Request.CHANGEIP)
+                else if(reqType == CommunicationProtocol.Peers.Request.CHANGEIP)
                 {
                     int playerId = int.Parse(reqMsg);
                     PeerInfo peerIpChanged = allPeersInfo.Find(peer => peer.PlayerInfo.PlayerId == playerId);
@@ -585,11 +553,11 @@ namespace Client {
                         peerIpChanged.IPAddr = sockIP;
                     }
 
-                    msgHandler.SendResponse(Response.SUCCESS + " " + Request.CHANGEIP + " " + sockIP, tcpclient);
+                    msgHandler.SendResponse(CommunicationProtocol.Peers.Response.SUCCESS + " " + CommunicationProtocol.Peers.Request.CHANGEIP + " " + sockIP, tcpclient);
                 }
                 else
                 {
-                    msgHandler.SendResponse(Response.FAILURE + " " + Response.UNKNOWN + " Unknown Request (did you have a typo?)", tcpclient);
+                    msgHandler.SendResponse(CommunicationProtocol.Peers.Response.FAILURE + " " + CommunicationProtocol.Peers.Response.UNKNOWN + " Unknown Request (did you have a typo?)", tcpclient);
                 }
             }
         }   
@@ -690,7 +658,7 @@ namespace Client {
             TCPMessageHandler msgHandler = new TCPMessageHandler();
 
             // Send TURN to all peers
-            if (req == Request.TURN) {
+            if (req == CommunicationProtocol.Peers.Request.TURN) {
                 int dice = Game.RollDice();
                 msg = req +  " " + myPeerInfo.PlayerInfo.Name + " " +
                    myPeerInfo.PlayerInfo.PlayerId + " " + dice;
@@ -720,19 +688,19 @@ namespace Client {
   
             }
             // Send to all peers which player to strike
-            else if (req == Request.STRIKE)
+            else if (req == CommunicationProtocol.Peers.Request.STRIKE)
             {
                 SendToEveryone(req + " " + msg);
             }
             // Inform all peers that this peer is quitting
-            else if (req == Request.QUIT)
+            else if (req == CommunicationProtocol.Peers.Request.QUIT)
             {
                 quitGame = true;
                 msg = req + " " + myPeerInfo.PlayerInfo.PlayerId + " " + myPeerInfo.PlayerInfo.Position;
                 SendToEveryone(msg);
             }
             // Send RECONNECTED request to inform that the peer has just reconnected
-            else if (req == Request.RECONNECTED)
+            else if (req == CommunicationProtocol.Peers.Request.RECONNECTED)
             {
                 
                 int status = SendToEveryone(req + " " + msg);
@@ -740,12 +708,12 @@ namespace Client {
                 
             }
             // Inform all peers that this peer has changed IP address
-            else if (req == Request.CHANGEIP)
+            else if (req == CommunicationProtocol.Peers.Request.CHANGEIP)
             {
                 SendToEveryone(req + " " + msg);
             }      
             // Ask the leader peer for current game time   
-            else if (req == Request.TIMEUPDATE)
+            else if (req == CommunicationProtocol.Peers.Request.TIMEUPDATE)
             {
                 PeerInfo leader = CurrentLeader;
 
@@ -762,7 +730,7 @@ namespace Client {
                 
             }
             // Ask everyone who is the current leader, this is only used at initialization of peer connection
-            else if(req == Request.WHOISLEADER)
+            else if(req == CommunicationProtocol.Peers.Request.WHOISLEADER)
             {
                 SendToEveryone(req);
             }
@@ -829,19 +797,19 @@ namespace Client {
                     MessageParser.ParseNext(responseMessage, out respType, out respMsg);
                     numOfEmptyResponse--;
                     // SUCCESS
-                    if (respType == Response.SUCCESS)
+                    if (respType == CommunicationProtocol.Peers.Response.SUCCESS)
                     {
 
                         MessageParser.ParseNext(respMsg, out reqType, out respMsg);
                         // If the request of the response if RECONNECTED or WHOISLEADER
                         //      append the message to array for later comparison to stay in sync
-                        if (reqType == Request.RECONNECTED || reqType == Request.WHOISLEADER)
+                        if (reqType == CommunicationProtocol.Peers.Request.RECONNECTED || reqType == CommunicationProtocol.Peers.Request.WHOISLEADER)
                         {
                             allResponseMsgs[i] = respMsg;
 
                         }
                         // If this peer IP change, change IP in the peer info
-                        else if (reqType == Request.CHANGEIP)
+                        else if (reqType == CommunicationProtocol.Peers.Request.CHANGEIP)
                         {
                             if (myPeerInfo.IPAddr != IPAddress.Parse(respMsg))
                             {
@@ -855,12 +823,12 @@ namespace Client {
                         }
                     }
                     // FAILURE
-                    else if (respType == Response.FAILURE)
+                    else if (respType == CommunicationProtocol.Peers.Response.FAILURE)
                     {
                         Console.WriteLine(respMsg);
                     }
                     // ERROR
-                    else if (respType == Response.ERROR)
+                    else if (respType == CommunicationProtocol.Peers.Response.ERROR)
                     {
                         string errType;
                         MessageParser.ParseNext(respMsg, out errType, out respMsg);
@@ -872,7 +840,7 @@ namespace Client {
 
             // Compare all response for reconnection to ensure that the game state is up to sync
             //      and safe to proceed to sync with the given state
-            if (reqType == Request.RECONNECTED)
+            if (reqType == CommunicationProtocol.Peers.Request.RECONNECTED)
             {
                 string data = "";
 
@@ -931,7 +899,7 @@ namespace Client {
 
             }
             // Compare all peers leader ID and make sure everyone has the same leader
-            else if (reqType == Request.WHOISLEADER)
+            else if (reqType == CommunicationProtocol.Peers.Request.WHOISLEADER)
             {
                 string leaderId = null;
                 // Similar process as above
@@ -973,7 +941,7 @@ namespace Client {
                     myPeerInfo.IsLeader = true;
                 }
                 // No leader assigned, assign leader to peer with lowest ID
-                else if (leaderId == Response.NOLEADER)
+                else if (leaderId == CommunicationProtocol.Peers.Response.NOLEADER)
                 {
                     allPeersInfo.Min().IsLeader = true;
                 }
@@ -1012,7 +980,7 @@ namespace Client {
 
                     int timeOutPlayerId = (allPeersInfo.Find(p => p.PlayerInfo.Turn == 0)).PlayerInfo.PlayerId;
 
-                    SendTcpRequest(Request.STRIKE + " " + timeOutPlayerId);
+                    SendTcpRequest(CommunicationProtocol.Peers.Request.STRIKE + " " + timeOutPlayerId);
                     StrikePlayer(timeOutPlayerId);
 
 
@@ -1022,7 +990,7 @@ namespace Client {
             // If the peer is not leader, ask the leader for current time
             else
             {
-                SendTcpRequest(Request.TIMEUPDATE);
+                SendTcpRequest(CommunicationProtocol.Peers.Request.TIMEUPDATE);
                 if (Game.TimerTime < 0)
                 {
                     Game.PauseTimer();
@@ -1086,7 +1054,7 @@ namespace Client {
             if (IAmLeader)
             {
                 Console.Write("Sending to server: Removing peer {0} from game session...", peerToBeRemoved.PlayerInfo.PlayerId);
-                await Task.Run(()=>SendMessageToServer(Request.RMPLAYER + " " + peerToBeRemoved.PlayerInfo.Name + " " + peerToBeRemoved.GameSessionId));  
+                await Task.Run(()=>SendMessageToServer(CommunicationProtocol.Server.Request.RMPLAYER + " " + peerToBeRemoved.PlayerInfo.Name + " " + peerToBeRemoved.GameSessionId));  
             }
 
             // If winner is declared while winning the game, quit the game
@@ -1229,7 +1197,7 @@ namespace Client {
         /// <param name="e"></param>
         private void NetworkAddrChangeHandler(object sender, EventArgs e)
         {
-            SendTcpRequest(Request.CHANGEIP + " " + myPeerInfo.PlayerInfo.PlayerId);
+            SendTcpRequest(CommunicationProtocol.Peers.Request.CHANGEIP + " " + myPeerInfo.PlayerInfo.PlayerId);
         }
 
         /// <summary>

@@ -47,17 +47,21 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Game.cs" />
-    <Compile Include="MessageParser.cs" />
     <Compile Include="Peer.cs" />
     <Compile Include="PeerInfo.cs" />
     <Compile Include="ClientProgram.cs" />
     <Compile Include="Player.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="TCPMessageHandler.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
     <None Include="startMultipleClients.bat" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SharedCode\SharedCode.csproj">
+      <Project>{fc10ff1c-3ecb-471d-b9de-90df444e9502}</Project>
+      <Name>SharedCode</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
