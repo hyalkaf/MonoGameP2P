@@ -1126,6 +1126,7 @@ namespace Client {
                 catch (Exception)
                 {
                     // Pause 10 seconds and resend the message again
+                    if (quitGame) break;
                     Console.WriteLine("Server is unresponsive... retrying in 10 seconds...");
                     Thread.Sleep(10000);
                 }
