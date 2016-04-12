@@ -106,6 +106,7 @@ namespace Server
         /// <param name="fieldThatChanged">This field is used to distinguish which field is concerned in game match maker.</param>
         private void MatchMakerChangedEvent(object sender, EventArgs e, string fieldThatChanged)
         {
+            Console.WriteLine("I'm changing {0}", fieldThatChanged);
             if (this.isPrimaryServer)
             {
                 // In case this is a primary server then update information in backup servers
@@ -390,7 +391,7 @@ namespace Server
                 if (status == 0)
                 {
                     // Trigger update
-                    MatchMakerChangedEvent(null, null, "session");
+                    MatchMakerChangedEvent(null, null, ReplicationManager.REQ_GAMESESSIONS);
 
                     responseMessage = Response.SUCCESS + " " + Request.RMPLAYER;
                 }
@@ -567,6 +568,7 @@ namespace Server
 
         public void AttachEventHandlers()
         {
+            Console.WriteLine("I'm attaching events to this server");
             // Initialize Event handler for when match maker has changes in it.
             _gameMatchmaker.MatchMakerWasModifiedEvent += new EventHandler((sender, e) => MatchMakerChangedEvent(sender, e, _gameMatchmaker.changedData));
             _gameMatchmaker.AttachEventHandlers();
