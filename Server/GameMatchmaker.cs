@@ -204,7 +204,11 @@ namespace Server
             for (int gameSessionIndex = 0; gameSessionIndex < GameSessions.Count(); gameSessionIndex++)
             {
                 // Last game session will have two newlines after it
-                if (gameSessionIndex.Equals(GameSessions.Count() - 1))
+                if (gameSessionIndex == 0)
+                {
+                    message += idCounter + " " + GameSessions[gameSessionIndex].ToMessage() + "\n";
+                }
+                else if (gameSessionIndex.Equals(GameSessions.Count() - 1))
                 {
                     message += GameSessions[gameSessionIndex].ToMessage() + "\n\n";
                 }

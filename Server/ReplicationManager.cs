@@ -321,7 +321,7 @@ namespace Server
                 IPAddress ipAddr;
                 if (!IPAddress.TryParse(ipAddressString, out ipAddr))
                 {
-                    // Console.WriteLine("ERROR");
+                    Console.WriteLine("ERROR");
                 }
                 else
                 {
@@ -347,7 +347,7 @@ namespace Server
                 // Parse game session
                 responseMessage += RES_GAMESESSIONS + SEPERATOR_BETWEEN_WORDS;
                 responseMessage += MessageConstructor.ConstructMessageToSend(thisServer.GetGameSession()
-                    .Select(session => session.ID + SEPERATOR_BETWEEN_WORDS + session.Players
+                    .Select(session => GameMatchmaker.idCounter + SEPERATOR_BETWEEN_WORDS + session.ID + SEPERATOR_BETWEEN_WORDS + session.Players
                         .Select(player => player.ToMessageForGameSession())
                         .Aggregate(new StringBuilder(), (sb, s) =>
                         {
@@ -370,7 +370,7 @@ namespace Server
                                 sb.Append(SEPERATOR_BETWEEN_WORDS);
                             sb.Append(s);
                             return sb;
-                        }) : "").ToList(), SEPERATOR_BETWEEN_SECTIONS_OF_MESSAGES);
+                        }) : string.Empty).ToList(), SEPERATOR_BETWEEN_SECTIONS_OF_MESSAGES);
             }
             else if (requestType.Equals(REQ_UPDATE_BACKUP))
             {
@@ -482,10 +482,11 @@ namespace Server
                 GameSession gameSession = null;
                 List<ClientInfo> players = new List<ClientInfo>();
                 string gameID = "";
+                string idCounterForMatchMaker = "";
 
                 // Use an integer to differ between string with gameID and without
                 // First info will contain a game ID
-                int extraIndexForGameID = 1;
+                int extraIndexForGameIDAndCounterID = 2;
 
                 // Extract Game ID and players Info
                 for (int gameSessionAndPlayerInfoIndex = 0; gameSessionAndPlayerInfoIndex < arrayOfSpecificSession.Count(); gameSessionAndPlayerInfoIndex++)
@@ -494,27 +495,29 @@ namespace Server
                     string[] arrayOfGameSessionAndPlayerSpecificInfo = arrayOfSpecificSession[gameSessionAndPlayerInfoIndex].Split(new string[] { SEPERATOR_BETWEEN_WORDS }, StringSplitOptions.RemoveEmptyEntries); ;
 
                     ClientInfo player;
-                    if (extraIndexForGameID == 1)
+                    if (extraIndexForGameIDAndCounterID == 2)
                     {
-                        gameID = arrayOfGameSessionAndPlayerSpecificInfo[0];
+                        idCounterForMatchMaker = arrayOfGameSessionAndPlayerSpecificInfo[0];
+                        gameID = arrayOfGameSessionAndPlayerSpecificInfo[1];
                         gameSession = new GameSession(int.Parse(gameID));
+                        GameMatchmaker.idCounter = int.Parse(idCounterForMatchMaker);
                     }
 
                     // Initialize player using information parsed from message
-                    player = new ClientInfo(IPAddress.Parse(arrayOfGameSessionAndPlayerSpecificInfo[0 + extraIndexForGameID]),
-                        int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[1 + extraIndexForGameID]),
-                        arrayOfGameSessionAndPlayerSpecificInfo[2 + extraIndexForGameID],
-                        int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[3 + extraIndexForGameID]));
+                    player = new ClientInfo(IPAddress.Parse(arrayOfGameSessionAndPlayerSpecificInfo[0 + extraIndexForGameIDAndCounterID]),
+                        int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[1 + extraIndexForGameIDAndCounterID]),
+                        arrayOfGameSessionAndPlayerSpecificInfo[2 + extraIndexForGameIDAndCounterID],
+                        int.Parse(arrayOfGameSessionAndPlayerSpecificInfo[3 + extraIndexForGameIDAndCounterID]));
 
                     // After extracting gameID, index goes back to zero.
-                    extraIndexForGameID = 0;
+                    extraIndexForGameIDAndCounterID = 0;
 
                     // add to players in this game session
                     players.Add(player);
                 }
 
                 // After extracting gameID, index goes back to zero.
-                extraIndexForGameID = 1;
+                extraIndexForGameIDAndCounterID = 1;
 
                 // Add to the gamesession
                 gameSession.SetPlayers = players;
