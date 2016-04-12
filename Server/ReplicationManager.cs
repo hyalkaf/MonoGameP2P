@@ -777,6 +777,8 @@ namespace Server
 
             // Set flag for checking if this server is primary or not.
             thisServer.isPrimaryServer = true;
+
+            thisServer.AttachEventHandlers();
             
             // Start timer that checks primary existence
             timerForCheckingPrimaryExistence.Change(Timeout.Infinite, Timeout.Infinite);

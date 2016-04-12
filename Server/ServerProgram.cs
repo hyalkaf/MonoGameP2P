@@ -74,13 +74,10 @@ namespace Server
             connectedClients = new List<ClientInfo>();
             _gameMatchmaker = new GameMatchmaker();
 
-            // Initialize Event handler for when match maker has changes in it.
-            _gameMatchmaker.MatchMakerWasModifiedEvent += new EventHandler((sender, e) => MatchMakerChangedEvent(sender, e, _gameMatchmaker.changedData));
-
             // Initialize player names and their event handler when they change
             // so that all backups are updated using replication manager
             allPlayerNamesUsed = new ObservableCollection<string>();
-            allPlayerNamesUsed.CollectionChanged += PlayerNamesChangedEvent;
+            
 
             /* Initializes the Listener */
             // GET IP address
@@ -521,7 +518,7 @@ namespace Server
         public void SetGameSession(GameSession[] newGameSessions)
         {
             // Change game session
-            this._gameMatchmaker.GameSessions = newGameSessions;
+            this._gameMatchmaker.gameSessions = new ObservableCollection<GameSession>(newGameSessions);
 
             // Update all backup servers
             if (isPrimaryServer) rm.SendToBackUPsGameState(ReplicationManager.REQ_GAMESESSIONS);
@@ -566,6 +563,14 @@ namespace Server
 
             // Update all backup servers
             if (isPrimaryServer) rm.SendToBackUPsGameState(ReplicationManager.REQ_MATCH);
+        }
+
+        public void AttachEventHandlers()
+        {
+            // Initialize Event handler for when match maker has changes in it.
+            _gameMatchmaker.MatchMakerWasModifiedEvent += new EventHandler((sender, e) => MatchMakerChangedEvent(sender, e, _gameMatchmaker.changedData));
+            _gameMatchmaker.AttachEventHandlers();
+            allPlayerNamesUsed.CollectionChanged += PlayerNamesChangedEvent;
         }
         
         /// <summary>

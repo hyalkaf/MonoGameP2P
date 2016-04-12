@@ -42,9 +42,9 @@ namespace Server
         /// </summary>
         public GameMatchmaker() {
             gameSessions = new ObservableCollection<GameSession>();
-            gameSessions.CollectionChanged += GameSessionChangedEvent;
+            
             clientsWaitingForGame = new ObservableCollection<ConcurrentQueue<ClientInfo>>();
-            clientsWaitingForGame.CollectionChanged += GameQueueChangedEvent;
+            
 
         }
 
@@ -382,6 +382,12 @@ namespace Server
         {
             get { return gameSessions.ToArray(); }
             set { gameSessions = new ObservableCollection<GameSession>(value); }
+        }
+
+        public void AttachEventHandlers()
+        {
+            gameSessions.CollectionChanged += GameSessionChangedEvent;
+            clientsWaitingForGame.CollectionChanged += GameQueueChangedEvent;
         }
     }
 

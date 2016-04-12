@@ -176,6 +176,7 @@ namespace Server
         private void TimerCallBackForFindingPrimary(object state)
         {
             associatedReplicationManager.thisServer.isPrimaryServer = true;
+            associatedReplicationManager.thisServer.AttachEventHandlers();
             associatedReplicationManager.StartTimerPrimaryCheckingBackups();
 
             Console.WriteLine("I'm primary");
