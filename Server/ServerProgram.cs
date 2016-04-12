@@ -54,7 +54,7 @@ namespace Server
         private List<ClientInfo> connectedClients;
 
         // Player names 
-        private ObservableCollection<string> allPlayerNamesUsed;
+        public ObservableCollection<string> allPlayerNamesUsed { get; set; }
 
         // Flag for primary or backup condition of servers
         public bool isPrimaryServer = false;

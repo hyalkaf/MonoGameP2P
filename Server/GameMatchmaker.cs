@@ -32,8 +32,8 @@ namespace Server
         private int portNumber = 9000;
 
         // 
-        private ObservableCollection<GameSession> gameSessions;
-        private ObservableCollection<ConcurrentQueue<ClientInfo>> clientsWaitingForGame;
+        public ObservableCollection<GameSession> gameSessions { get; set; }
+        public ObservableCollection<ConcurrentQueue<ClientInfo>> clientsWaitingForGame { get; set; }
         public event EventHandler MatchMakerWasModifiedEvent;
         public string changedData = string.Empty;
 
@@ -329,7 +329,7 @@ namespace Server
                     GameQueueChangedEvent(null, null);
                     gameSessions.Add(newGameSession);
                     // TODO: call event handler yourself
-                    GameSessionChangedEvent(null, null);
+                    // GameSessionChangedEvent(null, null);
 
                     // Lastly, multicast the success response with game player data to the clients
                     responseMessage = ServerProgram.Response.SUCCESS + " " + ServerProgram.Request.GAME + " " + newGameSession.ToMessage();
