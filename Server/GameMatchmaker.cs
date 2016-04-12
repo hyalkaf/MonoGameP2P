@@ -32,21 +32,24 @@ namespace Server
         // integer value limit for scalibility. 
         private int portNumber = 9000;
 
-        // 
+        // Game MatchMaker properties and fields
+        // Game MatchMaker info to be replicated
         public ObservableCollection<GameSession> gameSessions { get; set; }
         public ObservableCollection<ConcurrentQueue<ClientInfo>> clientsWaitingForGame { get; set; }
+
+        // Event handler when game Match Maker info is changed
         public event EventHandler MatchMakerWasModifiedEvent;
+
+        // Variable to be used for passing which data was changed in game match maker
         public string changedData = string.Empty;
 
         /// <summary>
         /// Iniailize a new MatchMaker object containing Game Sessions and Clients Waiting for Games of different capacities.
         /// </summary>
         public GameMatchmaker() {
-            gameSessions = new ObservableCollection<GameSession>();
-            
+            // Initialize game sessions and game queue.
+            gameSessions = new ObservableCollection<GameSession>();            
             clientsWaitingForGame = new ObservableCollection<ConcurrentQueue<ClientInfo>>();
-            
-
         }
 
         /// <summary>
@@ -56,6 +59,7 @@ namespace Server
         /// <param name="e">Parameters for this event</param>
         private void GameQueueChangedEvent(object sender, NotifyCollectionChangedEventArgs e)
         {
+            // Call Event handler in the server when game queue is changed and mutate changed data to be game queue
             if (MatchMakerWasModifiedEvent != null)
             {
                 changedData = CommunicationProtocol.ReplicationManagers.Request.REQ_MATCH;
@@ -70,6 +74,7 @@ namespace Server
         /// <param name="e">Parameters for this event</param>
         private void GameSessionChangedEvent(object sender, NotifyCollectionChangedEventArgs e)
         {
+            // Call Event handler in the server when game sessions is changed and mutate changed data to be game sessions
             if (MatchMakerWasModifiedEvent != null)
             {
                 changedData = CommunicationProtocol.ReplicationManagers.Request.REQ_GAMESESSIONS;
@@ -89,7 +94,7 @@ namespace Server
         /// <summary>
         /// Remove a game session from game sessions. 
         /// </summary>
-        /// <param name="id"></param>
+        /// <param name="id">ID of the game session to be removed</param>
         public void RemoveGameSession(int id)
         {
             // TODO: Deal with the case when the lambda doesn't return anything -> exception will be thrown
@@ -97,13 +102,13 @@ namespace Server
         }
 
         /// <summary>
-        /// This method returns a speific game session given the ID of that session
+        /// This method returns a speific game session given the ID of that session.
+        /// If the game session with that ID doesn't exist then null will be returned
         /// </summary>
         /// <param name="id">ID of the game session passed.</param>
-        /// <returns>a specific game session with the passed id of that game session.</returns>
+        /// <returns>a specific game session with the passed id of that game session else null.</returns>
         public GameSession GetGameSession(int id)
         {
-
             return gameSessions.Where(gs => gs.ID.Equals(id)).FirstOrDefault();
         }
 
@@ -141,12 +146,17 @@ namespace Server
         /// <param name="playername">Player name for the ones requesting the cancelation</param>
         public void CancelGameRequest(string playername)
         {
+            // Get the queue position of the player that is canceling its game request
             int queuePosition = IsInQueue(playername);
 
+            // Get This player information and set its flag to be not in queue
             ClientInfo playerToCancel = clientsWaitingForGame[queuePosition].Where(ci => ci.PlayerName == playername && ci.InQueue).First();
             playerToCancel.InQueue = false;
 
+            // Get tcp client for this player
             TcpClient gameReqClient = playerToCancel.TcpClient;
+
+            // Write back response message when canceling the request without errors
             try { 
                 NetworkStream stm = gameReqClient.GetStream();
 
@@ -161,6 +171,7 @@ namespace Server
                 Console.WriteLine("Cancel Response Failed, Client already disconnected...");
             }
 
+            // Close tcp client after sending success back
             if (gameReqClient != null)
             {
                 gameReqClient.Close();
@@ -186,15 +197,11 @@ namespace Server
             // Add player to the specific queue
             player.InQueue = true;
             clientsWaitingForGame[queueNum].Enqueue(player);
-
-            // Trigger update
-            GameQueueChangedEvent(null, null);
-
         }
 
-        /// <summary>
-        /// Converts Game sessions to a string delimited newlines between each game sessio, 
-        /// by spaces between player info and comma between each player's info.
+        /*/// <summary>
+        /// Converts Game sessions to a string delimited newlines between each game session and 
+        /// by commas between player info and spaces between each player's info.
         /// </summary>
         /// <returns>A string containing all this game session info.</returns>
         public string GameSessionsToMessage()
@@ -204,15 +211,17 @@ namespace Server
             // For every game session convert it to a message
             for (int gameSessionIndex = 0; gameSessionIndex < GameSessions.Count(); gameSessionIndex++)
             {
-                // Last game session will have two newlines after it
+                // Add idCounter at the beginning of each game session
                 if (gameSessionIndex == 0)
                 {
                     message += idCounter + " " + GameSessions[gameSessionIndex].ToMessage() + "\n";
                 }
+                // Last game session will have two newlines after it
                 else if (gameSessionIndex.Equals(GameSessions.Count() - 1))
                 {
                     message += GameSessions[gameSessionIndex].ToMessage() + "\n\n";
                 }
+                // Each game session has a new line in between
                 else
                 {
                     message += GameSessions[gameSessionIndex].ToMessage() + "\n";
@@ -223,7 +232,7 @@ namespace Server
         }
 
         /// <summary>
-        /// Converts Game sessions to a string delimited newlines between each game sessio, 
+        /// Converts game queue to a string delimited newlines between each game session, 
         /// by spaces between player info and comma between each player's info.
         /// </summary>
         /// <returns>A string containing all this game session info.</returns>
@@ -255,7 +264,7 @@ namespace Server
             }
 
             return message;
-        }
+        }*/
 
         /// <summary>
         /// This method is responsible for matching players to a game.
@@ -263,17 +272,14 @@ namespace Server
         /// <param name="server">Server Progam currently being used (primary)</param>
         public void MatchPeers(ServerProgram server)
         {
+            // response message initialized to an empty string
             string responseMessage = string.Empty;
 
             // bypass first and second index since there are no matches with 0 or 1 player
             for (int i = 2; i < clientsWaitingForGame.Count; i++)
             {
-                
-               
-                // TODO: Will not work when in index 2 there are four want 2
                 if (i <= clientsWaitingForGame[i].Count)
                 {
-
                     // First, test if the 'connected' queued players are still online
                     int stillConnected = clientsWaitingForGame[i].Count;
                     foreach (ClientInfo client in clientsWaitingForGame[i])
@@ -385,8 +391,13 @@ namespace Server
             set { gameSessions = new ObservableCollection<GameSession>(value); }
         }
 
+        /// <summary>
+        /// This method attaches event handlers to game matchmaker game information
+        /// specifically game queue and game sessions. 
+        /// </summary>
         public void AttachEventHandlers()
         {
+            // Attach Collection changed - add and remove - to game session and game queue.
             gameSessions.CollectionChanged += GameSessionChangedEvent;
             clientsWaitingForGame.CollectionChanged += GameQueueChangedEvent;
         }

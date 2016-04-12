@@ -56,7 +56,6 @@ namespace SharedCode
                 public const string TURN = "turn";
                 public const string WHOISLEADER = "whoisleader";
                 public const string HANDSHAKE = "handshake";
-
             }
 
             /// <summary>

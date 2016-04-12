@@ -544,10 +544,14 @@ namespace Server
             if (isPrimaryServer) rm.SendToBackUPsGameState(CommunicationProtocol.ReplicationManagers.Request.REQ_MATCH);
         }
 
+        /// <summary>
+        /// This method attach event handlers to game state observable collections 
+        /// that will be updated and replicated in all servers.
+        /// </summary>
         public void AttachEventHandlers()
         {
-            Console.WriteLine("I'm attaching events to this server");
-            // Initialize Event handler for when match maker has changes in it.
+            // Console.WriteLine("I'm attaching events to this server");
+            // Event handlers attached to game matchmaker's queue and game session as well as player names.
             _gameMatchmaker.MatchMakerWasModifiedEvent += new EventHandler((sender, e) => MatchMakerChangedEvent(sender, e, _gameMatchmaker.changedData));
             _gameMatchmaker.AttachEventHandlers();
             allPlayerNamesUsed.CollectionChanged += PlayerNamesChangedEvent;
