@@ -27,6 +27,7 @@ namespace SharedCode
                 /* Request from in-game peer*/
                 public const string RMPLAYER = "rmplayer";
             }
+
             /// <summary>
             /// Main response message type
             /// 
@@ -73,7 +74,51 @@ namespace SharedCode
 
         public static class ReplicationManagers
         {
+            public static class Request
+            {
+                // Request and response messsages between backup servers and primary server
+                // These are mentioned in our design document
+                // REQ_BACKUP is a request message that will be sent whenever a new backup is initialized
+                // It will be sending this request message with its own IP address to the primary.
+                public static readonly string REQ_BACKUP = "backup";
 
+                // REQ_NAMES is a request message that will be sent from backup to primary.
+                // Asking for names 
+                public static readonly string REQ_NAMES = "nameRequest";
+
+                // REQ_GAMESESSIONS is a request message for game session and 
+                public static readonly string REQ_GAMESESSIONS = "sessionRequest";
+
+                // REQ_CHECK is a request message from backup replication manager to the primary server 
+                // checking if it still exists and it can't receive and respond to messages.
+                public static readonly string REQ_CHECK = "check";
+
+                // REQ_MATCH is a request message to server asking them  for game queue
+                public static readonly string REQ_MATCH = "matchesRequest";
+
+                // REQ_UPDATE_BACKUP is a request that will be sent after a new primary is elected.
+                // This request holds the new information about the backup servers currently existing
+                // in the local network. 
+                public static readonly string REQ_UPDATE_BACKUP = "update-backup";
+            }
+
+            public static class Response
+            {
+                // REQ_ADDRESSES is a response message from primary servers to backup servers 
+                // sending them information about addresses of all backup server currently in 
+                // pool of servers. This will be sent after a new backup server have entered the pool
+                // and have already sent its own ip address with a REQ_BACK.
+                public static readonly string RES_ADDRESSES = "address";
+
+                // RES_NAMES is a response message with player names for REQ_NAMES
+                public static readonly string RES_NAMES = "playerNames";
+
+                // RES_GAMESESSIONS is a response message for game sessions information
+                public static readonly string RES_GAMESESSIONS = "gameSessions";
+
+                // RES_MATCH is a response message with game queue info
+                public static readonly string RES_MATCH = "matchesResponse";
+            }
         }
 
     }

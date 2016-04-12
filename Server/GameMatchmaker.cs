@@ -9,6 +9,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using SharedCode;
 
 namespace Server
 {
@@ -57,7 +58,7 @@ namespace Server
         {
             if (MatchMakerWasModifiedEvent != null)
             {
-                changedData = ReplicationManager.REQ_MATCH;
+                changedData = CommunicationProtocol.ReplicationManagers.Request.REQ_MATCH;
                 MatchMakerWasModifiedEvent(this, null);
             }
         }
@@ -71,7 +72,7 @@ namespace Server
         {
             if (MatchMakerWasModifiedEvent != null)
             {
-                changedData = ReplicationManager.REQ_GAMESESSIONS;
+                changedData = CommunicationProtocol.ReplicationManagers.Request.REQ_GAMESESSIONS;
                 MatchMakerWasModifiedEvent(this, null);
             }
         }
@@ -149,7 +150,7 @@ namespace Server
             try { 
                 NetworkStream stm = gameReqClient.GetStream();
 
-                string responseMessage = ServerProgram.Response.SUCCESS + " " + ServerProgram.Request.CANCEL + " [GameRequestCancel]YOU CANCELED your match request.";
+                string responseMessage = CommunicationProtocol.Server.Response.SUCCESS + " " + CommunicationProtocol.Server.Request.CANCEL + " [GameRequestCancel]YOU CANCELED your match request.";
 
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
                 byte[] b = Encoding.ASCII.GetBytes(responseMessage);
@@ -332,7 +333,7 @@ namespace Server
                     // GameSessionChangedEvent(null, null);
 
                     // Lastly, multicast the success response with game player data to the clients
-                    responseMessage = ServerProgram.Response.SUCCESS + " " + ServerProgram.Request.GAME + " " + newGameSession.ToMessage();
+                    responseMessage = CommunicationProtocol.Server.Response.SUCCESS + " " + CommunicationProtocol.Server.Request.GAME + " " + newGameSession.ToMessage();
                     Object listLock = new Object();
                     Parallel.ForEach(newGameSession.Players, (client) =>
                     {

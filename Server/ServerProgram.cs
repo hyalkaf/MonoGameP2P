@@ -12,35 +12,13 @@ using System.Net.NetworkInformation;
 using System.ComponentModel;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using SharedCode;
 
 namespace Server
 {
     public class ServerProgram
     {
-        public class Request
-        {
-            /* Request from client*/
-            public const string GAME = "game";
-            public const string PLAYERS = "players";
-            public const string CANCEL = "cancel";
-            public const string CHECKNAME = "checkname";
-            public const string RECONN = "reconn";
-            public const string SERVRECONN = "servreconn";
-
-            /* Request from in-game peer*/
-            public const string RMPLAYER = "rmplayer";
-        }
-
-        /// <summary>
-        /// Response messages
-        /// </summary>
-        public class Response
-        {
-            public const string SUCCESS = "success";
-            public const string FAILURE = "failure";
-            public const string ERROR = "error";
-        }
-
+        
         // replication manager assoicated with this server
         private ReplicationManager rm;
 
@@ -124,7 +102,7 @@ namespace Server
             if (this.isPrimaryServer)
             {
                 // In case this is a primary server then update information in backup servers
-                rm.SendToBackUPsGameState(ReplicationManager.REQ_NAMES);
+                rm.SendToBackUPsGameState(CommunicationProtocol.ReplicationManagers.Request.REQ_NAMES);
             }
         }
 
@@ -174,10 +152,10 @@ namespace Server
 
             // Response message will be appended with the error message first 
             // in case request type are non of the types specified
-            string responseMessage = Response.ERROR + " ERROR:Invalid Request Message";
+            string responseMessage = CommunicationProtocol.Server.Response.ERROR + " ERROR:Invalid Request Message";
 
             // If a client is requesting for a game
-            if (requestType == Request.GAME)
+            if (requestType == CommunicationProtocol.Server.Request.GAME)
             {
                 // Get playername
                 string pName;
@@ -205,7 +183,7 @@ namespace Server
                 else
                 {
                     // Message to the console.
-                    responseMessage = Response.FAILURE + " " + Request.GAME +" You have already requested a game!";
+                    responseMessage = CommunicationProtocol.Server.Response.FAILURE + " " + CommunicationProtocol.Server.Request.GAME +" You have already requested a game!";
                     Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
                     // Write a response back to the client
@@ -221,7 +199,7 @@ namespace Server
 
             }
             // If client is requesting to reconnect back to a game.
-            else if (requestType == Request.RECONN)
+            else if (requestType == CommunicationProtocol.Server.Request.RECONN)
             {
                 // Extract player name and game id from the request.
                 string playername,  gameId;
@@ -242,13 +220,13 @@ namespace Server
                     }
 
                     // Add success to the response message since reconnect request did find a player
-                    responseMessage = Response.SUCCESS + " " + Request.RECONN + " ";
+                    responseMessage = CommunicationProtocol.Server.Response.SUCCESS + " " + CommunicationProtocol.Server.Request.RECONN + " ";
                     responseMessage += gSession.ToMessage();
                 }
                 else 
                 {
                     // Response message is a failure message
-                    responseMessage = Response.FAILURE + " " + Request.RECONN + "  No such game exists OR You don't belong in this game";
+                    responseMessage = CommunicationProtocol.Server.Response.FAILURE + " " + CommunicationProtocol.Server.Request.RECONN + "  No such game exists OR You don't belong in this game";
                 }
 
                 // Write response message to the screen
@@ -266,11 +244,11 @@ namespace Server
                 }
 
             }
-            else if (requestType == Request.PLAYERS)
+            else if (requestType == CommunicationProtocol.Server.Request.PLAYERS)
             {
 
 
-                responseMessage = Response.SUCCESS + " " + Request.PLAYERS + "  " + (connectedClients.Count);
+                responseMessage = CommunicationProtocol.Server.Response.SUCCESS + " " + CommunicationProtocol.Server.Request.PLAYERS + "  " + (connectedClients.Count);
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
@@ -284,7 +262,7 @@ namespace Server
 
             }
             // If client request to cancel his request for a game.
-            else if (requestType == Request.CANCEL)
+            else if (requestType == CommunicationProtocol.Server.Request.CANCEL)
             {
                 // Get player name who is trying to cancel its game request
                 string playername;
@@ -295,7 +273,7 @@ namespace Server
                 if (qNum == -1)
                 {
                     // In case it's not in the queue then respond with failure
-                    responseMessage = Response.FAILURE + " " + Request.CANCEL + " You are not in game queue.";
+                    responseMessage = CommunicationProtocol.Server.Response.FAILURE + " " + CommunicationProtocol.Server.Request.CANCEL + " You are not in game queue.";
                 }
                 else
                 {
@@ -303,7 +281,7 @@ namespace Server
                     _gameMatchmaker.CancelGameRequest(playername);
 
                     // Respond with a success message after canceling
-                    responseMessage = Response.SUCCESS + " " + Request.CANCEL + " Cancelled.";
+                    responseMessage = CommunicationProtocol.Server.Response.SUCCESS + " " + CommunicationProtocol.Server.Request.CANCEL + " Cancelled.";
                 }
 
                 // Echo the data back to the client.
@@ -322,20 +300,20 @@ namespace Server
 
             }
             // if request for client is for a new name
-            else if (requestType == Request.CHECKNAME)
+            else if (requestType == CommunicationProtocol.Server.Request.CHECKNAME)
             {
                 // Check that name exists or not and respond with messages accrodingly
                 var aPlayerName = requestMessage;
                 if (allPlayerNamesUsed.IndexOf(aPlayerName) == -1)
                 {
                     // Success in case name doesn't exist and add it to player names
-                    responseMessage = Response.SUCCESS + " " + Request.CHECKNAME + " This name is not taken";
+                    responseMessage = CommunicationProtocol.Server.Response.SUCCESS + " " + CommunicationProtocol.Server.Request.CHECKNAME + " This name is not taken";
                     allPlayerNamesUsed.Add(aPlayerName);
                 }
                 else
                 {
                     // Failure in case name exist in the list of player names
-                    responseMessage = Response.FAILURE + " " + Request.CHECKNAME + " This name already exists";
+                    responseMessage = CommunicationProtocol.Server.Response.FAILURE + " " + CommunicationProtocol.Server.Request.CHECKNAME + " This name already exists";
                 }
 
                 // Console message
@@ -354,9 +332,9 @@ namespace Server
 
             }
             // Request is of type 
-            else if (requestType == Request.SERVRECONN)
+            else if (requestType == CommunicationProtocol.Server.Request.SERVRECONN)
             {
-                responseMessage = Response.SUCCESS + " " + Request.SERVRECONN;
+                responseMessage = CommunicationProtocol.Server.Response.SUCCESS + " " + CommunicationProtocol.Server.Request.SERVRECONN;
                 var aPlayerName = requestMessage;
 
            
@@ -365,7 +343,7 @@ namespace Server
                 if (qNum != -1)
                 {
                     _gameMatchmaker.CancelGameRequest(aPlayerName);
-                    responseMessage += " " + Request.GAME + " " + qNum;
+                    responseMessage += " " + CommunicationProtocol.Server.Request.GAME + " " + qNum;
                 }
 
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
@@ -380,7 +358,7 @@ namespace Server
                 }
             }
             // 
-            else if (requestType == Request.RMPLAYER){
+            else if (requestType == CommunicationProtocol.Server.Request.RMPLAYER){
                 string playername, gameSessionId;
 
                 MessageParser.ParseNext(requestMessage, out playername, out gameSessionId);
@@ -391,13 +369,13 @@ namespace Server
                 if (status == 0)
                 {
                     // Trigger update
-                    MatchMakerChangedEvent(null, null, ReplicationManager.REQ_GAMESESSIONS);
+                    MatchMakerChangedEvent(null, null, CommunicationProtocol.ReplicationManagers.Request.REQ_GAMESESSIONS);
 
-                    responseMessage = Response.SUCCESS + " " + Request.RMPLAYER;
+                    responseMessage = CommunicationProtocol.Server.Response.SUCCESS + " " + CommunicationProtocol.Server.Request.RMPLAYER;
                 }
                 else
                 {
-                    responseMessage = Response.ERROR + " " + Request.RMPLAYER + " This player was not in the game.";
+                    responseMessage = CommunicationProtocol.Server.Response.ERROR + " " + CommunicationProtocol.Server.Request.RMPLAYER + " This player was not in the game.";
                 }
               
 
@@ -522,7 +500,7 @@ namespace Server
             this._gameMatchmaker.gameSessions = new ObservableCollection<GameSession>(newGameSessions);
 
             // Update all backup servers
-            if (isPrimaryServer) rm.SendToBackUPsGameState(ReplicationManager.REQ_GAMESESSIONS);
+            if (isPrimaryServer) rm.SendToBackUPsGameState(CommunicationProtocol.ReplicationManagers.Request.REQ_GAMESESSIONS);
         }
 
         /// <summary>
@@ -542,7 +520,7 @@ namespace Server
             allPlayerNamesUsed = newPlayerNames;
 
             // Update all backup servers
-            if (isPrimaryServer) rm.SendToBackUPsGameState(ReplicationManager.REQ_NAMES);
+            if (isPrimaryServer) rm.SendToBackUPsGameState(CommunicationProtocol.ReplicationManagers.Request.REQ_NAMES);
         }
 
         /// <summary>
@@ -563,7 +541,7 @@ namespace Server
             this._gameMatchmaker.ClientGameQueue = newClientsWaitingForGame;
 
             // Update all backup servers
-            if (isPrimaryServer) rm.SendToBackUPsGameState(ReplicationManager.REQ_MATCH);
+            if (isPrimaryServer) rm.SendToBackUPsGameState(CommunicationProtocol.ReplicationManagers.Request.REQ_MATCH);
         }
 
         public void AttachEventHandlers()
