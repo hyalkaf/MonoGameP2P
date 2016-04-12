@@ -149,6 +149,7 @@ namespace Server
             }
             else
             {
+
                 // Add this server ip address to list of ips
                 serversAddresses.Add(thisServer.IPAddr);
 
