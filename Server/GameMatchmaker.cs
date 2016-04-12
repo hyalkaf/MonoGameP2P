@@ -12,11 +12,26 @@ using System.Threading.Tasks;
 
 namespace Server
 {
+    /// <summary>
+    /// This class is responsible for matching clients into a game once
+    /// There are enough number of players as requested by each of these clients.
+    /// For example, it will match two players to a game of 3 players once there are three
+    /// clients who requested a game of 3 players.
+    /// </summary>
     public class GameMatchmaker
     {
-        
+        // ID used for game sessions to uniquiely identify them.
+        // This will be incremented indefinitely everytime there is
+        // a new game session in place.
         public static int idCounter = 1;
+
+        // Initial value that will be used for port number for clients to listen to other peers
+        // This will be incremented for each client. 
+        // TODO: Maybe have this value to reset after a while especially if you are passing 
+        // integer value limit for scalibility. 
         private int portNumber = 9000;
+
+        // 
         private ObservableCollection<GameSession> gameSessions;
         private ObservableCollection<ConcurrentQueue<ClientInfo>> clientsWaitingForGame;
         public event EventHandler MatchMakerWasModifiedEvent;
@@ -33,6 +48,11 @@ namespace Server
 
         }
 
+        /// <summary>
+        /// This mehtod is event handler that fires when game queue has changed 
+        /// </summary>
+        /// <param name="sender">Sender of this firing</param>
+        /// <param name="e">Parameters for this event</param>
         private void GameQueueChangedEvent(object sender, NotifyCollectionChangedEventArgs e)
         {
             if (MatchMakerWasModifiedEvent != null)
@@ -42,6 +62,11 @@ namespace Server
             }
         }
 
+        /// <summary>
+        /// This mehtod is event handler that fires when game session has changed 
+        /// </summary>
+        /// <param name="sender">Sender of this firing</param>
+        /// <param name="e">Parameters for this event</param>
         private void GameSessionChangedEvent(object sender, NotifyCollectionChangedEventArgs e)
         {
             if (MatchMakerWasModifiedEvent != null)
@@ -109,6 +134,10 @@ namespace Server
 
         }
 
+        /// <summary>
+        /// This method is used for canceling a game request for player
+        /// </summary>
+        /// <param name="playername">Player name for the ones requesting the cancelation</param>
         public void CancelGameRequest(string playername)
         {
             int queuePosition = IsInQueue(playername);
@@ -256,7 +285,7 @@ namespace Server
                             }
                         }
 
-                        Console.WriteLine("DEBUG: client " + client.PlayerName + client.IPAddr + " connected is " + client.TcpClient == null ? client.TcpClient.Client.Connected.ToString() : "false");
+                        Console.WriteLine("DEBUG: client " + client.PlayerName + client.IPAddr + " connected is " + client.TcpClient != null ? client.TcpClient.Client.Connected.ToString() : "false");
                     }
                     // If amount of current connected players is not sufficient to form a game, returns.
                     if (stillConnected < i) return;
@@ -309,7 +338,6 @@ namespace Server
 
                         Console.WriteLine("\nSent Acknowledgement");
 
-                        
                         client.TcpClient.Close();
                         
                     });
@@ -349,9 +377,6 @@ namespace Server
             get { return gameSessions.ToArray(); }
             set { gameSessions = new ObservableCollection<GameSession>(value); }
         }
-
-        
-
     }
 
     

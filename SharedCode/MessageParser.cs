@@ -13,7 +13,8 @@ public class MessageParser
     private static Object messageLock = new object();
 
     /// <summary>
-    /// Get the first occurence keyword in a message as well as rest of message
+    /// Get the first occurence keyword in a message as well as rest of message.
+    /// First and rest will be returned as references. 
     /// </summary>
     /// <param name="msg"> The message to parse </param>
     /// <param name="first"> First occurence </param>
@@ -38,6 +39,8 @@ public class MessageParser
 
             else
             {
+                // First will be string up to the seperator while rest is 
+                // the rest after the seperator.
                 first = msg.Substring(0, msg.IndexOf(separator)).Trim();
                 rest = msg.Substring(first.Length).Trim();
             }

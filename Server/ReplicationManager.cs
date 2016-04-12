@@ -88,7 +88,6 @@ namespace Server
         private static readonly int PORT_NUMBER_FOR_BROADCASTING_UDP = 15000;
         // Global variables used in this class
         private static readonly int NEXT_BACKUP_INDEX = 1;
-        private static readonly int PRIMARY_INDEX = 0;
         private static readonly int PORT_NUMBER_FOR_LISTENING_AND_SENDING = 8000;
         private static readonly int SEND_TO_DEAD_BACKUPS_FOR = 2;
         private static readonly string REQUESTS_AND_RESPONSES_SUFFIX = "\n\n";

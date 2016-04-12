@@ -18,10 +18,11 @@ namespace SharedCode
         /// This method construct a message to send seperator parts of the message using
         /// the passed seperator.
         /// </summary>
-        /// <param name="messageParts">Components of message that will concanted toether</param>
-        /// <param name="seperator">Seperator in between components of message</param>
+        /// <param name="messageParts">Components of message that will concanted toether.</param>
+        /// <param name="seperator">Seperator in between components of message.</param>
+        /// <param name="suffixForMessage">This parameter will be used to include at the end of a message. It will an two lines string be default.</param>
         /// <returns></returns>
-        public static string ConstructMessageToSend(List<string> messageParts, string seperator = " ")
+        public static string ConstructMessageToSend(List<string> messageParts, string seperator = " ", string suffixForMessage = "\n\n")
         {
             lock(messageLock)
             {
@@ -42,8 +43,8 @@ namespace SharedCode
 
                 }
 
-                // Append two new lines for tcp messages
-                message += "\n\n";
+                // Append suffix for tcp messages
+                message += suffixForMessage;
 
                 return message;
             }

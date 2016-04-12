@@ -78,7 +78,7 @@ namespace Server
             _gameMatchmaker.MatchMakerWasModifiedEvent += new EventHandler((sender, e) => MatchMakerChangedEvent(sender, e, _gameMatchmaker.changedData));
 
             // Initialize player names and their event handler when they change
-            // so that all backups are update using replication manager
+            // so that all backups are updated using replication manager
             allPlayerNamesUsed = new ObservableCollection<string>();
             allPlayerNamesUsed.CollectionChanged += PlayerNamesChangedEvent;
 
@@ -96,7 +96,7 @@ namespace Server
             }
             IPAddr =  IPAddress.Parse(localIP);
 
-            // Initalize replication manager
+            // Initialize replication manager
             rm = new ReplicationManager(this);
         }
 
@@ -106,11 +106,12 @@ namespace Server
         /// </summary>
         /// <param name="sender">Sender for event</param>
         /// <param name="e">Event parameters</param>
-        /// <param name="fieldThatChanged">This field is used to distinguish which field is concerned in game match maker</param>
+        /// <param name="fieldThatChanged">This field is used to distinguish which field is concerned in game match maker.</param>
         private void MatchMakerChangedEvent(object sender, EventArgs e, string fieldThatChanged)
         {
             if (this.isPrimaryServer)
             {
+                // In case this is a primary server then update information in backup servers
                 rm.SendToBackUPsGameState(fieldThatChanged);
             }
         }
@@ -124,6 +125,7 @@ namespace Server
         {
             if (this.isPrimaryServer)
             {
+                // In case this is a primary server then update information in backup servers
                 rm.SendToBackUPsGameState(ReplicationManager.REQ_NAMES);
             }
         }
@@ -134,105 +136,131 @@ namespace Server
         /// <param name="tcpclient">client that receives the message</param>
         private void EstablishConnection(TcpClient tcpclient)
         {
+            // Get the stream for sending and receiving data in this tcp client
             NetworkStream netStream = tcpclient.GetStream();
 
+            // add this client to the connected clients
             ClientInfo aConnectedClient = new ClientInfo(tcpclient);
             connectedClients.Add(aConnectedClient);
 
+            // Message to the console
             Console.WriteLine("Connection accepted from client " + aConnectedClient.IPAddr); 
 
+            // set buffer size for receving messages.
             tcpclient.ReceiveBufferSize = SIZE_OF_BUFFER;
             byte[] bytes = new byte[tcpclient.ReceiveBufferSize];
 
             try {
+                // Read incoming requests from clients
                 netStream.Read(bytes, 0, (int)tcpclient.ReceiveBufferSize);
             }
             catch (Exception)
             {
+                // In case of an error then remove the client and close the connection to it.
                 connectedClients.Remove(connectedClients.Find(client => client.TcpClient.Equals(tcpclient)));
                 tcpclient.Close();
                 return;
             }
 
-
+            // Convert message received to a string
             string incomingMessage = Encoding.ASCII.GetString(bytes).Trim();
             incomingMessage = incomingMessage.Substring(0, incomingMessage.IndexOf("\0")).Trim();
 
+            // Get request Type and parameters of message that was received.
             string requestType;
             string requestMessage;
             MessageParser.ParseNext(incomingMessage, out requestType, out requestMessage);
 
+            // Message to the console
             Console.WriteLine("REQ: " + requestType + " " + requestMessage);
 
+            // Response message will be appended with the error message first 
+            // in case request type are non of the types specified
             string responseMessage = Response.ERROR + " ERROR:Invalid Request Message";
 
+            // If a client is requesting for a game
             if (requestType == Request.GAME)
             {
                 // Get playername
                 string pName;
                 MessageParser.ParseNext(requestMessage, out pName, out requestMessage);
 
+                // Assign that player name to this client.
                 aConnectedClient.PlayerName = pName;
-                // Get number of players the player wants to be matched
+
+                // Get number of players the player wants to be matched with.
                 string numberOfPeers;
                 MessageParser.ParseNext(requestMessage, out numberOfPeers, out requestMessage);
-
+                
+                // check if this player hasn't requeted a game then add it otherwise display error message
                 if (_gameMatchmaker.IsInQueue(pName) == -1)
                 {
+                    // Add player to queue
                     _gameMatchmaker.AddPlayerToQueue(aConnectedClient, int.Parse(numberOfPeers));
                 
-
                     // Find game match
                     _gameMatchmaker.MatchPeers(this);
 
-
+                    // Remove this player from connected clients to server after requesting a game.
                     connectedClients.Remove(connectedClients.Find(client => client.TcpClient.Equals(tcpclient)));
                 }
                 else
                 {
+                    // Message to the console.
                     responseMessage = Response.FAILURE + " " + Request.GAME +" You have already requested a game!";
                     Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
+                    // Write a response back to the client
                     byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
                     netStream.Write(byteToSend, 0, byteToSend.Length);
 
-     
+                    // Remove this player from connected clients to server after requesting a game.
+                    // TODO: Ask Gem why need to do this in both cases
                     connectedClients.Remove(connectedClients.Find(client => client.TcpClient.Equals(tcpclient)));
                     tcpclient.Close();
    
                 }
 
             }
+            // If client is requesting to reconnect back to a game.
             else if (requestType == Request.RECONN)
             {
-
+                // Extract player name and game id from the request.
                 string playername,  gameId;
-
                 MessageParser.ParseNext(requestMessage, out playername, out gameId);
 
+                // Get the game session with the specified game id
                 GameSession gSession = _gameMatchmaker.GetGameSession(int.Parse(gameId));
+
+                // If such game exists and player is in that game
+                // Then add that player back to the game
                 if (gSession != null && gSession.ContainsPlayer(playername))
                 {
+                    // Change player that reconnected to have the same IP address as the one in the game session
                     ClientInfo reconnectedPlayer = gSession.GetPlayer(playername);
                     if(reconnectedPlayer.IPAddr != aConnectedClient.IPAddr)
                     {
                         reconnectedPlayer.IPAddr = aConnectedClient.IPAddr;
                     }
 
-
+                    // Add success to the response message since reconnect request did find a player
                     responseMessage = Response.SUCCESS + " " + Request.RECONN + " ";
                     responseMessage += gSession.ToMessage();
                 }
                 else 
                 {
+                    // Response message is a failure message
                     responseMessage = Response.FAILURE + " " + Request.RECONN + "  No such game exists OR You don't belong in this game";
                 }
 
+                // Write response message to the screen
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
+                // Write to the channel back to the client
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
                 netStream.Write(byteToSend, 0, byteToSend.Length);
 
+                // If this client is in connected clients then remove it since it was matched with a game.
                 if (connectedClients.Exists(client => client.TcpClient == tcpclient))
                 {
                     connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
@@ -257,31 +285,37 @@ namespace Server
                 }
 
             }
+            // If client request to cancel his request for a game.
             else if (requestType == Request.CANCEL)
             {
-
+                // Get player name who is trying to cancel its game request
                 string playername;
-                
                 MessageParser.ParseNext(requestMessage, out playername, out requestMessage);
+
+                // check if player in the queue of game requests so that it's removed
                 int qNum = _gameMatchmaker.IsInQueue(playername);
                 if (qNum == -1)
                 {
+                    // In case it's not in the queue then respond with failure
                     responseMessage = Response.FAILURE + " " + Request.CANCEL + " You are not in game queue.";
                 }
                 else
                 {
+                    // In case it's in the game queue then cancel its game request.
                     _gameMatchmaker.CancelGameRequest(playername);
+
+                    // Respond with a success message after canceling
                     responseMessage = Response.SUCCESS + " " + Request.CANCEL + " Cancelled.";
                 }
-
 
                 // Echo the data back to the client.
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
-
+                // Write response back to the client
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
                 netStream.Write(byteToSend, 0, byteToSend.Length);
 
+                // Check that this client is removed from connected clients after canceling its request.
                 if (connectedClients.Exists(client => client.TcpClient == tcpclient))
                 {
                     connectedClients.Remove(connectedClients.Where(client => client.TcpClient == tcpclient).First());
@@ -289,31 +323,40 @@ namespace Server
                 }
 
             }
+            // if request for client is for a new name
             else if (requestType == Request.CHECKNAME)
             {
+                // Check that name exists or not and respond with messages accrodingly
                 var aPlayerName = requestMessage;
                 if (allPlayerNamesUsed.IndexOf(aPlayerName) == -1)
                 {
+                    // Success in case name doesn't exist and add it to player names
                     responseMessage = Response.SUCCESS + " " + Request.CHECKNAME + " This name is not taken";
                     allPlayerNamesUsed.Add(aPlayerName);
                 }
                 else
                 {
+                    // Failure in case name exist in the list of player names
                     responseMessage = Response.FAILURE + " " + Request.CHECKNAME + " This name already exists";
                 }
 
+                // Console message
                 Console.WriteLine("DEBUG: Response sent: " + responseMessage);
 
+                // Write back to the client with response message
                 byte[] byteToSend = Encoding.ASCII.GetBytes(responseMessage);
                 netStream.Write(byteToSend, 0, byteToSend.Length);
 
+                // Remove this client from list of connected clients.
                 if (connectedClients.Exists(client => client == aConnectedClient))
                 {
                     connectedClients.Remove(aConnectedClient);
                     tcpclient.Close();
                 }
 
-            } else if (requestType == Request.SERVRECONN)
+            }
+            // Request is of type 
+            else if (requestType == Request.SERVRECONN)
             {
                 responseMessage = Response.SUCCESS + " " + Request.SERVRECONN;
                 var aPlayerName = requestMessage;
@@ -337,7 +380,9 @@ namespace Server
                     connectedClients.Remove(aConnectedClient);
                     tcpclient.Close();
                 }
-            }else if (requestType == Request.RMPLAYER){
+            }
+            // 
+            else if (requestType == Request.RMPLAYER){
                 string playername, gameSessionId;
 
                 MessageParser.ParseNext(requestMessage, out playername, out gameSessionId);
