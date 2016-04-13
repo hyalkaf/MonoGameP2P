@@ -296,6 +296,7 @@ namespace Client {
                     // User quit the game
                     if (quitGame || !allPeersInfo.Contains(myPeerInfo))
                     {
+                        SendMessageToServer(CommunicationProtocol.Server.Request.RMPLAYER + " " + myPeerInfo.PlayerInfo.Name + " " + myPeerInfo.GameSessionId, false);
                         Dispose();
                         Console.Clear();
                         if (Game.Over)
@@ -1071,17 +1072,18 @@ namespace Client {
         /// <summary>
         /// Send message to server
         /// </summary>
-        /// <param name="msg"></param>
-        private void SendMessageToServer(string msg)
+        /// <param name="msg"> Message to send </param>
+        /// <param name="retry"> Indicates retry sending if failure </param>
+        private void SendMessageToServer(string msg, bool retry = true)
         {
             TcpClient toServerClient;
             TCPMessageHandler msgHandler = new TCPMessageHandler();
 
             // Try every 10 second to send message to server if failure occured
-            while (true)
+            do
             {
                 try
-                {   
+                {
                     toServerClient = new TcpClient();
                     toServerClient.Connect(ClientProgram.SERVER_IP, ClientProgram.SERVER_PORT);
 
@@ -1094,11 +1096,11 @@ namespace Client {
                 catch (Exception)
                 {
                     // Pause 10 seconds and resend the message again
-                    if (quitGame) break;
+                    if (quitGame || !retry) break;
                     Console.WriteLine("Server is unresponsive... retrying in 10 seconds...");
                     Thread.Sleep(10000);
                 }
-            }
+            } while (retry);
     
         }
 

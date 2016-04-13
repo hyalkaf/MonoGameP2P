@@ -374,7 +374,7 @@ namespace Server
                 }
                 else
                 {
-                    responseMessage = CommunicationProtocol.Server.Response.ERROR + " " + CommunicationProtocol.Server.Request.RMPLAYER + " This player was not in the game.";
+                    responseMessage = CommunicationProtocol.Server.Response.ERROR + " " + CommunicationProtocol.Server.Request.RMPLAYER + " This player was not in the game OR player is already removed.";
                 }
               
 
