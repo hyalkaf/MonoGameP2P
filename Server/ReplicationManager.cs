@@ -493,7 +493,7 @@ namespace Server
                 if (gameSession != null) gameSession.SetPlayers = players;
 
                 // Add game session to this server game sessions list
-                tempGameSession.Add(gameSession);
+                if (gameSession != null) tempGameSession.Add(gameSession);
             }
 
             // Add to game session of server
