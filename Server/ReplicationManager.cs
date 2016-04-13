@@ -490,7 +490,7 @@ namespace Server
                 extraIndexForGameIDAndCounterID = 1;
 
                 // Add to the gamesession
-                gameSession.SetPlayers = players;
+                if (gameSession != null) gameSession.SetPlayers = players;
 
                 // Add game session to this server game sessions list
                 tempGameSession.Add(gameSession);
