@@ -463,7 +463,7 @@ namespace Server
                 {
                     // Split speicific info by spaces
                     string[] arrayOfGameSessionAndPlayerSpecificInfo = arrayOfSpecificSession[gameSessionAndPlayerInfoIndex].Split(new string[] { SEPERATOR_BETWEEN_WORDS }, StringSplitOptions.RemoveEmptyEntries); ;
-
+                    if (arrayOfGameSessionAndPlayerSpecificInfo.Length < 6) break;
                     ClientInfo player;
                     if (extraIndexForGameIDAndCounterID == 2)
                     {

@@ -56,7 +56,6 @@ namespace Server
             // so that all backups are updated using replication manager
             allPlayerNamesUsed = new ObservableCollection<string>();
             
-
             /* Initializes the Listener */
             // GET IP address
             IPHostEntry host;
